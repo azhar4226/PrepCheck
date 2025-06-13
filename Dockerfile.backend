@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # Create instance directory for SQLite database
-RUN mkdir -p instance
+RUN mkdir -p instance && chmod 755 instance
 
 # Expose port
 EXPOSE 8000
@@ -30,4 +30,4 @@ ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 
 # Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "app:app"]
+CMD ["python", "app.py"]

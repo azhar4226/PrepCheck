@@ -1,8 +1,8 @@
 from dotenv import load_dotenv
 import os
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from parent directory
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from app import create_app, init_celery
 

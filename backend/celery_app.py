@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Celery worker script for PrepCheck
-Run with: python celery_worker.py
+Celery app module for PrepCheck
+This module creates and exports the celery app for use with celery CLI
 """
 
 from dotenv import load_dotenv
@@ -10,13 +10,11 @@ import os
 # Load environment variables from parent directory
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# Import after loading env vars
 from app import create_app, init_celery
 
 # Create Flask app and initialize Celery
-app = create_app()
-celery = init_celery(app)
+flask_app = create_app()
+celery = init_celery(flask_app)
 
-if __name__ == '__main__':
-    # Start Celery worker
-    celery.worker_main(['worker', '--loglevel=info'])
+# Export the celery app
+app = celery

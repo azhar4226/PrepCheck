@@ -3,18 +3,125 @@ import json
 import os
 from datetime import datetime
 import re
+import random
 
 class AIService:
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(AIService, cls).__new__(cls)
+        return cls._instance
+    
     def __init__(self):
-        api_key = os.environ.get('GEMINI_API_KEY')
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable not set")
+        if self._initialized:
+            return
+            
+        # Force mock mode for development
+        api_key = os.environ.get('GEMINI_API_KEY', '')
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        # Always use mock in development unless we have a real API key
+        self.use_mock = True
+        self.model = None
+        
+        # Only try real API if we have what looks like a real key
+        if api_key and len(api_key) > 30 and api_key.startswith('AI'):
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=api_key)
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                # Test with a simple prompt
+                test_response = self.model.generate_content("Hello")
+                self.use_mock = False
+                print("✅ Gemini AI service initialized successfully")
+            except Exception as e:
+                print(f"⚠️  Gemini AI initialization failed, using mock: {e}")
+                self.use_mock = True
+                self.model = None
+        
+        if self.use_mock:
+            print("🎭 Using mock AI service for development")
+        
+        self._initialized = True
     
     def generate_quiz(self, topic, difficulty, num_questions, additional_context=""):
-        """Generate a complete quiz using Gemini AI"""
+        """Generate a complete quiz using Gemini AI or mock data"""
+        
+        print(f"🔧 AI Service: use_mock = {self.use_mock}")
+        
+        if self.use_mock:
+            print("🎭 Using mock quiz generation")
+            return self._generate_mock_quiz(topic, difficulty, num_questions, additional_context)
+        
+        print("🤖 Using real AI quiz generation")
+        return self._generate_real_quiz(topic, difficulty, num_questions, additional_context)
+    
+    def _generate_mock_quiz(self, topic, difficulty, num_questions, additional_context=""):
+        """Generate a mock quiz for development/testing"""
+        
+        # Sample question templates based on difficulty
+        templates = {
+            'easy': [
+                f"What is the basic concept of {topic}?",
+                f"Which of the following is true about {topic}?",
+                f"What is the primary purpose of {topic}?",
+            ],
+            'medium': [
+                f"How does {topic} work in practice?",
+                f"What are the advantages of using {topic}?",
+                f"Which approach is best for implementing {topic}?",
+            ],
+            'hard': [
+                f"What are the complex implications of {topic}?",
+                f"How would you optimize {topic} for performance?",
+                f"What are the advanced techniques in {topic}?",
+            ]
+        }
+        
+        questions = []
+        used_templates = set()
+        
+        for i in range(int(num_questions)):
+            # Select a template
+            available_templates = [t for t in templates.get(difficulty, templates['medium']) if t not in used_templates]
+            if not available_templates:
+                available_templates = templates.get(difficulty, templates['medium'])
+                used_templates.clear()
+            
+            template = random.choice(available_templates)
+            used_templates.add(template)
+            
+            # Generate options
+            correct_idx = random.randint(0, 3)
+            options = {}
+            option_letters = ['A', 'B', 'C', 'D']
+            
+            for j, letter in enumerate(option_letters):
+                if j == correct_idx:
+                    options[letter] = f"Correct answer for {topic} (Option {letter})"
+                else:
+                    options[letter] = f"Incorrect option {j+1} for {topic}"
+            
+            questions.append({
+                "question": template,
+                "options": options,
+                "correct_answer": option_letters[correct_idx],
+                "explanation": f"This is the correct answer because it accurately describes the fundamental concept of {topic}. The other options contain common misconceptions or incomplete information.",
+                "marks": 1
+            })
+        
+        return {
+            "title": f"{topic} - {difficulty.title()} Level Quiz",
+            "description": f"AI-generated quiz on {topic} with {difficulty} difficulty level. {additional_context}",
+            "questions": questions
+        }
+    
+    def _generate_real_quiz(self, topic, difficulty, num_questions, additional_context=""):
+        """Generate a quiz using real Gemini AI"""
+        
+        if not self.model:
+            raise Exception("AI model not available - using mock service")
         
         prompt = f"""
         Create a multiple-choice quiz with the following specifications:

@@ -223,6 +223,53 @@ class ApiService {
     return response.data
   }
 
+  // Analytics endpoints
+  async getAnalyticsOverview(days = 30) {
+    const response = await this.http.get(`/api/analytics/overview?days=${days}`)
+    return response.data
+  }
+
+  async getUserAnalytics(userId) {
+    const response = await this.http.get(`/api/analytics/user/${userId}`)
+    return response.data
+  }
+
+  async getQuizAnalytics(quizId) {
+    const response = await this.http.get(`/api/analytics/quiz/${quizId}`)
+    return response.data
+  }
+
+  // Notifications endpoints
+  async getNotifications(limit = 20) {
+    const response = await this.http.get(`/api/notifications?limit=${limit}`)
+    return response.data
+  }
+
+  async markNotificationAsRead(notificationId) {
+    const response = await this.http.post(`/api/notifications/${notificationId}/read`)
+    return response.data
+  }
+
+  async markAllNotificationsAsRead() {
+    const response = await this.http.post('/api/notifications/mark-all-read')
+    return response.data
+  }
+
+  async getNotificationPreferences() {
+    const response = await this.http.get('/api/notifications/preferences')
+    return response.data
+  }
+
+  async updateNotificationPreferences(preferences) {
+    const response = await this.http.put('/api/notifications/preferences', preferences)
+    return response.data
+  }
+
+  async sendTestNotification() {
+    const response = await this.http.post('/api/notifications/send-test')
+    return response.data
+  }
+
   // Generic HTTP methods for flexibility
   async get(url) {
     const response = await this.http.get(url)

@@ -14,6 +14,8 @@ import QuizTaking from '@/views/quiz/Taking.vue'
 // Admin Components
 import AdminDashboard from '@/views/admin/Dashboard.vue'
 import SubjectManagement from '@/views/admin/SubjectManagement.vue'
+import Analytics from '@/views/admin/Analytics.vue'
+import AIQuizGenerator from '@/views/admin/AIQuizGenerator.vue'
 
 const routes = [
   {
@@ -78,6 +80,30 @@ const routes = [
     path: '/admin/subjects',
     name: 'SubjectManagement',
     component: SubjectManagement,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/analytics',
+    name: 'Analytics',
+    component: Analytics,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/ai-quiz',
+    name: 'AIQuizGenerator',
+    component: AIQuizGenerator,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/quizzes',
+    name: 'QuizManagement',
+    component: () => import('@/views/admin/QuizManagement.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/users',
+    name: 'UserManagement',
+    component: () => import('@/views/admin/UserManagement.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]

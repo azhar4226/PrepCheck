@@ -57,12 +57,16 @@ def create_app(config_name=None):
     from app.controllers.user_controller import user_bp
     from app.controllers.quiz_controller import quiz_bp
     from app.controllers.ai_controller import ai_bp
+    from app.controllers.analytics_controller import analytics_bp
+    from app.controllers.notifications_controller import notifications_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(user_bp, url_prefix='/api/user')
     app.register_blueprint(quiz_bp, url_prefix='/api/quiz')
     app.register_blueprint(ai_bp, url_prefix='/api/ai')
+    app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     
     # Create tables and seed admin user
     with app.app_context():

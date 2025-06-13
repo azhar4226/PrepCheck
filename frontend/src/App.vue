@@ -68,6 +68,12 @@
                       </router-link>
                     </li>
                     <li>
+                      <router-link class="dropdown-item" to="/admin/analytics">
+                        <i class="bi bi-bar-chart me-2"></i>
+                        Analytics
+                      </router-link>
+                    </li>
+                    <li>
                       <router-link class="dropdown-item" to="/admin/quizzes">
                         <i class="bi bi-question-circle me-2"></i>
                         Quizzes
@@ -88,6 +94,11 @@
                   </ul>
                 </li>
               </template>
+              
+              <!-- Notifications Dropdown -->
+              <li v-if="isAuthenticated" class="nav-item">
+                <NotificationsDropdown />
+              </li>
               
               <li class="nav-item dropdown">
                 <a 
@@ -150,8 +161,13 @@
 </template>
 
 <script>
+import NotificationsDropdown from '@/components/NotificationsDropdown.vue'
+
 export default {
   name: 'App',
+  components: {
+    NotificationsDropdown
+  },
   data() {
     return {
       isLoading: false
@@ -317,5 +333,21 @@ body {
 
 .stat-card.info {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* Notifications dropdown in navbar */
+.navbar .notifications-dropdown .btn {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.navbar .notifications-dropdown .btn:hover {
+  color: white;
+  border-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar .notifications-dropdown .dropdown-menu {
+  margin-top: 0.5rem;
 }
 </style>
