@@ -1,13 +1,16 @@
 version: '3.8'
 
 services:
+  # Redis service for Celery
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
 
+  # Backend Flask application
   backend:
     build:
       context: .
@@ -16,13 +19,21 @@ services:
       - "8000:8000"
     environment:
       - FLASK_ENV=production
+      - SECRET_KEY=your-production-secret-key-change-this
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=sqlite:///app/prepcheck.db
+      - DATABASE_URL=sqlite:///instance/app.db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+    volumes:
+      - backend_data:/app/instance
     depends_on:
       - redis
-    volumes:
-      - backend_data:/app/data
+    restart: unless-stopped
 
+  # Celery worker for background tasks
   celery:
     build:
       context: .
@@ -30,14 +41,22 @@ services:
     command: celery -A app.celery worker --loglevel=info
     environment:
       - FLASK_ENV=production
+      - SECRET_KEY=your-production-secret-key-change-this
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=sqlite:///app/prepcheck.db
+      - DATABASE_URL=sqlite:///instance/app.db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+    volumes:
+      - backend_data:/app/instance
     depends_on:
       - redis
       - backend
-    volumes:
-      - backend_data:/app/data
+    restart: unless-stopped
 
+  # Frontend Vue.js application
   frontend:
     build:
       context: .
@@ -46,6 +65,7 @@ services:
       - "80:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   redis_data:
