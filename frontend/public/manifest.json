@@ -1,0 +1,11 @@
+{
+  "name": "PrepCheck - Exam Preparation Platform",
+  "short_name": "PrepCheck",
+  "description": "Your comprehensive exam preparation platform with AI-powered quizzes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity"]
+}
