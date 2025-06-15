@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject Management Complete Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Subject Management Complete Test</h1>
+    <div id="status">Ready to test...</div>
+    
+    <div id="login-section">
+        <h3>Step 1: Login</h3>
+        <button onclick="testLogin()">Test Admin Login</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div id="subjects-section" style="display: none;">
+        <h3>Step 2: Test All Subject Operations</h3>
+        <button onclick="testGetSubjects()">Get Subjects</button>
+        <button onclick="testCreateSubject()">Create Subject</button>
+        <button onclick="testUpdateSubject()">Update Subject</button>
+        <button onclick="testDeleteSubject()">Delete Subject</button>
+        <div id="subjects-result"></div>
+    </div>
+
+    <div id="notifications-section" style="display: none;">
+        <h3>Step 3: Test Notifications</h3>
+        <button onclick="testNotifications()">Get Notifications</button>
+        <div id="notifications-result"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let createdSubjectId = null;
+        
+        // Configure axios
+        axios.defaults.baseURL = 'http://localhost:8000';
+        axios.defaults.headers.common['Content-Type'] = 'application/json';
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div style="color: ${type === 'error' ? 'red' : 'green'}">${message}</div>`;
+        }
+        
+        async function testLogin() {
+            try {
+                updateStatus('Testing admin login...');
+                const response = await axios.post('/api/auth/login', {
+                    email: 'admin@prepcheck.com',
+                    password: 'admin123'
+                });
+                
+                authToken = response.data.access_token;
+                axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+                
+                document.getElementById('login-result').innerHTML = 
+                    `<div style="color: green;">✅ Login successful! User: ${response.data.user.full_name}</div>`;
+                document.getElementById('subjects-section').style.display = 'block';
+                document.getElementById('notifications-section').style.display = 'block';
+                updateStatus('Login successful! Now test subject operations.');
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('login-result').innerHTML = 
+                    `<div style="color: red;">❌ Login failed: ${error.message}</div>`;
+                updateStatus('Login failed!', 'error');
+            }
+        }
+        
+        async function testGetSubjects() {
+            try {
+                updateStatus('Testing get subjects...');
+                const response = await axios.get('/api/admin/subjects');
+                
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: green;">✅ Get Subjects successful!<br>
+                    <strong>Count:</strong> ${response.data.length}<br>
+                    <strong>Data:</strong><br>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre></div>`;
+                updateStatus('Get subjects test passed!');
+            } catch (error) {
+                console.error('Get subjects error:', error);
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: red;">❌ Get subjects failed: ${error.message}</div>`;
+                updateStatus('Get subjects test failed!', 'error');
+            }
+        }
+        
+        async function testCreateSubject() {
+            try {
+                updateStatus('Testing create subject...');
+                const response = await axios.post('/api/admin/subjects', {
+                    name: 'Test Subject Frontend',
+                    description: 'Created from frontend test',
+                    is_active: true
+                });
+                
+                createdSubjectId = response.data.subject.id;
+                
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: green;">✅ Create Subject successful!<br>
+                    <strong>Created ID:</strong> ${createdSubjectId}<br>
+                    <strong>Data:</strong><br>
+                    <pre>${JSON.stringify(response.data.subject, null, 2)}</pre></div>`;
+                updateStatus('Create subject test passed!');
+            } catch (error) {
+                console.error('Create subject error:', error);
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: red;">❌ Create subject failed: ${error.message}</div>`;
+                updateStatus('Create subject test failed!', 'error');
+            }
+        }
+        
+        async function testUpdateSubject() {
+            if (!createdSubjectId) {
+                updateStatus('Create a subject first!', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Testing update subject...');
+                const response = await axios.put(`/api/admin/subjects/${createdSubjectId}`, {
+                    name: 'Updated Test Subject',
+                    description: 'Updated from frontend test',
+                    is_active: true
+                });
+                
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: green;">✅ Update Subject successful!<br>
+                    <strong>Updated ID:</strong> ${createdSubjectId}<br>
+                    <strong>Data:</strong><br>
+                    <pre>${JSON.stringify(response.data.subject, null, 2)}</pre></div>`;
+                updateStatus('Update subject test passed!');
+            } catch (error) {
+                console.error('Update subject error:', error);
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: red;">❌ Update subject failed: ${error.message}</div>`;
+                updateStatus('Update subject test failed!', 'error');
+            }
+        }
+        
+        async function testDeleteSubject() {
+            if (!createdSubjectId) {
+                updateStatus('Create a subject first!', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Testing delete subject...');
+                const response = await axios.delete(`/api/admin/subjects/${createdSubjectId}`);
+                
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: green;">✅ Delete Subject successful!<br>
+                    <strong>Message:</strong> ${response.data.message}</div>`;
+                updateStatus('Delete subject test passed!');
+                createdSubjectId = null;
+            } catch (error) {
+                console.error('Delete subject error:', error);
+                document.getElementById('subjects-result').innerHTML = 
+                    `<div style="color: red;">❌ Delete subject failed: ${error.message}</div>`;
+                updateStatus('Delete subject test failed!', 'error');
+            }
+        }
+        
+        async function testNotifications() {
+            try {
+                updateStatus('Testing notifications...');
+                const response = await axios.get('/api/notifications?limit=10');
+                
+                document.getElementById('notifications-result').innerHTML = 
+                    `<div style="color: green;">✅ Notifications test successful!<br>
+                    <strong>Notifications:</strong> ${response.data.notifications.length}<br>
+                    <strong>Unread:</strong> ${response.data.unread_count}<br>
+                    <strong>Data:</strong><br>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre></div>`;
+                updateStatus('Notifications test passed!');
+            } catch (error) {
+                console.error('Notifications error:', error);
+                document.getElementById('notifications-result').innerHTML = 
+                    `<div style="color: red;">❌ Notifications failed: ${error.message}</div>`;
+                updateStatus('Notifications test failed!', 'error');
+            }
+        }
+        
+        updateStatus('Ready to test! Click the login button first.');
+    </script>
+</body>
+</html>

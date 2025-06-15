@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Upload Test</title>
+</head>
+<body>
+    <h1>Simple Upload Test</h1>
+    
+    <div>
+        <label for="fileInput">Choose file:</label>
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="testUpload()">Test Upload with Raw Fetch</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+            
+            console.log('File selected:', file);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            console.log('FormData created');
+            console.log('FormData entries:', [...formData.entries()]);
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/user/profile/picture', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc0OTk4MDA4NiwianRpIjoiNzIxMmVmNGYtZWZiNC00M2FhLWFjYTctNTc5NTg4YTE4ZWU4IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NDk5ODAwODYsImV4cCI6MTc1MDA2NjQ4Nn0.sHFqg9P1mYysyvBuKJK-XUscbqmvUMkM5Zk6VOo3tNI'
+                        // Deliberately NOT setting Content-Type
+                    },
+                    body: formData
+                });
+                
+                const result = await response.text();
+                console.log('Response:', result);
+                
+                document.getElementById('result').innerHTML = `
+                    <div>Status: ${response.status}</div>
+                    <div>Result: ${result}</div>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

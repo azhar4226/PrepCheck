@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Quiz Generator 422 Error Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background-color: #0056b3; }
+        .output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error-detail {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 AI Quiz Generator 422 Error Debug</h1>
+        <p>Debugging the 422 error when loading subjects in AI Quiz Generator</p>
+
+        <div class="test-section info">
+            <h3>🐛 Problem Description</h3>
+            <p><strong>Error:</strong> AI Quiz Generator fails to load subjects with 422 error code</p>
+            <p><strong>Expected:</strong> Subjects should load successfully like in our test</p>
+            <p><strong>Difference:</strong> Frontend request vs direct API call</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Debug Tests</h3>
+            <button class="btn" onclick="testDirectAPI()">1. Test Direct API Call</button>
+            <button class="btn" onclick="testFrontendAPI()">2. Test Frontend-Style API Call</button>
+            <button class="btn" onclick="testWithoutAuth()">3. Test Without Auth</button>
+            <button class="btn" onclick="testAuthFlow()">4. Test Complete Auth Flow</button>
+            <button class="btn" onclick="simulateActualFrontend()">5. Simulate Actual Frontend</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Debug Results</h3>
+            <div id="debug-results" class="output">Click debug tests to identify the 422 error cause...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 Network Details</h3>
+            <div id="network-details" class="output">Network request/response details will appear here...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Error Analysis</h3>
+            <div id="error-analysis" class="output">Error analysis will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let debugInfo = {
+            requests: [],
+            errors: [],
+            responses: []
+        };
+
+        function log(message, section = 'debug-results') {
+            const timestamp = new Date().toLocaleTimeString();
+            const output = document.getElementById(section);
+            if (output) {
+                output.innerHTML += `[${timestamp}] ${message}\n`;
+                output.scrollTop = output.scrollHeight;
+            }
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function logNetwork(details) {
+            log(JSON.stringify(details, null, 2), 'network-details');
+        }
+
+        function logError(error, context) {
+            const errorInfo = {
+                context,
+                message: error.message,
+                status: error.status || 'N/A',
+                response: error.response || 'N/A',
+                timestamp: new Date().toISOString()
+            };
+            debugInfo.errors.push(errorInfo);
+            log(`ERROR in ${context}: ${JSON.stringify(errorInfo, null, 2)}`, 'error-analysis');
+        }
+
+        async function getAuthToken() {
+            if (authToken) return authToken;
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.access_token) {
+                    authToken = data.access_token;
+                    log(`✅ Authentication successful`);
+                    return authToken;
+                } else {
+                    throw new Error(`Auth failed: ${data.error || 'Unknown'}`);
+                }
+            } catch (error) {
+                logError(error, 'Authentication');
+                throw error;
+            }
+        }
+
+        async function testDirectAPI() {
+            log("🔗 Testing direct API call (like curl)...");
+            
+            try {
+                const token = await getAuthToken();
+                
+                const response = await fetch('http://localhost:8000/api/admin/subjects', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                logNetwork({
+                    test: 'Direct API',
+                    url: 'http://localhost:8000/api/admin/subjects',
+                    method: 'GET',
+                    status: response.status,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Direct API success: ${response.status} - ${data.length} subjects`);
+                } else {
+                    log(`❌ Direct API failed: ${response.status} - ${JSON.stringify(data)}`);
+                    logError({ status: response.status, response: data }, 'Direct API');
+                }
+                
+            } catch (error) {
+                log(`❌ Direct API error: ${error.message}`);
+                logError(error, 'Direct API');
+            }
+        }
+
+        async function testFrontendAPI() {
+            log("🖥️ Testing frontend-style API call...");
+            
+            try {
+                const token = await getAuthToken();
+                
+                // Simulate how frontend makes the call with axios-like setup
+                const response = await fetch('http://localhost:8000/api/admin/subjects', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        // Add headers that frontend might send
+                        'Origin': 'http://localhost:3001',
+                        'Referer': 'http://localhost:3001/',
+                        'User-Agent': navigator.userAgent
+                    }
+                });
+                
+                logNetwork({
+                    test: 'Frontend-style API',
+                    url: 'http://localhost:8000/api/admin/subjects',
+                    method: 'GET',
+                    status: response.status,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Frontend API success: ${response.status} - ${data.length} subjects`);
+                } else {
+                    log(`❌ Frontend API failed: ${response.status} - ${JSON.stringify(data)}`);
+                    logError({ status: response.status, response: data }, 'Frontend API');
+                }
+                
+            } catch (error) {
+                log(`❌ Frontend API error: ${error.message}`);
+                logError(error, 'Frontend API');
+            }
+        }
+
+        async function testWithoutAuth() {
+            log("🚫 Testing without authentication...");
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/admin/subjects', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                logNetwork({
+                    test: 'No Auth',
+                    url: 'http://localhost:8000/api/admin/subjects',
+                    method: 'GET',
+                    status: response.status,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                const data = await response.json();
+                log(`No auth result: ${response.status} - ${JSON.stringify(data)}`);
+                
+                if (response.status === 422) {
+                    log(`🎯 Found 422! This might be the issue - missing/invalid auth`);
+                }
+                
+            } catch (error) {
+                log(`❌ No auth test error: ${error.message}`);
+                logError(error, 'No Auth Test');
+            }
+        }
+
+        async function testAuthFlow() {
+            log("🔄 Testing complete auth flow...");
+            
+            try {
+                // Step 1: Login
+                log("Step 1: Login...");
+                const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const loginData = await loginResponse.json();
+                log(`Login: ${loginResponse.status} - ${loginData.message || 'No message'}`);
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginData.error}`);
+                }
+                
+                // Step 2: Use token immediately
+                log("Step 2: Use token for subjects...");
+                const subjectsResponse = await fetch('http://localhost:8000/api/admin/subjects', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${loginData.access_token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const subjectsData = await subjectsResponse.json();
+                
+                logNetwork({
+                    test: 'Auth Flow',
+                    login_status: loginResponse.status,
+                    subjects_status: subjectsResponse.status,
+                    token_length: loginData.access_token?.length || 0
+                });
+                
+                if (subjectsResponse.ok) {
+                    log(`✅ Auth flow success: ${subjectsData.length} subjects loaded`);
+                } else {
+                    log(`❌ Auth flow failed at subjects: ${subjectsResponse.status}`);
+                    if (subjectsResponse.status === 422) {
+                        log(`🎯 422 error in auth flow! Token issue?`);
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Auth flow error: ${error.message}`);
+                logError(error, 'Auth Flow');
+            }
+        }
+
+        async function simulateActualFrontend() {
+            log("🎭 Simulating actual frontend behavior...");
+            
+            try {
+                // Step 1: Check if there's a token in localStorage (simulate)
+                log("Step 1: Checking localStorage token...");
+                
+                // Step 2: Get fresh token
+                const token = await getAuthToken();
+                
+                // Step 3: Make request exactly like useAuth() composable would
+                log("Step 3: Making request like useAuth() composable...");
+                
+                // Create axios-like request
+                const axiosLikeRequest = async (url, config = {}) => {
+                    const finalConfig = {
+                        method: config.method || 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...config.headers
+                        }
+                    };
+                    
+                    // Add auth header like axios interceptor
+                    if (token) {
+                        finalConfig.headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    const response = await fetch(url, finalConfig);
+                    
+                    // Check for 401 like axios interceptor
+                    if (response.status === 401) {
+                        log("🚨 401 detected - token expired/invalid");
+                        throw new Error('Unauthorized - token expired');
+                    }
+                    
+                    return response;
+                };
+                
+                const response = await axiosLikeRequest('http://localhost:8000/api/admin/subjects');
+                const data = await response.json();
+                
+                logNetwork({
+                    test: 'Frontend Simulation',
+                    status: response.status,
+                    response_type: typeof data,
+                    is_array: Array.isArray(data),
+                    data_length: data.length || 'N/A'
+                });
+                
+                if (response.ok) {
+                    log(`✅ Frontend simulation success: ${response.status}`);
+                    log(`Data structure: ${Array.isArray(data) ? 'Array' : 'Object'} with ${data.length || 'unknown'} items`);
+                } else {
+                    log(`❌ Frontend simulation failed: ${response.status}`);
+                    log(`Response: ${JSON.stringify(data)}`);
+                    
+                    if (response.status === 422) {
+                        log(`🔥 FOUND 422! This is the same error as frontend!`);
+                        log(`Possible causes:`);
+                        log(`- Invalid token format`);
+                        log(`- Missing required headers`);
+                        log(`- Request body validation failed`);
+                        log(`- CORS preflight issues`);
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Frontend simulation error: ${error.message}`);
+                logError(error, 'Frontend Simulation');
+            }
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            log("AI Quiz Generator 422 Error Debug Tool loaded");
+            log("Ready to debug the 422 error...");
+        });
+    </script>
+</body>
+</html>

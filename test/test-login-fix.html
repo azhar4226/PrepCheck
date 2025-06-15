@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Fix Test</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 20px; margin: 20px 0; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border: 1px solid #e9ecef; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Login Fix Test</h1>
+    <p>Testing the fixed login functionality after correcting the response format handling.</p>
+
+    <div class="test-section info">
+        <h3>Test Configuration</h3>
+        <p><strong>Backend URL:</strong> http://localhost:8000</p>
+        <p><strong>Admin Credentials:</strong> admin@prepcheck.com / admin123</p>
+    </div>
+
+    <div class="test-section">
+        <h3>1. Direct Backend Login Test</h3>
+        <button onclick="testBackendLogin()">Test Backend Login</button>
+        <div id="backend-login-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Frontend useAuth Login Test</h3>
+        <button onclick="testFrontendLogin()">Test Frontend Login (Simulate)</button>
+        <div id="frontend-login-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Subjects API After Login</h3>
+        <button onclick="testSubjectsAPI()">Test Subjects API</button>
+        <div id="subjects-result"></div>
+    </div>
+
+    <script>
+        let currentToken = null;
+
+        // Create axios instance similar to frontend
+        const api = axios.create({
+            baseURL: 'http://localhost:8000',
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        // Add request interceptor
+        api.interceptors.request.use(
+            (config) => {
+                if (currentToken) {
+                    config.headers.Authorization = `Bearer ${currentToken}`;
+                }
+                return config;
+            },
+            (error) => Promise.reject(error)
+        );
+
+        async function testBackendLogin() {
+            const resultDiv = document.getElementById('backend-login-result');
+            resultDiv.innerHTML = '<p>Testing direct backend login...</p>';
+
+            try {
+                const response = await api.post('/api/auth/login', {
+                    email: 'admin@prepcheck.com',
+                    password: 'admin123'
+                });
+
+                console.log('Backend login response:', response.data);
+
+                if (response.data.access_token) {
+                    currentToken = response.data.access_token;
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Backend Login Success</h4>
+                        <p><strong>Message:</strong> ${response.data.message}</p>
+                        <p><strong>User:</strong> ${response.data.user.full_name} (${response.data.user.email})</p>
+                        <p><strong>Is Admin:</strong> ${response.data.user.is_admin}</p>
+                        <p><strong>Token Preview:</strong> ${response.data.access_token.substring(0, 50)}...</p>
+                    `;
+                } else {
+                    throw new Error('No access_token in response');
+                }
+            } catch (error) {
+                console.error('Backend login error:', error);
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Backend Login Failed</h4>
+                    <p><strong>Error:</strong> ${error.response?.data?.error || error.message}</p>
+                    <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testFrontendLogin() {
+            const resultDiv = document.getElementById('frontend-login-result');
+            resultDiv.innerHTML = '<p>Testing frontend login format handling...</p>';
+
+            try {
+                // Simulate the frontend login logic
+                const response = await api.post('/api/auth/login', {
+                    email: 'admin@prepcheck.com',
+                    password: 'admin123'
+                });
+
+                console.log('Frontend login response:', response.data);
+
+                // Use the fixed frontend logic
+                if (response.data.access_token) {
+                    const authToken = response.data.access_token;
+                    const userData = response.data.user;
+                    
+                    currentToken = authToken;
+                    
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Frontend Login Logic Success</h4>
+                        <p><strong>Token extracted:</strong> ${authToken.substring(0, 50)}...</p>
+                        <p><strong>User extracted:</strong> ${userData.full_name} (${userData.email})</p>
+                        <p><strong>Is Admin:</strong> ${userData.is_admin}</p>
+                        <p>This shows the fixed frontend login logic now correctly handles the backend response format.</p>
+                    `;
+                } else {
+                    throw new Error('Frontend logic failed - no access_token found');
+                }
+            } catch (error) {
+                console.error('Frontend login error:', error);
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Frontend Login Logic Failed</h4>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        async function testSubjectsAPI() {
+            const resultDiv = document.getElementById('subjects-result');
+            
+            if (!currentToken) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = '<p>❌ Please login first to get a token</p>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<p>Testing subjects API with authenticated token...</p>';
+
+            try {
+                const response = await api.get('/api/admin/subjects');
+                
+                console.log('Subjects response:', response.data);
+
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `
+                    <h4>✅ Subjects API Success</h4>
+                    <p><strong>Found ${response.data.length} subjects:</strong></p>
+                    <ul>
+                        ${response.data.map(subject => 
+                            `<li>${subject.name} (${subject.chapters_count} chapters)</li>`
+                        ).join('')}
+                    </ul>
+                    <p>This shows that authentication is working correctly and the 422 error should be resolved.</p>
+                `;
+            } catch (error) {
+                console.error('Subjects API error:', error);
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Subjects API Failed</h4>
+                    <p><strong>Status:</strong> ${error.response?.status}</p>
+                    <p><strong>Error:</strong> ${error.response?.data?.error || error.message}</p>
+                    <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            console.log('Login fix test page loaded');
+        });
+    </script>
+</body>
+</html>

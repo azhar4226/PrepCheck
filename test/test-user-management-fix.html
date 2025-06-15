@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User Management Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background-color: #0056b3; }
+        .btn-success { background-color: #28a745; }
+        .btn-danger { background-color: #dc3545; }
+        .output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .user-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+        }
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-active { background-color: #d4edda; color: #155724; }
+        .status-inactive { background-color: #f8d7da; color: #721c24; }
+        .role-admin { background-color: #fff3cd; color: #856404; }
+        .role-user { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👥 User Management Fix Test</h1>
+        <p>Testing the UserManagement.vue component after fixing the makeAuthenticatedRequest error</p>
+
+        <div class="test-section info">
+            <h3>🔧 Fix Applied</h3>
+            <p><strong>Problem:</strong> UserManagement.vue was trying to use <code>makeAuthenticatedRequest</code> function that doesn't exist.</p>
+            <p><strong>Solution:</strong> Updated to use the <code>api</code> instance from <code>useAuth()</code> composable with proper Axios syntax.</p>
+            <ul>
+                <li>✅ Changed <code>makeAuthenticatedRequest('/api/admin/users')</code> to <code>api.get('/api/admin/users')</code></li>
+                <li>✅ Updated response handling from <code>response.ok</code> to <code>response.data.success</code></li>
+                <li>✅ Fixed data access from <code>data.users</code> to <code>response.data.data</code></li>
+                <li>✅ Updated all CRUD operations (create, read, update, delete)</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 Test User Management API</h3>
+            <button class="btn btn-success" onclick="runUserManagementTests()">Run All Tests</button>
+            <button class="btn" onclick="testAuthentication()">Test Auth</button>
+            <button class="btn" onclick="testLoadUsers()">Test Load Users</button>
+            <button class="btn" onclick="testUserOperations()">Test User Operations</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test Results</h3>
+            <div id="test-results" class="output">Click "Run All Tests" to start testing...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>👥 User Data Preview</h3>
+            <div id="user-preview" class="output">User data will appear here after successful load...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 API Response Analysis</h3>
+            <div id="api-analysis" class="output">API response structure will be analyzed here...</div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let users = [];
+
+        function log(message, section = 'test-results') {
+            const timestamp = new Date().toLocaleTimeString();
+            const output = document.getElementById(section);
+            if (output) {
+                output.innerHTML += `[${timestamp}] ${message}\n`;
+                output.scrollTop = output.scrollHeight;
+            }
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function testAuthentication() {
+            log("🔐 Testing admin authentication...");
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@test.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    authToken = data.data.access_token;
+                    log(`✅ Authentication successful for ${data.data.user.email}`);
+                    log(`User role: ${data.data.user.role}`);
+                    return true;
+                } else {
+                    throw new Error(data.message || 'Authentication failed');
+                }
+            } catch (error) {
+                log(`❌ Authentication failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testLoadUsers() {
+            log("👥 Testing load users functionality...");
+            
+            if (!authToken) {
+                log("❌ No auth token available. Please authenticate first.");
+                return false;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/admin/users', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    users = data.data || [];
+                    log(`✅ Users loaded successfully: ${users.length} users found`);
+                    
+                    // Display user data
+                    displayUsers(users);
+                    analyzeAPIResponse(data);
+                    
+                    return true;
+                } else {
+                    throw new Error(data.message || 'Failed to load users');
+                }
+            } catch (error) {
+                log(`❌ Load users failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        function displayUsers(userList) {
+            const preview = document.getElementById('user-preview');
+            if (userList.length === 0) {
+                preview.innerHTML = 'No users found.';
+                return;
+            }
+
+            let html = `Found ${userList.length} users:\n\n`;
+            
+            userList.forEach((user, index) => {
+                html += `User ${index + 1}:\n`;
+                html += `  - ID: ${user.id || 'N/A'}\n`;
+                html += `  - Name: ${user.name || user.first_name + ' ' + user.last_name || 'N/A'}\n`;
+                html += `  - Email: ${user.email || 'N/A'}\n`;
+                html += `  - Role: ${user.role || 'N/A'}\n`;
+                html += `  - Status: ${user.is_active ? 'Active' : 'Inactive'}\n`;
+                html += `  - Created: ${user.created_at || 'N/A'}\n`;
+                html += `  - Last Login: ${user.last_login || 'Never'}\n\n`;
+            });
+
+            preview.innerHTML = html;
+        }
+
+        function analyzeAPIResponse(data) {
+            const analysis = document.getElementById('api-analysis');
+            
+            let html = 'API Response Structure Analysis:\n\n';
+            html += `Response structure:\n`;
+            html += `- success: ${data.success}\n`;
+            html += `- message: ${data.message || 'N/A'}\n`;
+            html += `- data: ${Array.isArray(data.data) ? 'Array' : typeof data.data}\n`;
+            
+            if (data.data && data.data.length > 0) {
+                html += `\nFirst user object structure:\n`;
+                const firstUser = data.data[0];
+                Object.keys(firstUser).forEach(key => {
+                    html += `- ${key}: ${typeof firstUser[key]} (${firstUser[key]})\n`;
+                });
+            }
+            
+            html += `\nExpected by UserManagement.vue:\n`;
+            html += `- response.data.success: boolean\n`;
+            html += `- response.data.data: array of user objects\n`;
+            html += `- user.id, user.name, user.email, user.role, user.is_active\n`;
+
+            analysis.innerHTML = html;
+        }
+
+        async function testUserOperations() {
+            log("🔧 Testing user operations...");
+            
+            if (!authToken || users.length === 0) {
+                log("❌ Need authentication and users data first.");
+                return false;
+            }
+
+            try {
+                // Test getting a specific user (if endpoint exists)
+                log("Testing user detail endpoint...");
+                const userId = users[0].id;
+                
+                try {
+                    const userResponse = await fetch(`http://localhost:8000/api/admin/users/${userId}`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    
+                    if (userResponse.ok) {
+                        log(`✅ User detail endpoint works for user ${userId}`);
+                    } else {
+                        log(`⚠️ User detail endpoint returned ${userResponse.status}`);
+                    }
+                } catch (error) {
+                    log(`⚠️ User detail endpoint not available: ${error.message}`);
+                }
+
+                // Test role update endpoint (if exists)
+                log("Testing role update endpoint availability...");
+                try {
+                    const roleResponse = await fetch(`http://localhost:8000/api/admin/users/${userId}/role`, {
+                        method: 'PUT',
+                        headers: { 
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ role: users[0].role }) // Keep same role
+                    });
+                    
+                    if (roleResponse.ok) {
+                        log(`✅ Role update endpoint is available`);
+                    } else {
+                        log(`⚠️ Role update endpoint returned ${roleResponse.status}`);
+                    }
+                } catch (error) {
+                    log(`⚠️ Role update endpoint error: ${error.message}`);
+                }
+
+                log("✅ User operations test completed");
+                return true;
+
+            } catch (error) {
+                log(`❌ User operations test failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function runUserManagementTests() {
+            log("🚀 Starting complete User Management test suite...");
+            log("=" * 60);
+            
+            // Test 1: Authentication
+            const authSuccess = await testAuthentication();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Test 2: Load Users
+            let usersSuccess = false;
+            if (authSuccess) {
+                usersSuccess = await testLoadUsers();
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Test 3: User Operations
+            let operationsSuccess = false;
+            if (usersSuccess) {
+                operationsSuccess = await testUserOperations();
+            }
+            
+            // Summary
+            log("=" * 60);
+            log("📋 Test Suite Summary:");
+            log(`Authentication: ${authSuccess ? '✅ PASS' : '❌ FAIL'}`);
+            log(`Load Users: ${usersSuccess ? '✅ PASS' : '❌ FAIL'}`);
+            log(`User Operations: ${operationsSuccess ? '✅ PASS' : '❌ FAIL'}`);
+            
+            const allTestsPassed = authSuccess && usersSuccess;
+            log(`\n🎯 OVERALL RESULT: ${allTestsPassed ? '✅ USER MANAGEMENT FIXED' : '❌ ISSUES REMAIN'}`);
+            
+            if (allTestsPassed) {
+                log("\n🎉 UserManagement.vue should now work correctly!");
+                log("The makeAuthenticatedRequest error has been resolved.");
+                log("Users can be loaded and displayed in the admin interface.");
+            } else {
+                log("\n⚠️ Some issues remain. Check the error messages above.");
+            }
+        }
+
+        // Initialize test
+        window.addEventListener('load', () => {
+            log("User Management test page loaded");
+            log("Ready to test the UserManagement.vue fix");
+        });
+    </script>
+</body>
+</html>

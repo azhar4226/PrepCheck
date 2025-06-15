@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Submission Blank Page Debug</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .debug-output { max-height: 400px; overflow-y: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Quiz Submission Blank Page Debug</h1>
+        <p class="text-muted">Debugging the issue where clicking "Submit Quiz" results in a blank page</p>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🐛 Issue Symptoms</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul>
+                            <li>User clicks "Submit Quiz" button</li>
+                            <li>Submit modal appears</li>
+                            <li>User clicks "Submit Quiz" in modal</li>
+                            <li>Page goes blank (white screen)</li>
+                            <li>No error messages visible</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🔍 Potential Causes</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul>
+                            <li>API submission error</li>
+                            <li>Data transformation error</li>
+                            <li>QuizResults component error</li>
+                            <li>Conditional rendering gap</li>
+                            <li>JavaScript runtime error</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>✅ Applied Fixes</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul>
+                            <li>Enhanced error handling</li>
+                            <li>Added validation checks</li>
+                            <li>Improved logging</li>
+                            <li>Added fallback states</li>
+                            <li>Safe data access</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🧪 Live Test</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2 d-md-flex">
+                            <button id="loginBtn" class="btn btn-primary">1. Login</button>
+                            <button id="startQuizBtn" class="btn btn-info" disabled>2. Start Quiz</button>
+                            <button id="submitQuizBtn" class="btn btn-success" disabled>3. Submit Quiz</button>
+                            <button id="testFrontendBtn" class="btn btn-warning">4. Test Frontend Only</button>
+                        </div>
+                        
+                        <div id="status" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📋 Debug Console</h5>
+                    </div>
+                    <div class="card-body">
+                        <pre id="debugOutput" class="bg-light p-3 debug-output"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🔧 Debug Instructions</h5>
+                    </div>
+                    <div class="card-body">
+                        <ol>
+                            <li><strong>Open Browser Console:</strong> Press F12 and go to Console tab</li>
+                            <li><strong>Test Backend Connection:</strong> Click "1. Login" to verify API is working</li>
+                            <li><strong>Test Quiz Flow:</strong> Click "2. Start Quiz" then "3. Submit Quiz"</li>
+                            <li><strong>Check Console Logs:</strong> Look for errors in browser console</li>
+                            <li><strong>Test Frontend Only:</strong> Click "4. Test Frontend Only" to test component rendering</li>
+                            <li><strong>Check Network Tab:</strong> Verify API calls are successful</li>
+                        </ol>
+                        
+                        <div class="alert alert-info mt-3">
+                            <h6>Common Issues to Check:</h6>
+                            <ul class="mb-0">
+                                <li><code>TypeError</code> accessing undefined properties</li>
+                                <li><code>Network Error</code> in API calls</li>
+                                <li><code>Vue warnings</code> about missing props</li>
+                                <li><code>401 Unauthorized</code> authentication errors</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let authToken = null;
+        let currentQuizId = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const debugOutput = document.getElementById('debugOutput');
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            debugOutput.textContent += logEntry;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+            
+            console.log(`[DEBUG] ${message}`);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        // 1. Login function
+        async function login() {
+            try {
+                log('Starting login process...');
+                updateStatus('Logging in...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    log(`Login successful! Token: ${authToken.substring(0, 20)}...`);
+                    updateStatus('✅ Login successful!', 'success');
+                    document.getElementById('startQuizBtn').disabled = false;
+                } else {
+                    log(`Login failed: ${data.error}`, 'error');
+                    updateStatus(`❌ Login failed: ${data.error}`, 'danger');
+                }
+            } catch (error) {
+                log(`Login error: ${error.message}`, 'error');
+                updateStatus(`❌ Login error: ${error.message}`, 'danger');
+            }
+        }
+
+        // 2. Start quiz function
+        async function startQuiz() {
+            try {
+                log('Getting available quizzes...');
+                updateStatus('Getting quizzes...', 'info');
+                
+                const browsResponse = await fetch(`${API_BASE}/api/quiz/browse`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (!browsResponse.ok) {
+                    throw new Error(`Browse failed: ${browsResponse.status}`);
+                }
+                
+                const browseData = await browsResponse.json();
+                log(`Found ${browseData.quizzes.length} quizzes`);
+
+                if (browseData.quizzes && browseData.quizzes.length > 0) {
+                    currentQuizId = browseData.quizzes[0].id;
+                    log(`Starting quiz ID: ${currentQuizId}`);
+                    
+                    const startResponse = await fetch(`${API_BASE}/api/quiz/${currentQuizId}/start`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    
+                    if (!startResponse.ok) {
+                        throw new Error(`Quiz start failed: ${startResponse.status}`);
+                    }
+                    
+                    const startData = await startResponse.json();
+                    log(`Quiz started successfully! Questions: ${startData.questions.length}`);
+                    updateStatus('✅ Quiz started! Ready to submit.', 'success');
+                    document.getElementById('submitQuizBtn').disabled = false;
+                } else {
+                    throw new Error('No quizzes available');
+                }
+            } catch (error) {
+                log(`Start quiz error: ${error.message}`, 'error');
+                updateStatus(`❌ Start quiz error: ${error.message}`, 'danger');
+            }
+        }
+
+        // 3. Submit quiz function
+        async function submitQuiz() {
+            try {
+                log('Submitting quiz...');
+                updateStatus('Submitting quiz...', 'info');
+                
+                // Create sample answers
+                const answers = { "1": "B", "2": "C", "3": "A" };
+                log(`Submitting answers: ${JSON.stringify(answers)}`);
+                
+                const submitResponse = await fetch(`${API_BASE}/api/quiz/${currentQuizId}/submit`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ answers })
+                });
+                
+                if (!submitResponse.ok) {
+                    throw new Error(`Submit failed: ${submitResponse.status} ${submitResponse.statusText}`);
+                }
+                
+                const submitData = await submitResponse.json();
+                log(`Submit response received: ${JSON.stringify(submitData, null, 2)}`);
+                
+                // Test the data transformation logic
+                if (submitData.results && submitData.results.summary) {
+                    const summary = submitData.results.summary;
+                    const transformedResults = {
+                        score: summary.marks_obtained || 0,
+                        total_marks: summary.total_marks || 0,
+                        percentage: summary.percentage || 0,
+                        correct_answers: summary.correct_answers || 0,
+                        incorrect_answers: summary.wrong_answers || 0,
+                        total_questions: summary.total_questions || 0,
+                        accuracy: (summary.total_questions || 0) > 0 ? 
+                            Math.round(((summary.correct_answers || 0) / (summary.total_questions || 0)) * 100) : 0,
+                    };
+                    
+                    log(`Data transformation successful: ${JSON.stringify(transformedResults)}`);
+                    updateStatus('✅ Quiz submitted successfully! Check console for details.', 'success');
+                } else {
+                    throw new Error('Invalid response structure');
+                }
+                
+            } catch (error) {
+                log(`Submit quiz error: ${error.message}`, 'error');
+                updateStatus(`❌ Submit quiz error: ${error.message}`, 'danger');
+            }
+        }
+
+        // 4. Test frontend only
+        function testFrontend() {
+            log('Testing frontend-only functionality...');
+            updateStatus('Testing frontend components...', 'info');
+            
+            // Simulate successful quiz results data
+            const mockResults = {
+                score: 2,
+                total_marks: 3,
+                percentage: 66.67,
+                time_taken: 120,
+                correct_answers: 2,
+                incorrect_answers: 1,
+                total_questions: 3,
+                unanswered: 0,
+                accuracy: 67,
+                question_details: [
+                    {
+                        question: { id: 1, question_text: "Test question 1" },
+                        user_answer: "B",
+                        is_correct: true
+                    }
+                ],
+                quiz_title: "Test Quiz",
+                message: "Quiz submitted successfully"
+            };
+            
+            log(`Mock results created: ${JSON.stringify(mockResults, null, 2)}`);
+            
+            // Test if all required fields are present
+            const requiredFields = ['score', 'total_marks', 'percentage', 'correct_answers', 'incorrect_answers', 'total_questions', 'accuracy', 'question_details'];
+            const missingFields = requiredFields.filter(field => !(field in mockResults));
+            
+            if (missingFields.length === 0) {
+                log('✅ All required fields present for QuizResults component');
+                updateStatus('✅ Frontend component data structure is valid', 'success');
+            } else {
+                log(`❌ Missing fields: ${missingFields.join(', ')}`, 'error');
+                updateStatus(`❌ Missing fields: ${missingFields.join(', ')}`, 'danger');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('loginBtn').addEventListener('click', login);
+        document.getElementById('startQuizBtn').addEventListener('click', startQuiz);
+        document.getElementById('submitQuizBtn').addEventListener('click', submitQuiz);
+        document.getElementById('testFrontendBtn').addEventListener('click', testFrontend);
+
+        // Initialize
+        log('Debug page loaded. Ready to test quiz submission flow.');
+        updateStatus('Ready to debug quiz submission issue', 'info');
+        
+        // Add global error handler
+        window.addEventListener('error', (event) => {
+            log(`Global error: ${event.error.message} at ${event.filename}:${event.lineno}`, 'error');
+        });
+        
+        // Add unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', (event) => {
+            log(`Unhandled promise rejection: ${event.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

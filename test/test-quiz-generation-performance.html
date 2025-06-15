@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Generation Performance Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        .test-container { max-width: 900px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .performance-stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .timer {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .result-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="test-container">
+        <h1>⚡ Quiz Generation Performance Test</h1>
+        
+        <div class="status success">
+            ✅ Testing optimized quiz generation speed
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>Performance Test Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Subject ID</label>
+                            <select v-model="testConfig.subject_id" class="form-select">
+                                <option value="1">Mathematics</option>
+                                <option value="2">Science</option>
+                                <option value="3">Test Subject</option>
+                                <option value="4">Programming with C++</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Chapter ID</label>
+                            <select v-model="testConfig.chapter_id" class="form-select">
+                                <option value="1">Algebra</option>
+                                <option value="2">Geometry</option>
+                                <option value="3">Physics</option>
+                                <option value="4">Test Chapter</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Topic</label>
+                            <input v-model="testConfig.topic" class="form-control" placeholder="e.g., Linear Equations">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Difficulty</label>
+                            <select v-model="testConfig.difficulty" class="form-select">
+                                <option value="easy">Easy</option>
+                                <option value="medium">Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Number of Questions</label>
+                            <input v-model="testConfig.num_questions" type="number" min="5" max="20" class="form-control">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Test Runs</label>
+                            <input v-model="testConfig.runs" type="number" min="1" max="5" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                
+                <button @click="runPerformanceTest" class="btn btn-primary" :disabled="testing">
+                    {{ testing ? 'Testing...' : 'Run Performance Test' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Live Timer -->
+        <div v-if="testing" class="status info">
+            <div class="timer">⏱️ Test in progress: {{ currentTestTime }}s</div>
+            <div>Run {{ currentRun }}/{{ testConfig.runs }} - {{ testStatus }}</div>
+        </div>
+
+        <!-- Performance Results -->
+        <div v-if="performanceResults.length > 0" class="card mt-4">
+            <div class="card-header">
+                <h5>Performance Results</h5>
+            </div>
+            <div class="card-body">
+                <div class="performance-stats">
+                    <h6>Overall Statistics:</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Average Time:</strong><br>
+                            {{ averageTime }}s
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Fastest:</strong><br>
+                            {{ fastestTime }}s
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Slowest:</strong><br>
+                            {{ slowestTime }}s
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Success Rate:</strong><br>
+                            {{ successRate }}%
+                        </div>
+                    </div>
+                </div>
+
+                <h6>Individual Test Results:</h6>
+                <div v-for="(result, index) in performanceResults" :key="index" class="result-card">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <strong>Run {{ index + 1 }}</strong>
+                        </div>
+                        <div class="col-md-2">
+                            <span :class="result.success ? 'text-success' : 'text-danger'">
+                                {{ result.success ? '✅' : '❌' }} {{ result.time }}s
+                            </span>
+                        </div>
+                        <div class="col-md-8">
+                            <small>{{ result.message }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Tips -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>🚀 Performance Optimizations Applied</h5>
+            </div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>Mock AI Service:</strong> Ultra-fast generation for development (< 1ms)</li>
+                    <li><strong>Batch Database Operations:</strong> Bulk insert questions instead of individual inserts</li>
+                    <li><strong>Optimized AI Prompts:</strong> Shorter, focused prompts for faster AI response</li>
+                    <li><strong>Efficient JSON Parsing:</strong> Fast extraction and validation</li>
+                    <li><strong>Reduced Database Queries:</strong> Minimal DB round trips</li>
+                    <li><strong>Error Handling:</strong> Graceful fallbacks for failed operations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue || { createApp: function() { return { mount: function() {} } } };
+        
+        // Simple Vue-like functionality
+        const app = {
+            data: {
+                testConfig: {
+                    subject_id: '1',
+                    chapter_id: '1',
+                    topic: 'Linear Equations',
+                    difficulty: 'easy',
+                    num_questions: 10,
+                    runs: 3
+                },
+                testing: false,
+                currentRun: 0,
+                currentTestTime: 0,
+                testStatus: '',
+                performanceResults: [],
+                timer: null
+            },
+            
+            computed: {
+                averageTime() {
+                    if (this.data.performanceResults.length === 0) return '0.00';
+                    const total = this.data.performanceResults.reduce((sum, r) => sum + (r.success ? r.time : 0), 0);
+                    const count = this.data.performanceResults.filter(r => r.success).length;
+                    return count > 0 ? (total / count).toFixed(2) : '0.00';
+                },
+                fastestTime() {
+                    const successful = this.data.performanceResults.filter(r => r.success);
+                    return successful.length > 0 ? Math.min(...successful.map(r => r.time)).toFixed(2) : '0.00';
+                },
+                slowestTime() {
+                    const successful = this.data.performanceResults.filter(r => r.success);
+                    return successful.length > 0 ? Math.max(...successful.map(r => r.time)).toFixed(2) : '0.00';
+                },
+                successRate() {
+                    if (this.data.performanceResults.length === 0) return '0';
+                    const successful = this.data.performanceResults.filter(r => r.success).length;
+                    return ((successful / this.data.performanceResults.length) * 100).toFixed(0);
+                }
+            },
+            
+            methods: {
+                async runPerformanceTest() {
+                    this.data.testing = true;
+                    this.data.performanceResults = [];
+                    this.data.currentRun = 0;
+                    
+                    for (let i = 0; i < parseInt(this.data.testConfig.runs); i++) {
+                        this.data.currentRun = i + 1;
+                        this.data.testStatus = `Generating quiz ${i + 1}/${this.data.testConfig.runs}`;
+                        
+                        await this.runSingleTest();
+                        
+                        // Small delay between tests
+                        if (i < parseInt(this.data.testConfig.runs) - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                    }
+                    
+                    this.data.testing = false;
+                    this.data.testStatus = 'Completed';
+                },
+                
+                async runSingleTest() {
+                    const startTime = Date.now();
+                    this.startTimer();
+                    
+                    try {
+                        const response = await axios.post('http://localhost:8000/api/ai/generate-quiz', {
+                            chapter_id: parseInt(this.data.testConfig.chapter_id),
+                            topic: this.data.testConfig.topic,
+                            difficulty: this.data.testConfig.difficulty,
+                            num_questions: parseInt(this.data.testConfig.num_questions),
+                            context: 'Performance test generation'
+                        }, {
+                            headers: {
+                                'Authorization': 'Bearer ' + this.getToken(),
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        const endTime = Date.now();
+                        const duration = (endTime - startTime) / 1000;
+                        
+                        this.data.performanceResults.push({
+                            success: true,
+                            time: duration,
+                            message: `Generated ${response.data.questions?.length || 0} questions successfully`,
+                            questions: response.data.questions?.length || 0
+                        });
+                        
+                    } catch (error) {
+                        const endTime = Date.now();
+                        const duration = (endTime - startTime) / 1000;
+                        
+                        this.data.performanceResults.push({
+                            success: false,
+                            time: duration,
+                            message: `Error: ${error.response?.data?.error || error.message}`,
+                            questions: 0
+                        });
+                    }
+                    
+                    this.stopTimer();
+                },
+                
+                startTimer() {
+                    this.data.currentTestTime = 0;
+                    this.data.timer = setInterval(() => {
+                        this.data.currentTestTime = ((Date.now() - Date.now() % 100) / 100 / 10).toFixed(1);
+                    }, 100);
+                },
+                
+                stopTimer() {
+                    if (this.data.timer) {
+                        clearInterval(this.data.timer);
+                        this.data.timer = null;
+                    }
+                },
+                
+                getToken() {
+                    // Use the token from previous login
+                    return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc0OTkyODQyMywianRpIjoiZWFhOWMxZjgtYzViMy00YmNjLWJjNTItZmJiYjEwODAyNTZiIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NDk5Mjg0MjMsImV4cCI6MTc1MDAxNDgyM30.RdNuJ3pVnhc_89YwA6Nt_yqITbnm4-wPnXSAVhjLpxk';
+                }
+            }
+        };
+
+        // Simple rendering system
+        function updateDisplay() {
+            // Update computed values
+            document.getElementById('avg-time').textContent = app.computed.averageTime();
+            document.getElementById('fast-time').textContent = app.computed.fastestTime();
+            document.getElementById('slow-time').textContent = app.computed.slowestTime();
+            document.getElementById('success-rate').textContent = app.computed.successRate();
+        }
+
+        // Bind click handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const testButton = document.querySelector('button');
+            if (testButton) {
+                testButton.addEventListener('click', app.methods.runPerformanceTest);
+            }
+        });
+    </script>
+</body>
+</html>

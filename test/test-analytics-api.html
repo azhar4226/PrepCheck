@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Analytics API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffe6e6; border: 1px solid #ff9999; }
+        .success { background: #e6ffe6; border: 1px solid #99ff99; }
+        pre { white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Analytics API Test</h1>
+    
+    <button onclick="loginAsAdmin()">1. Login as Admin</button>
+    <button onclick="testAnalytics()" disabled id="testBtn">2. Test Analytics API</button>
+    
+    <div id="loginResult" class="result hidden"></div>
+    <div id="analyticsResult" class="result hidden"></div>
+
+    <script>
+        let authToken = '';
+        const API_BASE = 'http://localhost:8000/api';
+
+        async function loginAsAdmin() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('loginResult');
+                
+                if (response.ok && data.access_token) {
+                    authToken = data.access_token;
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Login Success!</strong><br>Token: ${authToken.substring(0, 20)}...`;
+                    
+                    // Enable test button
+                    document.getElementById('testBtn').disabled = false;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Login Failed:</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('loginResult');
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Login Error:</strong><br>${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function testAnalytics() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/dashboard`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('analyticsResult');
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Analytics API Success!</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Analytics API Failed:</strong><br>Status: ${response.status}<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('analyticsResult');
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Analytics API Error:</strong><br>${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

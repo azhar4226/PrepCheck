@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Options Display Fix Test</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 20px; margin: 20px 0; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border: 1px solid #e9ecef; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .question-demo { border: 1px solid #ddd; padding: 15px; margin: 10px 0; background: #f9f9f9; }
+        .option { margin: 5px 0; padding: 8px; background: white; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Options Display Fix Test</h1>
+    <p>Testing the fix for missing answer options in quiz questions.</p>
+
+    <div class="test-section info">
+        <h3>Issue Fixed</h3>
+        <p>Quiz questions were showing but answer options were missing because:</p>
+        <ul>
+            <li>Backend returns questions with separate fields: option_a, option_b, option_c, option_d</li>
+            <li>Frontend expected questions to have an "options" array</li>
+            <li>Missing question_type field for proper UI rendering</li>
+        </ul>
+    </div>
+
+    <div class="test-section info">
+        <h3>Solution Applied</h3>
+        <p>Added data transformation in QuizTaking component to:</p>
+        <ul>
+            <li>✅ Convert option_a, option_b, option_c, option_d into options array</li>
+            <li>✅ Set appropriate question_type (multiple_choice or true_false)</li>
+            <li>✅ Handle edge cases for different question formats</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>1. Test Backend Question Structure</h3>
+        <button onclick="testQuestionStructure()">Check Backend Question Data</button>
+        <div id="structure-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Data Transformation</h3>
+        <button onclick="testDataTransformation()">Test Question Transformation</button>
+        <div id="transform-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Navigation Test</h3>
+        <button onclick="openQuiz1()">Open Quiz 1 (Algebra)</button>
+        <button onclick="openQuiz2()">Open Quiz 2 (Physics)</button>
+        <div id="nav-result"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        async function getAuthToken() {
+            if (!authToken) {
+                const loginResponse = await axios.post('http://localhost:8000/api/auth/login', {
+                    email: 'admin@prepcheck.com',
+                    password: 'admin123'
+                });
+                authToken = loginResponse.data.access_token;
+            }
+            return authToken;
+        }
+
+        async function testQuestionStructure() {
+            const resultDiv = document.getElementById('structure-result');
+            resultDiv.innerHTML = '<p>Testing backend question structure...</p>';
+
+            try {
+                const token = await getAuthToken();
+                
+                const response = await axios.post('http://localhost:8000/api/quiz/2/start', {}, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const question = response.data.questions[0];
+
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `
+                    <h4>✅ Backend Question Structure</h4>
+                    <div class="question-demo">
+                        <p><strong>Question:</strong> ${question.question_text}</p>
+                        <div class="option"><strong>A:</strong> ${question.option_a}</div>
+                        <div class="option"><strong>B:</strong> ${question.option_b}</div>
+                        <div class="option"><strong>C:</strong> ${question.option_c}</div>
+                        <div class="option"><strong>D:</strong> ${question.option_d}</div>
+                    </div>
+                    <p><strong>Structure:</strong> Backend provides option_a, option_b, option_c, option_d fields</p>
+                    <details>
+                        <summary>View Raw Question Data</summary>
+                        <pre>${JSON.stringify(question, null, 2)}</pre>
+                    </details>
+                `;
+            } catch (error) {
+                console.error('Question structure test error:', error);
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Backend Test Failed</h4>
+                    <p><strong>Error:</strong> ${error.response?.data?.error || error.message}</p>
+                `;
+            }
+        }
+
+        async function testDataTransformation() {
+            const resultDiv = document.getElementById('transform-result');
+            resultDiv.innerHTML = '<p>Testing frontend data transformation...</p>';
+
+            try {
+                const token = await getAuthToken();
+                
+                const response = await axios.post('http://localhost:8000/api/quiz/2/start', {}, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const originalQuestion = response.data.questions[0];
+                
+                // Simulate the frontend transformation
+                const transformedQuestion = { ...originalQuestion };
+                
+                if (transformedQuestion.option_a && transformedQuestion.option_b && 
+                    transformedQuestion.option_c && transformedQuestion.option_d) {
+                    transformedQuestion.options = [
+                        transformedQuestion.option_a,
+                        transformedQuestion.option_b,
+                        transformedQuestion.option_c,
+                        transformedQuestion.option_d
+                    ];
+                    transformedQuestion.question_type = 'multiple_choice';
+                }
+
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `
+                    <h4>✅ Data Transformation Success</h4>
+                    <div class="question-demo">
+                        <p><strong>Question:</strong> ${transformedQuestion.question_text}</p>
+                        <p><strong>Type:</strong> ${transformedQuestion.question_type}</p>
+                        <p><strong>Options Array:</strong></p>
+                        ${transformedQuestion.options.map((option, index) => 
+                            `<div class="option">${String.fromCharCode(65 + index)}: ${option}</div>`
+                        ).join('')}
+                    </div>
+                    <p>✅ Frontend now has options array and question_type for proper rendering</p>
+                    <details>
+                        <summary>View Transformed Data</summary>
+                        <pre>${JSON.stringify({
+                            options: transformedQuestion.options,
+                            question_type: transformedQuestion.question_type
+                        }, null, 2)}</pre>
+                    </details>
+                `;
+            } catch (error) {
+                console.error('Transformation test error:', error);
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h4>❌ Transformation Test Failed</h4>
+                    <p><strong>Error:</strong> ${error.response?.data?.error || error.message}</p>
+                `;
+            }
+        }
+
+        function openQuiz1() {
+            const resultDiv = document.getElementById('nav-result');
+            resultDiv.className = 'info';
+            resultDiv.innerHTML = '<p>Opening Quiz 1 (Algebra)... Check that answer options are now visible!</p>';
+            window.open('http://localhost:3000/quiz/1/take', '_blank');
+        }
+
+        function openQuiz2() {
+            const resultDiv = document.getElementById('nav-result');
+            resultDiv.className = 'info';
+            resultDiv.innerHTML = '<p>Opening Quiz 2 (Physics)... Check that answer options are now visible!</p>';
+            window.open('http://localhost:3000/quiz/2/take', '_blank');
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            console.log('Quiz options display fix test loaded');
+            testQuestionStructure();
+        });
+    </script>
+</body>
+</html>

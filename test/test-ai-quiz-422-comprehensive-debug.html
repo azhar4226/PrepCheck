@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Quiz 422 Error - Comprehensive Debug</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .step { margin: 10px 0; padding: 10px; border-left: 4px solid #007bff; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>🔍 AI Quiz Generator 422 Error Debug Tool</h1>
+        <p class="text-muted">Comprehensive debugging for the 422 error when loading subjects</p>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Authentication & Setup</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="baseUrl" class="form-label">Backend URL:</label>
+                            <input type="text" id="baseUrl" class="form-control" value="http://localhost:8000" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email:</label>
+                            <input type="email" id="email" class="form-control" value="admin@prepcheck.com" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password:</label>
+                            <input type="password" id="password" class="form-control" value="admin123" />
+                        </div>
+                        
+                        <button onclick="runComprehensiveTest()" class="btn btn-primary mb-2">🔍 Run Full Debug Test</button>
+                        <button onclick="testDirectAPI()" class="btn btn-secondary mb-2">📡 Test Direct API</button>
+                        <button onclick="clearResults()" class="btn btn-outline-danger">🗑️ Clear Results</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <button onclick="testEnvironment()" class="btn btn-info mb-2 w-100">🌐 Test Environment</button>
+                        <button onclick="testCORS()" class="btn btn-warning mb-2 w-100">🔒 Test CORS</button>
+                        <button onclick="testEndpoints()" class="btn btn-success mb-2 w-100">📍 Test All Endpoints</button>
+                        <button onclick="simulateVueRequest()" class="btn btn-primary mb-2 w-100">⚡ Simulate Vue Request</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="results" class="mt-4"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let baseUrl = 'http://localhost:8000';
+        
+        function logStep(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const stepDiv = document.createElement('div');
+            stepDiv.className = `step ${type}`;
+            stepDiv.innerHTML = `
+                <strong>[${new Date().toLocaleTimeString()}]</strong> ${message}
+            `;
+            resultsDiv.appendChild(stepDiv);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function logData(title, data, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const dataDiv = document.createElement('div');
+            dataDiv.className = `debug-section ${type}`;
+            dataDiv.innerHTML = `
+                <h6>${title}</h6>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(dataDiv);
+        }
+        
+        async function makeRequest(url, options = {}) {
+            const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+            
+            logStep(`Making request to: ${fullUrl}`, 'info');
+            logData('Request Options', {
+                url: fullUrl,
+                method: options.method || 'GET',
+                headers: options.headers || {},
+                body: options.body || null
+            }, 'info');
+            
+            try {
+                const response = await fetch(fullUrl, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                
+                const responseData = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    url: response.url
+                };
+                
+                let responseBody;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    responseBody = await response.json();
+                } else {
+                    responseBody = await response.text();
+                }
+                
+                responseData.body = responseBody;
+                
+                if (response.ok) {
+                    logStep(`✅ Response ${response.status}: ${response.statusText}`, 'success');
+                    logData('Response Data', responseData, 'success');
+                } else {
+                    logStep(`❌ Response ${response.status}: ${response.statusText}`, 'error');
+                    logData('Error Response Data', responseData, 'error');
+                }
+                
+                return { response, data: responseBody };
+            } catch (error) {
+                logStep(`💥 Network Error: ${error.message}`, 'error');
+                logData('Network Error Details', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                }, 'error');
+                throw error;
+            }
+        }
+        
+        async function testEnvironment() {
+            logStep('🌐 Testing Environment...', 'info');
+            
+            // Test if backend is reachable
+            try {
+                const { response } = await makeRequest('/api/health');
+                if (response.ok) {
+                    logStep('✅ Backend is reachable', 'success');
+                } else {
+                    logStep('⚠️ Backend responded but with error status', 'warning');
+                }
+            } catch (error) {
+                logStep('❌ Backend is not reachable', 'error');
+            }
+            
+            // Test browser environment
+            logData('Browser Environment', {
+                userAgent: navigator.userAgent,
+                origin: window.location.origin,
+                protocol: window.location.protocol,
+                hostname: window.location.hostname,
+                port: window.location.port
+            }, 'info');
+        }
+        
+        async function testCORS() {
+            logStep('🔒 Testing CORS...', 'info');
+            
+            try {
+                const { response } = await makeRequest('/api/health', {
+                    method: 'OPTIONS'
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials')
+                };
+                
+                logData('CORS Headers', corsHeaders, response.ok ? 'success' : 'error');
+                
+                if (corsHeaders['Access-Control-Allow-Origin']) {
+                    logStep('✅ CORS is configured', 'success');
+                } else {
+                    logStep('⚠️ CORS might not be properly configured', 'warning');
+                }
+            } catch (error) {
+                logStep('❌ CORS preflight failed', 'error');
+            }
+        }
+        
+        async function login() {
+            logStep('🔐 Attempting login...', 'info');
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const { data } = await makeRequest('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (data.success && data.data && data.data.token) {
+                    authToken = data.data.token;
+                    logStep('✅ Login successful', 'success');
+                    logData('User Data', data.data.user, 'success');
+                    return true;
+                } else {
+                    logStep('❌ Login failed - Invalid response format', 'error');
+                    return false;
+                }
+            } catch (error) {
+                logStep('❌ Login failed', 'error');
+                return false;
+            }
+        }
+        
+        async function testSubjectsEndpoint() {
+            logStep('📚 Testing subjects endpoint...', 'info');
+            
+            if (!authToken) {
+                logStep('⚠️ No auth token, attempting login first', 'warning');
+                const loginSuccess = await login();
+                if (!loginSuccess) {
+                    logStep('❌ Cannot test subjects without authentication', 'error');
+                    return;
+                }
+            }
+            
+            try {
+                const { data } = await makeRequest('/api/admin/subjects', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                logStep(`✅ Subjects loaded: ${Array.isArray(data) ? data.length : 'unknown'} subjects`, 'success');
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    logData('Sample Subject', data[0], 'success');
+                } else {
+                    logStep('⚠️ No subjects found in response', 'warning');
+                }
+                
+                return data;
+            } catch (error) {
+                logStep('❌ Failed to load subjects', 'error');
+                return null;
+            }
+        }
+        
+        async function testChaptersEndpoint() {
+            logStep('📖 Testing chapters endpoint...', 'info');
+            
+            if (!authToken) {
+                logStep('⚠️ No auth token, attempting login first', 'warning');
+                const loginSuccess = await login();
+                if (!loginSuccess) {
+                    logStep('❌ Cannot test chapters without authentication', 'error');
+                    return;
+                }
+            }
+            
+            // First get subjects to get a subject ID
+            const subjects = await testSubjectsEndpoint();
+            if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
+                logStep('❌ Cannot test chapters without subjects', 'error');
+                return;
+            }
+            
+            const subjectId = subjects[0].id;
+            logStep(`Testing chapters for subject ID: ${subjectId}`, 'info');
+            
+            try {
+                const { data } = await makeRequest(`/api/admin/chapters?subject_id=${subjectId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                logStep(`✅ Chapters loaded: ${Array.isArray(data) ? data.length : 'unknown'} chapters`, 'success');
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    logData('Sample Chapter', data[0], 'success');
+                } else {
+                    logStep('⚠️ No chapters found for this subject', 'warning');
+                }
+                
+                return data;
+            } catch (error) {
+                logStep('❌ Failed to load chapters', 'error');
+                return null;
+            }
+        }
+        
+        async function testEndpoints() {
+            logStep('📍 Testing all admin endpoints...', 'info');
+            
+            await testSubjectsEndpoint();
+            await testChaptersEndpoint();
+        }
+        
+        async function simulateVueRequest() {
+            logStep('⚡ Simulating Vue.js axios request...', 'info');
+            
+            if (!authToken) {
+                const loginSuccess = await login();
+                if (!loginSuccess) {
+                    logStep('❌ Cannot simulate Vue request without authentication', 'error');
+                    return;
+                }
+            }
+            
+            // Simulate exactly what Vue.js would do with axios
+            try {
+                const xhr = new XMLHttpRequest();
+                
+                xhr.addEventListener('readystatechange', function() {
+                    if (xhr.readyState === 4) {
+                        logData('XHR Response Details', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            responseText: xhr.responseText,
+                            responseHeaders: xhr.getAllResponseHeaders()
+                        }, xhr.status >= 200 && xhr.status < 300 ? 'success' : 'error');
+                    }
+                });
+                
+                xhr.open('GET', `${baseUrl}/api/admin/subjects`);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+                
+                logStep('Sending XHR request (similar to axios)...', 'info');
+                xhr.send();
+                
+                // Also test with fetch for comparison
+                setTimeout(async () => {
+                    logStep('Testing with fetch for comparison...', 'info');
+                    await makeRequest('/api/admin/subjects', {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                }, 1000);
+                
+            } catch (error) {
+                logStep(`❌ XHR simulation failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testDirectAPI() {
+            logStep('📡 Testing direct API calls...', 'info');
+            
+            await testEnvironment();
+            await testCORS();
+            await login();
+            await testEndpoints();
+        }
+        
+        async function runComprehensiveTest() {
+            logStep('🔍 Starting comprehensive debug test...', 'info');
+            
+            baseUrl = document.getElementById('baseUrl').value;
+            
+            await testEnvironment();
+            await testCORS();
+            await login();
+            await testEndpoints();
+            await simulateVueRequest();
+            
+            logStep('🎯 Comprehensive test completed!', 'success');
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            authToken = null;
+        }
+        
+        // Auto-run basic environment test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testEnvironment, 500);
+        });
+    </script>
+</body>
+</html>

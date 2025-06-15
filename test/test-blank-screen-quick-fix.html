@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blank Screen Quick Fix Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 9999;
+            max-width: 300px;
+            font-size: 12px;
+        }
+        .hidden { display: none; }
+        .progress-75 { width: 75%; }
+        .progress-25 { width: 25%; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>🔧 Quiz Blank Screen Quick Fix</h1>
+        <p class="text-muted">Testing simplified quiz submission to isolate the blank screen issue</p>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🎯 Quick Fix Strategy</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Based on the persistent blank screen issue, let's test a different approach:</p>
+                        
+                        <div class="alert alert-info">
+                            <h6>💡 Hypothesis:</h6>
+                            <p>The issue might be:</p>
+                            <ul>
+                                <li>Vue component rendering issue</li>
+                                <li>Router navigation problem</li>
+                                <li>API response causing component crash</li>
+                                <li>CSS/styling hiding content</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <h6>🔧 Quick Fix Test:</h6>
+                            <ol>
+                                <li>Test simple results display without QuizResults component</li>
+                                <li>Check if results data is valid</li>
+                                <li>Test with hardcoded results</li>
+                                <li>Verify CSS is not hiding content</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>🧪 Test Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button id="testSimpleResults" class="btn btn-primary">Test Simple Results</button>
+                            <button id="testVueApp" class="btn btn-info">Test Vue App Link</button>
+                            <button id="testBackend" class="btn btn-success">Test Backend</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div id="testResults" class="card">
+                    <div class="card-header">
+                        <h5>📊 Test Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="testOutput">Click a test button to see results...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Debug Panel -->
+        <div class="debug-panel">
+            <div class="card bg-dark text-white">
+                <div class="card-header">Debug</div>
+                <div class="card-body">
+                    <div id="debugInfo">Ready</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Simple Results Test (Hidden) -->
+        <div id="simpleResultsTest" class="hidden">
+            <h3>🎉 Quiz Results</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h2 class="text-success">75%</h2>
+                            <p>Your Score</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>Performance Breakdown:</h6>
+                            <div class="mb-2">
+                                <small>Correct: 3/4</small>
+                                <div class="progress">
+                                    <div class="progress-bar bg-success progress-75"></div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <small>Incorrect: 1/4</small>
+                                <div class="progress">
+                                    <div class="progress-bar bg-danger progress-25"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            console.log(message);
+            const debugInfo = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugInfo.innerHTML = `[${timestamp}] ${message}`;
+        }
+        
+        function setTestOutput(content) {
+            document.getElementById('testOutput').innerHTML = content;
+        }
+        
+        // Test 1: Simple Results Display
+        document.getElementById('testSimpleResults').addEventListener('click', () => {
+            log('Testing simple results display...');
+            
+            const simpleResults = document.getElementById('simpleResultsTest');
+            const testOutput = document.getElementById('testOutput');
+            
+            testOutput.innerHTML = simpleResults.innerHTML;
+            
+            setTestOutput(`
+                <div class="alert alert-success">
+                    ✅ <strong>Simple Results Test Successful!</strong><br>
+                    If you can see this, the issue is likely with the QuizResults component or its data.
+                </div>
+                ${simpleResults.innerHTML}
+            `);
+            
+            log('Simple results test completed');
+        });
+        
+        // Test 2: Vue App Link
+        document.getElementById('testVueApp').addEventListener('click', () => {
+            log('Testing Vue app link...');
+            
+            const vueAppUrl = 'http://localhost:3000/quiz/taking/1';
+            
+            setTestOutput(`
+                <div class="alert alert-info">
+                    <h6>🔗 Vue App Test</h6>
+                    <p>Click the link below to test the actual Vue app:</p>
+                    <a href="${vueAppUrl}" target="_blank" class="btn btn-primary">
+                        Open Quiz Taking Page
+                    </a>
+                    <hr>
+                    <small>
+                        <strong>Instructions:</strong><br>
+                        1. Open browser dev tools (F12)<br>
+                        2. Go to Console tab<br>
+                        3. Start and submit a quiz<br>
+                        4. Look for console errors or state changes
+                    </small>
+                </div>
+            `);
+            
+            log('Vue app link test ready');
+        });
+        
+        // Test 3: Backend Test
+        document.getElementById('testBackend').addEventListener('click', async () => {
+            log('Testing backend connection...');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setTestOutput(`
+                        <div class="alert alert-success">
+                            ✅ <strong>Backend Connection Successful!</strong><br>
+                            Backend is working correctly. The issue is likely in the frontend.
+                        </div>
+                        <pre class="bg-light p-3">${JSON.stringify(data, null, 2)}</pre>
+                    `);
+                    log('Backend test successful');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                setTestOutput(`
+                    <div class="alert alert-danger">
+                        ❌ <strong>Backend Connection Failed!</strong><br>
+                        Error: ${error.message}<br>
+                        Make sure the backend server is running on port 8000.
+                    </div>
+                `);
+                log(`Backend test failed: ${error.message}`);
+            }
+        });
+        
+        // Initialize
+        log('Quick fix test page loaded');
+    </script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Quiz Management API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffe6e6; border: 1px solid #ff9999; }
+        .success { background: #e6ffe6; border: 1px solid #99ff99; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Management API Test</h1>
+    
+    <button onclick="loginAsAdmin()">1. Login as Admin</button>
+    <button onclick="loadQuizzes()" disabled id="loadQuizzesBtn">2. Load Quizzes</button>
+    <button onclick="loadSubjects()" disabled id="loadSubjectsBtn">3. Load Subjects</button>
+    
+    <div id="loginResult" class="result hidden"></div>
+    <div id="quizzesResult" class="result hidden"></div>
+    <div id="subjectsResult" class="result hidden"></div>
+
+    <script>
+        let authToken = '';
+        const API_BASE = 'http://localhost:8000/api';
+
+        async function loginAsAdmin() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('loginResult');
+                
+                if (response.ok && data.access_token) {
+                    authToken = data.access_token;
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Login Success!</strong><br>Token: ${authToken.substring(0, 20)}...`;
+                    
+                    // Enable other buttons
+                    document.getElementById('loadQuizzesBtn').disabled = false;
+                    document.getElementById('loadSubjectsBtn').disabled = false;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Login Failed:</strong><br>${JSON.stringify(data, null, 2)}`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('loginResult');
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Login Error:</strong><br>${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function loadQuizzes() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/quizzes?page=1&per_page=10`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('quizzesResult');
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Quizzes Loaded Successfully!</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Failed to Load Quizzes:</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('quizzesResult');
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Quiz Loading Error:</strong><br>${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function loadSubjects() {
+            try {
+                const response = await fetch(`${API_BASE}/subjects`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('subjectsResult');
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Subjects Loaded Successfully!</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Failed to Load Subjects:</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('subjectsResult');
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Subject Loading Error:</strong><br>${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

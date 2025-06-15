@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Test Export Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .response { 
+            margin-top: 20px; 
+            padding: 15px; 
+            background: #f8f9fa; 
+            border: 1px solid #dee2e6; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+        }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .loading { background: #d1ecf1; border-color: #bee5eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Export Functionality</h1>
+        
+        <h3>1. Login first:</h3>
+        <button onclick="login()">Login as Admin</button>
+        
+        <h3>2. Test Export:</h3>
+        <button onclick="exportAnalytics()">Export Analytics</button>
+        <button onclick="exportUsers()">Export Users</button>
+        <button onclick="exportQuizzes()">Export Quizzes</button>
+        <button onclick="exportAttempts()">Export Attempts</button>
+        <button onclick="exportAll()">Export All</button>
+        
+        <div id="response" class="response">Response will appear here...</div>
+    </div>
+
+    <script>
+        let authToken = '';
+
+        function showResponse(data, type = 'info') {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = JSON.stringify(data, null, 2);
+            responseDiv.className = `response ${type}`;
+        }
+
+        function showLoading(message) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = message;
+            responseDiv.className = 'response loading';
+        }
+
+        async function login() {
+            showLoading('Logging in...');
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    showResponse({ message: 'Login successful!', user: data.user }, 'success');
+                } else {
+                    showResponse(data, 'error');
+                }
+            } catch (error) {
+                showResponse({ error: error.message }, 'error');
+            }
+        }
+
+        async function exportData(type) {
+            if (!authToken) {
+                showResponse({ error: 'Please login first!' }, 'error');
+                return;
+            }
+
+            showLoading(`Exporting ${type}...`);
+            try {
+                const response = await fetch('http://localhost:8000/api/admin/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ type: type })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResponse({ 
+                        message: `Export ${type} successful!`, 
+                        details: data 
+                    }, 'success');
+                } else {
+                    showResponse(data, 'error');
+                }
+            } catch (error) {
+                showResponse({ error: error.message }, 'error');
+            }
+        }
+
+        function exportAnalytics() { exportData('analytics'); }
+        function exportUsers() { exportData('users'); }
+        function exportQuizzes() { exportData('quizzes'); }
+        function exportAttempts() { exportData('attempts'); }
+        function exportAll() { exportData('all'); }
+    </script>
+</body>
+</html>

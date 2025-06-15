@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Profile Picture Upload</title>
+</head>
+<body>
+    <h1>Debug Profile Picture Upload</h1>
+    
+    <div>
+        <h3>Step 1: Login</h3>
+        <input type="email" id="email" placeholder="Email" value="admin@prepcheck.com">
+        <input type="password" id="password" placeholder="Password" value="admin123">
+        <button onclick="login()">Login</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <div>
+        <h3>Step 2: Upload Picture</h3>
+        <label for="fileInput">Select file:</label>
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="uploadPicture()">Upload Picture</button>
+        <div id="uploadResult"></div>
+    </div>
+
+    <div>
+        <h3>Debug Logs</h3>
+        <pre id="debugLogs"></pre>
+    </div>
+
+    <script>
+        let token = '';
+        const API_BASE = 'http://localhost:8000';
+        
+        function log(message) {
+            const debugLogs = document.getElementById('debugLogs');
+            debugLogs.textContent += new Date().toISOString() + ': ' + message + '\n';
+            console.log(message);
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log('Starting login...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                log(`Login response: ${JSON.stringify(data)}`);
+                
+                if (response.ok) {
+                    token = data.access_token;
+                    document.getElementById('loginResult').innerHTML = `<span style="color: green;">Login successful!</span>`;
+                    log(`Token received: ${token.substring(0, 20)}...`);
+                } else {
+                    document.getElementById('loginResult').innerHTML = `<span style="color: red;">Login failed: ${data.error}</span>`;
+                }
+            } catch (error) {
+                log(`Login error: ${error.message}`);
+                document.getElementById('loginResult').innerHTML = `<span style="color: red;">Login error: ${error.message}</span>`;
+            }
+        }
+
+        async function uploadPicture() {
+            if (!token) {
+                alert('Please login first');
+                return;
+            }
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+            
+            log('=== FRONTEND UPLOAD DEBUG START ===');
+            log(`File selected: ${file.name}`);
+            log(`File size: ${file.size} bytes`);
+            log(`File type: ${file.type}`);
+            log(`Token available: ${token ? 'Yes' : 'No'}`);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            log('FormData created');
+            log(`FormData has file: ${formData.has('file')}`);
+            log(`FormData file: ${formData.get('file')}`);
+            log(`FormData entries: ${[...formData.entries()].map(([k,v]) => `${k}: ${v instanceof File ? v.name : v}`).join(', ')}`);
+            
+            try {
+                log(`Making POST request to: ${API_BASE}/api/user/profile/picture`);
+                
+                const response = await fetch(`${API_BASE}/api/user/profile/picture`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                        // Deliberately NOT setting Content-Type for FormData
+                    },
+                    body: formData
+                });
+                
+                log(`Response status: ${response.status}`);
+                log(`Response headers: ${JSON.stringify([...response.headers.entries()])}`);
+                
+                const responseText = await response.text();
+                log(`Response text: ${responseText}`);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    data = { error: 'Invalid JSON response', response: responseText };
+                }
+                
+                if (response.ok) {
+                    document.getElementById('uploadResult').innerHTML = `<span style="color: green;">Upload successful!</span>`;
+                    log('Upload successful!');
+                } else {
+                    document.getElementById('uploadResult').innerHTML = `<span style="color: red;">Upload failed: ${data.error}</span>`;
+                    log(`Upload failed: ${data.error}`);
+                }
+                
+            } catch (error) {
+                log(`Upload error: ${error.message}`);
+                document.getElementById('uploadResult').innerHTML = `<span style="color: red;">Upload error: ${error.message}</span>`;
+            }
+            
+            log('=== FRONTEND UPLOAD DEBUG END ===');
+        }
+    </script>
+</body>
+</html>

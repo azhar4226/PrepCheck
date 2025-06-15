@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Analytics Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .metric-card { background: #f8f9fa; padding: 20px; margin: 10px 0; border-radius: 8px; border: 1px solid #dee2e6; }
+        .metric-value { font-size: 2em; font-weight: bold; color: #007bff; }
+        .metric-label { color: #6c757d; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .loading { text-align: center; padding: 20px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Simple Analytics Dashboard</h1>
+    
+    <button onclick="loadAnalytics()">Load Analytics</button>
+    
+    <div id="loading" class="loading hidden">
+        <p>Loading analytics...</p>
+    </div>
+    
+    <div id="error" class="error hidden"></div>
+    
+    <div id="analytics" class="hidden">
+        <div class="metric-card">
+            <div class="metric-value" id="totalUsers">-</div>
+            <div class="metric-label">Total Users</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-value" id="totalAttempts">-</div>
+            <div class="metric-label">Total Quiz Attempts</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-value" id="averageScore">-</div>
+            <div class="metric-label">Average Score (%)</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-value" id="passRate">-</div>
+            <div class="metric-label">Pass Rate (%)</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadAnalytics() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const analytics = document.getElementById('analytics');
+            
+            // Show loading
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            analytics.style.display = 'none';
+            
+            try {
+                // First login
+                const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+                
+                if (!token) {
+                    throw new Error('No access token received');
+                }
+                
+                // Then get analytics
+                const analyticsResponse = await fetch('http://localhost:8000/api/admin/dashboard', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!analyticsResponse.ok) {
+                    const errorData = await analyticsResponse.text();
+                    throw new Error(`Analytics failed: ${analyticsResponse.status} - ${errorData}`);
+                }
+                
+                const data = await analyticsResponse.json();
+                
+                // Update UI
+                document.getElementById('totalUsers').textContent = data.total_users || 0;
+                document.getElementById('totalAttempts').textContent = data.total_attempts || 0;
+                document.getElementById('averageScore').textContent = data.average_score || 0;
+                document.getElementById('passRate').textContent = data.pass_rate || 0;
+                
+                // Show analytics
+                analytics.style.display = 'block';
+                
+            } catch (err) {
+                error.textContent = 'Error: ' + err.message;
+                error.style.display = 'block';
+                console.error('Analytics error:', err);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

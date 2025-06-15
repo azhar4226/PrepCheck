@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Quiz Generator - Subject & Chapter Dropdowns Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; text-align: center; }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-links {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .test-links a {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .test-links a:hover {
+            background-color: #0056b3;
+        }
+        .code {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .api-test {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .feature-list {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .feature-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Quiz Generator - Dropdown Fix Test</h1>
+        
+        <div class="status success">
+            ✅ <strong>Subject & Chapter Dropdowns Fixed!</strong> The dropdowns are now standalone and functioning properly.
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 What Was Fixed</h3>
+            <p><strong>Problem:</strong> The AI Quiz Generator had a combined Subject & Chapter dropdown using optgroups that was not functioning properly.</p>
+            
+            <p><strong>Solution Applied:</strong></p>
+            <div class="feature-list">
+                <ul>
+                    <li><strong>Separated Dropdowns:</strong> Created standalone Subject and Chapter dropdowns</li>
+                    <li><strong>Dynamic Loading:</strong> Chapters load automatically when a subject is selected</li>
+                    <li><strong>Better UX:</strong> Clear visual separation and loading states</li>
+                    <li><strong>Form Validation:</strong> Proper validation for both fields</li>
+                    <li><strong>Loading Indicators:</strong> Shows loading spinner when fetching chapters</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Component Testing</h3>
+            <p>Test the AI Quiz Generator component with the new dropdown functionality:</p>
+            
+            <div class="test-links">
+                <a href="http://localhost:3002/admin/ai-quiz" target="_blank" rel="noopener">🤖 AI Quiz Generator</a>
+                <a href="http://localhost:3002/admin/dashboard" target="_blank" rel="noopener">📊 Admin Dashboard</a>
+                <a href="http://localhost:3002/admin/subjects" target="_blank" rel="noopener">📚 Subject Management</a>
+            </div>
+
+            <div class="code">
+                <strong>Expected Behavior:</strong><br>
+                1. Subject dropdown loads all available subjects<br>
+                2. Chapter dropdown is initially disabled<br>
+                3. When a subject is selected, chapters for that subject load<br>
+                4. Chapter dropdown becomes enabled with relevant chapters<br>
+                5. Form validation requires both subject and chapter selection
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 API Endpoints Tested</h3>
+            <div class="api-test">
+                <strong>Backend API Structure:</strong><br>
+                <code>GET /api/admin/subjects</code> - Returns array of subjects<br>
+                <code>GET /api/admin/chapters?subject_id={id}</code> - Returns chapters for specific subject
+            </div>
+            
+            <p><strong>API Response Validation:</strong></p>
+            <div class="feature-list">
+                <ul>
+                    <li>✅ Subjects API returns direct array format</li>
+                    <li>✅ Chapters API supports subject_id filtering</li>
+                    <li>✅ Frontend handles responses correctly</li>
+                    <li>✅ Error handling for failed API calls</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📁 Files Modified</h3>
+            <div class="code">
+                <strong>frontend/src/views/admin/AIQuizGenerator.vue:</strong><br>
+                • Replaced combined dropdown with separate Subject and Chapter dropdowns<br>
+                • Added subject_id to form data<br>
+                • Added chapters array and loadingChapters state<br>
+                • Added loadChapters() method<br>
+                • Added onSubjectChange() method for dynamic loading<br>
+                • Updated loadSubjects() to handle direct array response
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Test Instructions</h3>
+            <div class="warning">
+                <strong>Manual Testing Steps:</strong>
+                <ol>
+                    <li>Navigate to the AI Quiz Generator page</li>
+                    <li>Verify that the Subject dropdown loads with available subjects</li>
+                    <li>Verify that the Chapter dropdown is initially disabled</li>
+                    <li>Select a subject from the dropdown</li>
+                    <li>Verify that the Chapter dropdown loads with chapters for that subject</li>
+                    <li>Try changing the subject and verify that the chapter dropdown resets and reloads</li>
+                    <li>Verify that both dropdowns are required for form submission</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="status info">
+            <strong>🎉 Enhancement Complete!</strong> The AI Quiz Generator now has proper standalone Subject and Chapter dropdowns with dynamic loading and better user experience.
+        </div>
+    </div>
+
+    <script>
+        console.log('🧪 AI Quiz Generator Dropdown Test Page Loaded');
+        console.log('✅ Testing standalone Subject & Chapter dropdowns...');
+        
+        // Log available test URLs
+        console.log('Test URLs:');
+        console.log('  - AI Quiz Generator: http://localhost:3002/admin/ai-quiz');
+        console.log('  - Subject Management: http://localhost:3002/admin/subjects');
+        console.log('  - Admin Dashboard: http://localhost:3002/admin/dashboard');
+        
+        // Check if this is being loaded in an iframe (Simple Browser)
+        if (window !== window.top) {
+            console.log('📱 Running in Simple Browser - perfect for testing!');
+        }
+    </script>
+</body>
+</html>

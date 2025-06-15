@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Quiz Management Subject Filter</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { margin: 5px; padding: 10px 15px; }
+        .dropdown-simulation { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Management Subject Filter Test</h1>
+    <div id="status" class="status info">Testing subject dropdown functionality...</div>
+    
+    <h3>Issue Fixed:</h3>
+    <ul>
+        <li>✅ <strong>Changed API call</strong>: From <code>api.get('/api/admin/subjects')</code> to <code>apiService.getSubjects()</code></li>
+        <li>✅ <strong>Fixed response handling</strong>: From <code>response.data.data</code> to direct <code>response</code></li>
+        <li>✅ <strong>Added apiService import</strong>: Using the proper API service from <code>@/services/api</code></li>
+    </ul>
+    
+    <h3>Expected Behavior:</h3>
+    <p>The subject filter dropdown should now populate with all available subjects when the Quiz Management page loads.</p>
+    
+    <h3>Test API Response:</h3>
+    <button onclick="testLogin()">1. Login as Admin</button>
+    <button onclick="testSubjects()" id="subjectsBtn" disabled>2. Test Subjects API</button>
+    
+    <div id="test-result"></div>
+    
+    <h3>Simulated Dropdown (Expected Result):</h3>
+    <div class="dropdown-simulation">
+        <label><strong>Subject Filter:</strong></label><br>
+        <select id="subjectDropdown" style="width: 200px; padding: 5px;">
+            <option value="">All Subjects</option>
+        </select>
+    </div>
+    
+    <h3>Links to Test:</h3>
+    <ul>
+        <li><a href="http://localhost:3001/admin/quizzes" target="_blank" rel="noopener">Quiz Management Page</a></li>
+        <li><a href="http://localhost:3001/admin/subjects" target="_blank" rel="noopener">Subject Management Page</a></li>
+    </ul>
+    
+    <script>
+        let authToken = null;
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+        
+        async function testLogin() {
+            try {
+                updateStatus('Testing admin login...', 'info');
+                const response = await axios.post('http://localhost:8000/api/auth/login', {
+                    email: 'admin@prepcheck.com',
+                    password: 'admin123'
+                });
+                
+                authToken = response.data.access_token;
+                axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+                
+                document.getElementById('test-result').innerHTML = 
+                    `<div class="status success">✅ Login successful!</div>`;
+                document.getElementById('subjectsBtn').disabled = false;
+                updateStatus('Login successful! Now test subjects API.', 'success');
+            } catch (error) {
+                document.getElementById('test-result').innerHTML = 
+                    `<div class="status error">❌ Login failed: ${error.message}</div>`;
+                updateStatus('Login failed!', 'error');
+            }
+        }
+        
+        async function testSubjects() {
+            if (!authToken) {
+                updateStatus('Please login first!', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Testing subjects API...', 'info');
+                const response = await axios.get('http://localhost:8000/api/admin/subjects');
+                
+                // Populate the simulated dropdown
+                const dropdown = document.getElementById('subjectDropdown');
+                dropdown.innerHTML = '<option value="">All Subjects</option>';
+                
+                response.data.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject.id;
+                    option.textContent = subject.name;
+                    dropdown.appendChild(option);
+                });
+                
+                document.getElementById('test-result').innerHTML = 
+                    `<div class="status success">✅ Subjects API test successful!<br>
+                    <strong>Found ${response.data.length} subjects:</strong><br>
+                    ${response.data.map(s => `• ${s.name} (ID: ${s.id})`).join('<br>')}
+                    <br><br>
+                    <strong>Raw API Response:</strong><br>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre></div>`;
+                updateStatus('Subjects API test passed! Dropdown should now work in Vue app.', 'success');
+            } catch (error) {
+                document.getElementById('test-result').innerHTML = 
+                    `<div class="status error">❌ Subjects API failed: ${error.message}</div>`;
+                updateStatus('Subjects API test failed!', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

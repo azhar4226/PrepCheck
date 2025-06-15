@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User PDF Export</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { 
+            padding: 12px 24px; 
+            margin: 10px; 
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 16px;
+        }
+        button:hover { background: #218838; }
+        .response { 
+            margin-top: 20px; 
+            padding: 15px; 
+            background: #f8f9fa; 
+            border: 1px solid #dee2e6; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+        }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .loading { background: #d1ecf1; border-color: #bee5eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test User PDF Export</h1>
+        
+        <h3>1. Login as Student:</h3>
+        <button onclick="login()">Login as Student</button>
+        
+        <h3>2. Test User Export with PDF:</h3>
+        <button onclick="exportUserData()">Export My Data (with PDF)</button>
+        
+        <div id="response" class="response">Response will appear here...</div>
+    </div>
+
+    <script>
+        let authToken = '';
+
+        function showResponse(data, type = 'info') {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = JSON.stringify(data, null, 2);
+            responseDiv.className = `response ${type}`;
+        }
+
+        function showLoading(message) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = message;
+            responseDiv.className = 'response loading';
+        }
+
+        async function login() {
+            showLoading('Logging in as student...');
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: 'student@test.com',
+                        password: 'student123'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    showResponse({ message: 'Login successful!', user: data.user }, 'success');
+                } else {
+                    showResponse(data, 'error');
+                }
+            } catch (error) {
+                showResponse({ error: error.message }, 'error');
+            }
+        }
+
+        async function exportUserData() {
+            if (!authToken) {
+                showResponse({ error: 'Please login first!' }, 'error');
+                return;
+            }
+
+            showLoading('Exporting user data...');
+            try {
+                // Export user data
+                const exportResponse = await fetch('http://localhost:8000/api/user/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    credentials: 'include'
+                });
+
+                const exportData = await exportResponse.json();
+                
+                if (exportResponse.ok && exportData.files_created) {
+                    showResponse({ 
+                        message: 'Export successful!', 
+                        files: exportData.files_created 
+                    }, 'success');
+
+                    // Try to download each file
+                    for (const filePath of exportData.files_created) {
+                        const filename = filePath.split('/').pop();
+                        
+                        try {
+                            const downloadResponse = await fetch(`http://localhost:8000/api/user/download/${filename}`, {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`
+                                },
+                                credentials: 'include'
+                            });
+
+                            if (downloadResponse.ok) {
+                                const blob = await downloadResponse.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = filename;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                                
+                                console.log(`Downloaded: ${filename}`);
+                            } else {
+                                console.error(`Failed to download ${filename}`);
+                            }
+                        } catch (downloadError) {
+                            console.error(`Download error for ${filename}:`, downloadError);
+                        }
+                    }
+                } else {
+                    showResponse(exportData, 'error');
+                }
+            } catch (error) {
+                showResponse({ error: error.message }, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
