@@ -9,6 +9,10 @@ import redis
 from config.config import config
 import os
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
 # Initialize extensions
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -44,7 +48,14 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app)
+    
+    # Configure CORS properly
+    CORS(app, 
+         origins=['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173'], 
+         allow_headers=['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+         supports_credentials=True)
+    
     mail.init_app(app)
     
     # Initialize Redis
@@ -67,6 +78,14 @@ def create_app(config_name=None):
     app.register_blueprint(ai_bp, url_prefix='/api/ai')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    
+    # Serve uploaded files
+    from flask import send_from_directory
+    
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        uploads_path = os.path.join(app.root_path, '..', 'uploads')
+        return send_from_directory(uploads_path, filename)
     
     # Create tables and seed admin user
     with app.app_context():

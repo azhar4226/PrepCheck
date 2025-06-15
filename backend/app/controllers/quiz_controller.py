@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from sqlalchemy import desc
 from app import db, redis_client
-from app.models import User, Quiz, Question, QuizAttempt
+from app.models import User, Quiz, Question, QuizAttempt, Subject, Chapter
 import json
 
 quiz_bp = Blueprint('quiz', __name__)
@@ -11,6 +11,75 @@ quiz_bp = Blueprint('quiz', __name__)
 def get_current_user():
     user_id = get_jwt_identity()
     return User.query.get(int(user_id))
+
+@quiz_bp.route('/browse', methods=['GET'])
+@jwt_required()
+def browse_quizzes():
+    """Browse available quizzes"""
+    try:
+        user = get_current_user()
+        if not user or not user.is_active:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get active quizzes
+        quizzes = Quiz.query.filter_by(is_active=True).all()
+        
+        quiz_list = []
+        for quiz in quizzes:
+            quiz_data = quiz.to_dict()
+            # Add chapter and subject info
+            if quiz.chapter:
+                quiz_data['chapter_name'] = quiz.chapter.name
+                quiz_data['subject_name'] = quiz.chapter.subject.name if quiz.chapter.subject else None
+            quiz_list.append(quiz_data)
+        
+        return jsonify({
+            'quizzes': quiz_list,
+            'total': len(quiz_list)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@quiz_bp.route('/subjects', methods=['GET'])
+@jwt_required()
+def get_quiz_subjects():
+    """Get all subjects that have quizzes"""
+    try:
+        user = get_current_user()
+        if not user or not user.is_active:
+            return jsonify({'error': 'User not found'}), 404
+        
+        subjects = Subject.query.filter_by(is_active=True).all()
+        subject_list = [subject.to_dict() for subject in subjects]
+        
+        return jsonify({
+            'subjects': subject_list,
+            'total': len(subject_list)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@quiz_bp.route('/chapters', methods=['GET'])
+@jwt_required()
+def get_quiz_chapters():
+    """Get all chapters that have quizzes"""
+    try:
+        user = get_current_user()
+        if not user or not user.is_active:
+            return jsonify({'error': 'User not found'}), 404
+        
+        chapters = Chapter.query.filter_by(is_active=True).all()
+        chapter_list = [chapter.to_dict() for chapter in chapters]
+        
+        return jsonify({
+            'chapters': chapter_list,
+            'total': len(chapter_list)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @quiz_bp.route('/<int:quiz_id>/start', methods=['POST'])
 @jwt_required()

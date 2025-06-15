@@ -10,9 +10,30 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
+    
+    # Profile fields
+    phone = db.Column(db.String(20))
+    bio = db.Column(db.Text)
+    profile_picture_url = db.Column(db.String(255))
+    date_of_birth = db.Column(db.Date)
+    gender = db.Column(db.String(10))  # male, female, other
+    country = db.Column(db.String(50))
+    timezone = db.Column(db.String(50), default='UTC')
+    
+    # Preferences
+    notification_email = db.Column(db.Boolean, default=True)
+    notification_quiz_reminders = db.Column(db.Boolean, default=True)
+    theme_preference = db.Column(db.String(20), default='light')  # light, dark, auto
+    
+    # System fields
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(255))
+    password_reset_token = db.Column(db.String(255))
+    password_reset_expires = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     
     # Relationships
@@ -24,16 +45,37 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
-    def to_dict(self):
-        return {
+    def to_dict(self, include_sensitive=False):
+        data = {
             'id': self.id,
             'email': self.email,
             'full_name': self.full_name,
+            'phone': self.phone,
+            'bio': self.bio,
+            'profile_picture_url': self.profile_picture_url,
+            'date_of_birth': self.date_of_birth.isoformat() if self.date_of_birth else None,
+            'gender': self.gender,
+            'country': self.country,
+            'timezone': self.timezone,
+            'notification_email': self.notification_email,
+            'notification_quiz_reminders': self.notification_quiz_reminders,
+            'theme_preference': self.theme_preference,
             'is_admin': self.is_admin,
             'is_active': self.is_active,
+            'email_verified': self.email_verified,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None
         }
+        
+        if include_sensitive:
+            data.update({
+                'email_verification_token': self.email_verification_token,
+                'password_reset_token': self.password_reset_token,
+                'password_reset_expires': self.password_reset_expires.isoformat() if self.password_reset_expires else None
+            })
+            
+        return data
 
 class Subject(db.Model):
     __tablename__ = 'subjects'
@@ -108,6 +150,13 @@ class Quiz(db.Model):
     
     def to_dict(self):
         questions_count = Question.query.filter_by(quiz_id=self.id).count()
+        
+        # Map is_active to status for frontend compatibility
+        if self.is_active:
+            status = 'active'
+        else:
+            status = 'inactive'
+            
         return {
             'id': self.id,
             'title': self.title,
@@ -120,6 +169,7 @@ class Quiz(db.Model):
             'time_limit': self.time_limit,
             'total_marks': self.total_marks,
             'is_active': self.is_active,
+            'status': status,
             'is_ai_generated': self.is_ai_generated,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'questions_count': questions_count,
@@ -141,6 +191,14 @@ class Question(db.Model):
     marks = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # AI Verification fields
+    is_verified = db.Column(db.Boolean, default=False)
+    verification_confidence = db.Column(db.Float)
+    verification_attempts = db.Column(db.Integer, default=0)
+    verification_status = db.Column(db.String(20), default='pending')  # pending, verified, failed, manual_review
+    verification_metadata = db.Column(db.Text)  # JSON string for verification details
+    verified_at = db.Column(db.DateTime)
+    
     def to_dict(self, include_answer=False):
         data = {
             'id': self.id,
@@ -151,7 +209,10 @@ class Question(db.Model):
             'option_c': self.option_c,
             'option_d': self.option_d,
             'marks': self.marks,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_verified': self.is_verified,
+            'verification_status': self.verification_status,
+            'verification_confidence': self.verification_confidence
         }
         
         if include_answer:
@@ -159,6 +220,38 @@ class Question(db.Model):
             data['explanation'] = self.explanation
             
         return data
+    
+    def set_verification_metadata(self, metadata_dict):
+        """Store verification metadata as JSON"""
+        self.verification_metadata = json.dumps(metadata_dict)
+    
+    def get_verification_metadata(self):
+        """Retrieve verification metadata as dict"""
+        return json.loads(self.verification_metadata) if self.verification_metadata else {}
+    
+    def mark_verified(self, confidence, metadata=None):
+        """Mark question as verified"""
+        self.is_verified = True
+        self.verification_status = 'verified'
+        self.verification_confidence = confidence
+        self.verified_at = datetime.utcnow()
+        if metadata:
+            self.set_verification_metadata(metadata)
+    
+    def mark_failed_verification(self, metadata=None):
+        """Mark question as failed verification"""
+        self.verification_status = 'failed'
+        if metadata:
+            self.set_verification_metadata(metadata)
+    
+    def get_options_dict(self):
+        """Get options as dictionary for verification"""
+        return {
+            'A': self.option_a,
+            'B': self.option_b,
+            'C': self.option_c,
+            'D': self.option_d
+        }
 
 class QuizAttempt(db.Model):
     __tablename__ = 'quiz_attempts'
@@ -204,6 +297,7 @@ class QuizAttempt(db.Model):
             'user_id': self.user_id,
             'quiz_id': self.quiz_id,
             'quiz_title': self.quiz.title if self.quiz else None,
+            'subject_name': self.quiz.chapter.subject.name if self.quiz and self.quiz.chapter and self.quiz.chapter.subject else None,
             'score': self.score,
             'total_marks': self.total_marks,
             'percentage': round((self.score / self.total_marks) * 100, 2) if self.total_marks > 0 else 0,

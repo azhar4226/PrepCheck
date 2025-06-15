@@ -1,11 +1,6 @@
-from celery import Celery
 from datetime import datetime, timedelta
 import calendar
 
-# Create a dummy celery instance for decoration
-celery = Celery('PrepCheck')
-
-@celery.task
 def send_daily_reminders():
     """Send daily reminders to inactive users and notify about new quizzes"""
     try:
@@ -56,7 +51,6 @@ def send_daily_reminders():
     except Exception as e:
         return f"Error sending daily reminders: {str(e)}"
 
-@celery.task
 def send_monthly_reports():
     """Send monthly activity reports to all users and admin"""
     try:
