@@ -1,0 +1,124 @@
+/* Import Design System */
+@import './design-system.css';
+
+/* Global Styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--color-gray-50);
+  padding-top: 76px; /* Account for fixed navbar */
+}
+
+.main-content {
+  min-height: calc(100vh - 200px);
+}
+
+/* Custom Components */
+.card {
+  border: none;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.btn {
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+}
+
+.form-control, .form-select {
+  border-radius: var(--border-radius-md);
+}
+
+/* Custom animations */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding-left: var(--spacing-3);
+    padding-right: var(--spacing-3);
+  }
+  
+  .card {
+    margin-bottom: var(--spacing-4);
+  }
+}
+
+/* Quiz specific styles */
+.quiz-timer {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 1000;
+  background: white;
+  border: 2px solid var(--color-danger);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-2) var(--spacing-3);
+  font-weight: bold;
+  color: var(--color-danger);
+}
+
+.question-card {
+  border-left: 4px solid var(--color-primary);
+}
+
+.option-button {
+  text-align: left;
+  border: 2px solid var(--color-gray-200);
+  background: white;
+  transition: all 0.2s;
+}
+
+.option-button:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-gray-50);
+}
+
+.option-button.selected {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.option-button.correct {
+  border-color: var(--color-success);
+  background-color: var(--color-success-light);
+  color: var(--color-success-dark);
+}
+
+.option-button.incorrect {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-light);
+  color: var(--color-danger-dark);
+}
+
+/* Stats cards */
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-card.success {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-card.warning {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-card.info {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}

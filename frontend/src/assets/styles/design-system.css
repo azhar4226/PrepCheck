@@ -1,0 +1,103 @@
+/* PrepCheck Design System */
+
+/* Colors */
+:root {
+  /* Primary Colors */
+  --color-primary: #0d6efd;
+  --color-primary-hover: #0b5ed7;
+  --color-primary-light: #e3f2fd;
+  
+  /* Secondary Colors */
+  --color-success: #198754;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  --color-info: #0dcaf0;
+  
+  /* Neutral Colors */
+  --color-gray-50: #f8f9fa;
+  --color-gray-100: #e9ecef;
+  --color-gray-200: #dee2e6;
+  --color-gray-300: #ced4da;
+  --color-gray-500: #6c757d;
+  --color-gray-900: #212529;
+  
+  /* Spacing Scale */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 3rem;      /* 48px */
+  
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease-in-out;
+  --transition-medium: 0.3s ease-in-out;
+}
+
+/* Utility Classes */
+.stat-card {
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-medium);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card.primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #764ba2 100%);
+  color: white;
+}
+
+.stat-card.success {
+  background: linear-gradient(135deg, var(--color-success) 0%, #00f2fe 100%);
+  color: white;
+}
+
+.page-header {
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.data-table {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.quiz-card {
+  transition: transform var(--transition-medium), box-shadow var(--transition-medium);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+}
+
+.quiz-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Badge System */
+.badge-difficulty-easy { background-color: var(--color-success); }
+.badge-difficulty-medium { background-color: var(--color-warning); }
+.badge-difficulty-hard { background-color: var(--color-danger); }
+
+.badge-score-excellent { background-color: var(--color-success); }
+.badge-score-good { background-color: var(--color-info); }
+.badge-score-fair { background-color: var(--color-warning); }
+.badge-score-poor { background-color: var(--color-danger); }

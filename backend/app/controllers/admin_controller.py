@@ -22,10 +22,36 @@ def admin_required(f):
     return decorated_function
 
 # Dashboard Statistics
+@admin_bp.route('/dashboard/test', methods=['GET'])
+def test_dashboard_stats():
+    """Test endpoint without authentication for debugging"""
+    try:
+        # Basic counts
+        total_users = User.query.filter_by(is_admin=False).count()
+        total_subjects = Subject.query.filter_by(is_active=True).count()
+        total_quizzes = Quiz.query.filter_by(is_active=True).count()
+        total_attempts = QuizAttempt.query.filter_by(is_completed=True).count()
+        
+        simple_stats = {
+            'total_users': total_users,
+            'total_subjects': total_subjects,
+            'total_quizzes': total_quizzes,
+            'total_attempts': total_attempts,
+            'debug': 'This is a test endpoint'
+        }
+        
+        print(f"Test endpoint returning: {simple_stats}")
+        return jsonify(simple_stats), 200
+        
+    except Exception as e:
+        print(f"Test endpoint error: {e}")
+        return jsonify({'error': str(e), 'debug': 'Error in test endpoint'}), 500
+
 @admin_bp.route('/dashboard', methods=['GET'])
 @admin_required
 def get_dashboard_stats():
     try:
+        print("=== DASHBOARD ENDPOINT CALLED ===")
         # Check cache first
         cache_key = 'admin_dashboard_stats'
         cached_stats = None
@@ -40,6 +66,7 @@ def get_dashboard_stats():
         
         if cached_stats:
             try:
+                print("Returning cached data")
                 return jsonify(json.loads(cached_stats)), 200
             except:
                 print("Failed to parse cached data, regenerating...")
@@ -54,15 +81,31 @@ def get_dashboard_stats():
             total_questions = Question.query.count()
             total_attempts = QuizAttempt.query.filter_by(is_completed=True).count()
             active_users_today = User.query.filter(User.last_login >= datetime.utcnow().date()).count()
+            
+            # Additional user management stats
+            total_admins = User.query.filter_by(is_admin=True).count()
+            active_users_all = User.query.filter_by(is_active=True, is_admin=False).count()
+            inactive_users = User.query.filter_by(is_active=False, is_admin=False).count()
+            new_users_today = User.query.filter(
+                User.created_at >= datetime.utcnow().date(),
+                User.is_admin == False
+            ).count()
+            
+            print(f"Real database counts - Users: {total_users}, Subjects: {total_subjects}, Quizzes: {total_quizzes}, Questions: {total_questions}, Attempts: {total_attempts}")
+            print(f"User management stats - Admins: {total_admins}, Active: {active_users_all}, Inactive: {inactive_users}, New today: {new_users_today}")
         except Exception as e:
             print(f"Error getting basic counts: {e}")
-            # Provide defaults
+            # Use zero values when there's no data or errors
             total_users = 0
             total_subjects = 0
             total_quizzes = 0
             total_questions = 0
             total_attempts = 0
             active_users_today = 0
+            total_admins = 0
+            active_users_all = 0
+            inactive_users = 0
+            new_users_today = 0
         
         # Performance calculations with error handling
         average_score = 0
@@ -144,7 +187,7 @@ def get_dashboard_stats():
         try:
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
             active_users_30_days = db.session.query(User).join(QuizAttempt).filter(
-                QuizAttempt.created_at >= thirty_days_ago,
+                QuizAttempt.started_at >= thirty_days_ago,
                 User.is_admin == False
             ).distinct().count()
             
@@ -212,16 +255,52 @@ def get_dashboard_stats():
             'total_attempts': total_attempts,
             'active_users': active_users_today,
             'recent_attempts': recent_attempts_count,
+            'today_attempts': recent_attempts_count,  # Add for compatibility
+            'week_attempts': recent_attempts_count,   # Add for compatibility
             'average_score': average_score,
             'pass_rate': pass_rate,
-            'average_time': average_time,
+            'average_time_minutes': average_time,
             'retention_rate': retention_rate,
-            'subject_stats': subject_stats,
+            # User management specific stats
+            'total_admins': total_admins,
+            'active_users_all': active_users_all,
+            'inactive_users': inactive_users,
+            'new_users_today': new_users_today,
+            'subjects': subject_stats,
             'top_performers': top_performers,
-            'daily_trends': daily_trends
+            'daily_trends': daily_trends,
+            # Keep nested structure for advanced components
+            'stats': {
+                'total_users': total_users,
+                'total_subjects': total_subjects,
+                'total_quizzes': total_quizzes,
+                'total_questions': total_questions,
+                'total_attempts': total_attempts,
+                'active_users': active_users_today,
+                'recent_attempts': recent_attempts_count
+            },
+            'performance': {
+                'average_percentage': average_score,
+                'pass_rate': pass_rate,
+                'average_time_minutes': average_time,
+                'retention_rate': retention_rate
+            },
+            'engagement': {
+                'total_registered': total_users,
+                'active_users': active_users_today
+            },
+            # User management nested structure
+            'user_management': {
+                'total_users': total_users,
+                'total_admins': total_admins,
+                'active_users': active_users_all,
+                'inactive_users': inactive_users,
+                'new_users_today': new_users_today
+            }
         }
         
         print(f"Generated stats: {stats}")
+        print(f"Returning response with total_users: {stats['total_users']}, total_quizzes: {stats['total_quizzes']}")
         
         # Cache for 5 minutes with error handling
         try:
@@ -482,67 +561,56 @@ def create_quiz():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-# Question Management
-@admin_bp.route('/questions', methods=['POST'])
+# Quiz Status Management
+@admin_bp.route('/quizzes/<int:quiz_id>/toggle-status', methods=['PUT'])
 @admin_required
-def create_question():
+def toggle_quiz_status(quiz_id):
+    """Toggle quiz active status (admin only)"""
     try:
-        data = request.get_json()
-        
-        required_fields = ['quiz_id', 'question_text', 'option_a', 'option_b', 
-                          'option_c', 'option_d', 'correct_option']
-        if not all(field in data for field in required_fields):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        # Verify quiz exists
-        quiz = Quiz.query.get(data['quiz_id'])
+        quiz = Quiz.query.get(quiz_id)
         if not quiz:
             return jsonify({'error': 'Quiz not found'}), 404
         
-        # Validate correct option
-        if data['correct_option'].upper() not in ['A', 'B', 'C', 'D']:
-            return jsonify({'error': 'Correct option must be A, B, C, or D'}), 400
-        
-        question = Question(
-            quiz_id=data['quiz_id'],
-            question_text=data['question_text'],
-            option_a=data['option_a'],
-            option_b=data['option_b'],
-            option_c=data['option_c'],
-            option_d=data['option_d'],
-            correct_option=data['correct_option'].upper(),
-            explanation=data.get('explanation', ''),
-            marks=data.get('marks', 1)
-        )
-        
-        db.session.add(question)
+        # Toggle the active status
+        quiz.is_active = not quiz.is_active
         db.session.commit()
         
-        # Update quiz total marks
-        quiz.update_total_marks()
+        status = 'activated' if quiz.is_active else 'deactivated'
         
         return jsonify({
-            'message': 'Question created successfully',
-            'question': question.to_dict(include_answer=True)
-        }), 201
+            'message': f'Quiz {status} successfully',
+            'quiz': quiz.to_dict()
+        }), 200
         
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@admin_bp.route('/questions/<int:quiz_id>', methods=['GET'])
+@admin_bp.route('/quizzes/<int:quiz_id>/status', methods=['PUT'])
 @admin_required
-def get_quiz_questions(quiz_id):
+def update_quiz_status(quiz_id):
+    """Update quiz status (admin only)"""
     try:
-        quiz = Quiz.query.get_or_404(quiz_id)
-        questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        quiz = Quiz.query.get(quiz_id)
+        if not quiz:
+            return jsonify({'error': 'Quiz not found'}), 404
+        
+        data = request.get_json()
+        if 'is_active' not in data:
+            return jsonify({'error': 'is_active field required'}), 400
+        
+        quiz.is_active = data['is_active']
+        db.session.commit()
+        
+        status = 'activated' if quiz.is_active else 'deactivated'
         
         return jsonify({
-            'quiz': quiz.to_dict(),
-            'questions': [q.to_dict(include_answer=True) for q in questions]
+            'message': f'Quiz {status} successfully',
+            'quiz': quiz.to_dict()
         }), 200
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 # User Management
@@ -552,8 +620,37 @@ def get_users():
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '', type=str)
+        filter_type = request.args.get('filter', 'all', type=str)
         
-        users = User.query.filter_by(is_admin=False).paginate(
+        # Build the query
+        query = User.query.filter_by(is_admin=False)
+        
+        # Apply search filter
+        if search:
+            search_term = f'%{search}%'
+            query = query.filter(
+                db.or_(
+                    User.full_name.ilike(search_term),
+                    User.email.ilike(search_term)
+                )
+            )
+        
+        # Apply filter
+        if filter_type == 'active':
+            query = query.filter_by(is_active=True)
+        elif filter_type == 'inactive':
+            query = query.filter_by(is_active=False)
+        elif filter_type == 'admin':
+            query = User.query.filter_by(is_admin=True)
+        elif filter_type == 'user':
+            query = query.filter_by(is_admin=False)
+        
+        # Order by created_at descending
+        query = query.order_by(desc(User.created_at))
+        
+        # Paginate
+        users = query.paginate(
             page=page, per_page=per_page, error_out=False
         )
         
@@ -561,10 +658,80 @@ def get_users():
             'users': [user.to_dict() for user in users.items],
             'total': users.total,
             'pages': users.pages,
-            'current_page': page
+            'current_page': page,
+            'per_page': per_page
         }), 200
         
     except Exception as e:
+        print(f"Error in get_users: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/users/<int:user_id>', methods=['PUT'])
+@admin_required
+def update_user(user_id):
+    try:
+        user = User.query.get_or_404(user_id)
+        data = request.get_json()
+        
+        # Update user fields
+        if 'full_name' in data:
+            user.full_name = data['full_name']
+        if 'email' in data:
+            # Check if email is already taken
+            existing_user = User.query.filter_by(email=data['email']).first()
+            if existing_user and existing_user.id != user.id:
+                return jsonify({'error': 'Email already in use'}), 400
+            user.email = data['email']
+        if 'is_admin' in data:
+            user.is_admin = data['is_admin']
+        if 'is_active' in data:
+            user.is_active = data['is_active']
+        if 'password' in data and data['password']:
+            user.set_password(data['password'])
+        
+        user.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify(user.to_dict()), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/users/create', methods=['POST'])
+@admin_required
+def create_user():
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['full_name', 'email', 'password']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        # Check if email already exists
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user:
+            return jsonify({'error': 'Email already in use'}), 400
+        
+        # Create new user
+        user = User(
+            full_name=data['full_name'],
+            email=data['email'],
+            is_admin=data.get('is_admin', False),
+            is_active=data.get('is_active', True),
+            email_verified=True  # Admin-created users are verified by default
+        )
+        user.set_password(data['password'])
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify(user.to_dict()), 201
+        
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
@@ -880,37 +1047,173 @@ def get_system_settings():
 @admin_required
 def download_export_file(filename):
     """Download exported files"""
+    from app.utils.file_utils import safe_send_file, get_export_directory
+    
+    export_dir = get_export_directory()
+    return safe_send_file(export_dir, filename)
+
+
+@admin_bp.route('/user/<int:user_id>/analytics', methods=['GET'])
+@admin_required
+def get_user_analytics(user_id):
+    """Get analytics for any user (admin only)"""
     try:
-        from flask import send_from_directory, abort
+        # Verify user exists
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Get query parameters
+        days = request.args.get('days', 30, type=int)
+        subject_id = request.args.get('subject_id', type=int)
+        chapter_id = request.args.get('chapter_id', type=int)
         
-        # Security: Only allow files from exports directory and validate filename
-        export_dir = os.path.join(os.getcwd(), 'exports')
+        # Calculate date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
         
-        # Validate filename to prevent directory traversal
-        if '..' in filename or '/' in filename or '\\' in filename:
-            abort(400)
-            
-        # Check if file exists
-        file_path = os.path.join(export_dir, filename)
-        if not os.path.exists(file_path):
-            return jsonify({'error': 'File not found'}), 404
-            
-        # Determine mimetype based on extension
-        if filename.endswith('.pdf'):
-            mimetype = 'application/pdf'
-        elif filename.endswith('.csv'):
-            mimetype = 'text/csv'
-        elif filename.endswith('.json'):
-            mimetype = 'application/json'
-        else:
-            mimetype = 'application/octet-stream'
-            
-        return send_from_directory(
-            export_dir, 
-            filename, 
-            as_attachment=True,
-            mimetype=mimetype
+        # Build base query for quiz attempts
+        attempts_query = QuizAttempt.query.filter(
+            QuizAttempt.user_id == user_id,
+            QuizAttempt.is_completed == True,
+            QuizAttempt.completed_at >= start_date,
+            QuizAttempt.completed_at <= end_date
         )
+        
+        # Add filters if provided
+        if subject_id or chapter_id:
+            attempts_query = attempts_query.join(Quiz).join(Chapter)
+            if subject_id:
+                attempts_query = attempts_query.filter(Chapter.subject_id == subject_id)
+            if chapter_id:
+                attempts_query = attempts_query.filter(Quiz.chapter_id == chapter_id)
+        
+        attempts = attempts_query.order_by(QuizAttempt.completed_at.desc()).all()
+        
+        # Calculate basic stats
+        total_attempts = len(attempts)
+        total_score = sum(attempt.score for attempt in attempts)
+        total_possible = sum(attempt.total_marks for attempt in attempts)
+        average_score = (total_score / total_possible * 100) if total_possible > 0 else 0
+        
+        # Calculate trends (compare to previous period)
+        prev_start = start_date - timedelta(days=days)
+        prev_attempts_query = QuizAttempt.query.filter(
+            QuizAttempt.user_id == user_id,
+            QuizAttempt.is_completed == True,
+            QuizAttempt.completed_at >= prev_start,
+            QuizAttempt.completed_at < start_date
+        )
+        
+        if subject_id or chapter_id:
+            prev_attempts_query = prev_attempts_query.join(Quiz).join(Chapter)
+            if subject_id:
+                prev_attempts_query = prev_attempts_query.filter(Chapter.subject_id == subject_id)
+            if chapter_id:
+                prev_attempts_query = prev_attempts_query.filter(Quiz.chapter_id == chapter_id)
+        
+        prev_attempts = prev_attempts_query.all()
+        prev_total_score = sum(attempt.score for attempt in prev_attempts)
+        prev_total_possible = sum(attempt.total_marks for attempt in prev_attempts)
+        prev_average_score = (prev_total_score / prev_total_possible * 100) if prev_total_possible > 0 else 0
+        
+        score_trend = average_score - prev_average_score
+        
+        # Get recent performance by day
+        daily_performance = {}
+        for attempt in attempts:
+            day_key = attempt.completed_at.strftime('%Y-%m-%d')
+            if day_key not in daily_performance:
+                daily_performance[day_key] = {'attempts': 0, 'score': 0, 'possible': 0}
+            daily_performance[day_key]['attempts'] += 1
+            daily_performance[day_key]['score'] += attempt.score
+            daily_performance[day_key]['possible'] += attempt.total_marks
+        
+        # Convert to list and calculate percentages
+        performance_data = []
+        for day, data in sorted(daily_performance.items()):
+            percentage = (data['score'] / data['possible'] * 100) if data['possible'] > 0 else 0
+            performance_data.append({
+                'date': day,
+                'attempts': data['attempts'],
+                'percentage': round(percentage, 2)
+            })
+        
+        # Get subject/chapter breakdown
+        subject_performance = {}
+        for attempt in attempts:
+            if attempt.quiz and attempt.quiz.chapter and attempt.quiz.chapter.subject:
+                subject_name = attempt.quiz.chapter.subject.name
+                chapter_name = attempt.quiz.chapter.name
+                
+                if subject_name not in subject_performance:
+                    subject_performance[subject_name] = {
+                        'attempts': 0, 
+                        'score': 0, 
+                        'possible': 0,
+                        'chapters': {}
+                    }
+                
+                subject_performance[subject_name]['attempts'] += 1
+                subject_performance[subject_name]['score'] += attempt.score
+                subject_performance[subject_name]['possible'] += attempt.total_marks
+                
+                if chapter_name not in subject_performance[subject_name]['chapters']:
+                    subject_performance[subject_name]['chapters'][chapter_name] = {
+                        'attempts': 0, 'score': 0, 'possible': 0
+                    }
+                
+                subject_performance[subject_name]['chapters'][chapter_name]['attempts'] += 1
+                subject_performance[subject_name]['chapters'][chapter_name]['score'] += attempt.score
+                subject_performance[subject_name]['chapters'][chapter_name]['possible'] += attempt.total_marks
+        
+        # Convert to list with percentages
+        subjects_data = []
+        for subject_name, data in subject_performance.items():
+            percentage = (data['score'] / data['possible'] * 100) if data['possible'] > 0 else 0
+            
+            chapters_data = []
+            for chapter_name, chapter_data in data['chapters'].items():
+                chapter_percentage = (chapter_data['score'] / chapter_data['possible'] * 100) if chapter_data['possible'] > 0 else 0
+                chapters_data.append({
+                    'name': chapter_name,
+                    'attempts': chapter_data['attempts'],
+                    'percentage': round(chapter_percentage, 2)
+                })
+            
+            subjects_data.append({
+                'name': subject_name,
+                'attempts': data['attempts'],
+                'percentage': round(percentage, 2),
+                'chapters': chapters_data
+            })
+        
+        # Get question bank analytics for this user using QuestionBankService
+        from app.services.question_bank_service import QuestionBankService
+        question_bank_service = QuestionBankService()
+        question_analytics = question_bank_service.get_user_question_analytics(user_id, days=days)
+        
+        return jsonify({
+            'user': {
+                'id': user.id,
+                'full_name': user.full_name,
+                'email': user.email
+            },
+            'summary': {
+                'total_attempts': total_attempts,
+                'average_score': round(average_score, 2),
+                'score_trend': round(score_trend, 2),
+                'period_days': days
+            },
+            'daily_performance': performance_data,
+            'subject_performance': subjects_data,
+            'question_analytics': question_analytics,
+            'filters': {
+                'subject_id': subject_id,
+                'chapter_id': chapter_id,
+                'days': days
+            }
+        }), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

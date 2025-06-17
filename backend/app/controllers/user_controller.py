@@ -457,7 +457,6 @@ def upload_profile_picture():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-        return jsonify({'error': str(e)}), 500
 
 @user_bp.route('/profile/picture', methods=['DELETE'])
 @jwt_required()
@@ -494,41 +493,13 @@ def delete_profile_picture():
 @jwt_required()
 def download_user_export_file(filename):
     """Download user export files"""
-    try:
-        import os
-        from flask import send_from_directory, abort
-        
-        user = get_current_user()
-        export_dir = os.path.join(os.getcwd(), 'exports')
-        
-        # Security: Validate filename and ensure it belongs to this user
-        if '..' in filename or '/' in filename or '\\' in filename:
-            abort(400)
-            
-        # Check if file exists and belongs to this user
-        if not filename.startswith(f'user_{user.id}_'):
-            return jsonify({'error': 'Access denied'}), 403
-            
-        file_path = os.path.join(export_dir, filename)
-        if not os.path.exists(file_path):
-            return jsonify({'error': 'File not found'}), 404
-            
-        # Determine mimetype based on extension
-        if filename.endswith('.pdf'):
-            mimetype = 'application/pdf'
-        elif filename.endswith('.csv'):
-            mimetype = 'text/csv'
-        elif filename.endswith('.json'):
-            mimetype = 'application/json'
-        else:
-            mimetype = 'application/octet-stream'
-            
-        return send_from_directory(
-            export_dir, 
-            filename, 
-            as_attachment=True,
-            mimetype=mimetype
-        )
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    from app.utils.file_utils import safe_send_file, get_export_directory
+    
+    user = get_current_user()
+    export_dir = get_export_directory()
+    
+    # Access check function to ensure file belongs to this user
+    def user_access_check(filename):
+        return filename.startswith(f'user_{user.id}_')
+    
+    return safe_send_file(export_dir, filename, user_access_check)

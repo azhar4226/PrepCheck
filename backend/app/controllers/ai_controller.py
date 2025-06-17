@@ -1,14 +1,13 @@
 from flask import Blueprint, request, jsonify
-from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import User, Quiz, Question, Chapter
+from app.models import User, Quiz, Question, Chapter, QuestionBank
 from app.services.ai_service import AIService
+from app.services.question_bank_service import QuestionBankService
 # from app.tasks.verification_tasks import verify_and_store_quiz_task, verify_single_question_task
 from datetime import datetime
 import json
 import time
-from datetime import datetime
 
 ai_bp = Blueprint('ai', __name__)
 
@@ -65,7 +64,7 @@ def generate_quiz():
             chapter_id=data['chapter_id'],
             time_limit=data.get('time_limit', 60),
             is_ai_generated=True,
-            is_active=False  # Start as draft
+            is_active=True  # Make active immediately for user access
         )
         
         db.session.add(quiz)
@@ -153,6 +152,41 @@ def generate_quiz():
         
         quiz_data_response['questions'] = frontend_questions
         
+        # Store questions in question bank for future reuse
+        print("🏦 Storing questions in question bank...")
+        question_bank_start = time.time()
+        
+        # Prepare tags for categorization
+        tags = [data['topic'], f"quiz_{quiz.id}"]
+        if data.get('context'):
+            tags.append('contextual')
+        
+        try:
+            # Store all valid questions in the question bank
+            question_bank_result = QuestionBankService.bulk_store_ai_questions(
+                questions_data=valid_questions,
+                topic=data['topic'],
+                difficulty=data['difficulty'],
+                chapter_id=data['chapter_id'],
+                tags=tags
+            )
+            
+            question_bank_time = time.time() - question_bank_start
+            print(f"🏦 Question bank storage completed in {question_bank_time:.2f}s")
+            print(f"   - New questions: {question_bank_result['new_questions']}")
+            print(f"   - Duplicates: {question_bank_result['duplicate_questions']}")
+            print(f"   - Failed: {question_bank_result['failed_questions']}")
+            
+        except Exception as e:
+            # Don't fail the entire request if question bank storage fails
+            print(f"⚠️ Question bank storage failed: {str(e)}")
+            question_bank_result = {
+                'error': str(e),
+                'new_questions': 0,
+                'duplicate_questions': 0,
+                'failed_questions': len(valid_questions)
+            }
+        
         return jsonify({
             'message': 'Quiz generated successfully',  # (verification temporarily disabled)
             'quiz': quiz_data_response,
@@ -164,6 +198,14 @@ def generate_quiz():
                 'confidence_score': quiz_data.get('confidence', 0.8),
                 'generation_time': total_time,
                 'questions_count': len(questions_to_add)
+            },
+            'question_bank': {
+                'storage_status': 'success' if 'error' not in question_bank_result else 'failed',
+                'new_questions_stored': question_bank_result.get('new_questions', 0),
+                'duplicate_questions_found': question_bank_result.get('duplicate_questions', 0),
+                'failed_questions': question_bank_result.get('failed_questions', 0),
+                'total_processed': question_bank_result.get('total_questions', len(valid_questions)),
+                'error': question_bank_result.get('error')
             }
         }), 201
         
@@ -231,6 +273,59 @@ def verify_answers():
         valid_questions = [r for r in verification_results if r.get('is_valid', False)]
         validity_score = len(valid_questions) / len(verification_results) if verification_results else 0
         
+        # Update question bank with verification results
+        print("🔍 Updating question bank with verification results...")
+        question_bank_updates = {
+            'verified_questions': 0,
+            'failed_verifications': 0,
+            'errors': []
+        }
+        
+        current_user_id = get_jwt_identity()
+        
+        for result in verification_results:
+            try:
+                # Find corresponding question bank entry
+                question = Question.query.get(result['question_id'])
+                if question:
+                    # Find in question bank by content
+                    question_bank_entry = QuestionBankService.check_duplicate(
+                        question.question_text,
+                        {
+                            'A': question.option_a,
+                            'B': question.option_b,
+                            'C': question.option_c,
+                            'D': question.option_d
+                        },
+                        question.correct_option
+                    )
+                    
+                    if question_bank_entry:
+                        if result['is_valid']:
+                            # Update question bank with verification
+                            QuestionBankService.verify_question(
+                                question_bank_id=question_bank_entry.id,
+                                verification_method='gemini',
+                                confidence=result['confidence'],
+                                verified_by_user_id=int(current_user_id),
+                                notes=result.get('ai_explanation', '')
+                            )
+                            question_bank_updates['verified_questions'] += 1
+                        else:
+                            # Mark as failed verification
+                            question_bank_entry.verification_status = 'failed'
+                            question_bank_entry.verification_notes = result.get('error', 'Failed AI verification')
+                            db.session.commit()
+                            question_bank_updates['failed_verifications'] += 1
+                            
+            except Exception as e:
+                question_bank_updates['errors'].append({
+                    'question_id': result['question_id'],
+                    'error': str(e)
+                })
+        
+        print(f"✅ Question bank updated - Verified: {question_bank_updates['verified_questions']}, Failed: {question_bank_updates['failed_verifications']}")
+        
         return jsonify({
             'quiz_id': quiz.id,
             'quiz_title': quiz.title,
@@ -240,7 +335,8 @@ def verify_answers():
                 'valid_questions': len(valid_questions),
                 'validity_score': round(validity_score * 100, 2),
                 'needs_review': validity_score < 0.8
-            }
+            },
+            'question_bank_updates': question_bank_updates
         }), 200
         
     except Exception as e:

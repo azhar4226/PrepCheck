@@ -2,6 +2,7 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 import json
+from typing import Dict, Optional
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -306,3 +307,363 @@ class QuizAttempt(db.Model):
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'is_completed': self.is_completed
         }
+
+class StudyMaterial(db.Model):
+    __tablename__ = 'study_materials'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    content = db.Column(db.Text)  # For text-based materials
+    material_type = db.Column(db.String(20), nullable=False)  # document, video, audio, link, text
+    file_path = db.Column(db.String(500))  # For uploaded files
+    url = db.Column(db.String(500))  # For external links
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    chapter = db.relationship('Chapter', backref='study_materials')
+    creator = db.relationship('User', backref='created_study_materials')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'content': self.content,
+            'material_type': self.material_type,
+            'file_path': self.file_path,
+            'url': self.url,
+            'chapter_id': self.chapter_id,
+            'created_by': self.created_by,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+class QuestionPerformance(db.Model):
+    """Track performance analytics for each question attempt"""
+    __tablename__ = 'question_performance'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    question_bank_id = db.Column(db.Integer, db.ForeignKey('question_bank.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    quiz_attempt_id = db.Column(db.Integer, db.ForeignKey('quiz_attempts.id'))
+    
+    # Answer data
+    selected_option = db.Column(db.String(1), nullable=False)  # A, B, C, or D
+    is_correct = db.Column(db.Boolean, nullable=False)
+    time_taken = db.Column(db.Integer)  # Time in seconds
+    
+    # Context
+    difficulty_at_time = db.Column(db.String(20))  # Difficulty when answered
+    topic_at_time = db.Column(db.String(200))  # Topic when answered
+    
+    # Timestamps
+    answered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    question_bank = db.relationship('QuestionBank', backref='performance_history')
+    user = db.relationship('User', backref='question_performances')
+    quiz_attempt = db.relationship('QuizAttempt', backref='question_performances')
+    
+    def __repr__(self):
+        return f'<QuestionPerformance {self.id}: Q{self.question_bank_id} U{self.user_id}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'question_bank_id': self.question_bank_id,
+            'user_id': self.user_id,
+            'quiz_attempt_id': self.quiz_attempt_id,
+            'selected_option': self.selected_option,
+            'is_correct': self.is_correct,
+            'time_taken': self.time_taken,
+            'difficulty_at_time': self.difficulty_at_time,
+            'topic_at_time': self.topic_at_time,
+            'answered_at': self.answered_at.isoformat() if self.answered_at else None
+        }
+    
+    @classmethod
+    def get_question_stats(cls, question_bank_id: int) -> Dict:
+        """Get performance statistics for a specific question"""
+        from sqlalchemy import func
+        
+        performances = cls.query.filter_by(question_bank_id=question_bank_id)
+        total_attempts = performances.count()
+        
+        if total_attempts == 0:
+            return {
+                'total_attempts': 0,
+                'success_rate': 0,
+                'average_time': 0,
+                'difficulty_perception': 'unknown'
+            }
+        
+        correct_attempts = performances.filter_by(is_correct=True).count()
+        success_rate = (correct_attempts / total_attempts) * 100
+        
+        # Average time taken
+        avg_time_result = performances.with_entities(func.avg(cls.time_taken)).scalar()
+        average_time = int(avg_time_result) if avg_time_result else 0
+        
+        # Difficulty perception based on success rate
+        if success_rate >= 80:
+            difficulty_perception = 'easy'
+        elif success_rate >= 60:
+            difficulty_perception = 'medium'
+        else:
+            difficulty_perception = 'hard'
+        
+        return {
+            'total_attempts': total_attempts,
+            'success_rate': round(success_rate, 2),
+            'average_time': average_time,
+            'difficulty_perception': difficulty_perception
+        }
+    
+    @classmethod
+    def get_user_performance(cls, user_id: int, question_bank_id: Optional[int] = None) -> Dict:
+        """Get performance statistics for a user, optionally for a specific question"""
+        query = cls.query.filter_by(user_id=user_id)
+        
+        if question_bank_id:
+            query = query.filter_by(question_bank_id=question_bank_id)
+        
+        performances = query.all()
+        total_attempts = len(performances)
+        
+        if total_attempts == 0:
+            return {
+                'total_attempts': 0,
+                'success_rate': 0,
+                'average_time': 0,
+                'strong_topics': [],
+                'weak_topics': []
+            }
+        
+        correct_attempts = len([p for p in performances if p.is_correct])
+        success_rate = (correct_attempts / total_attempts) * 100
+        
+        # Average time
+        times = [p.time_taken for p in performances if p.time_taken is not None]
+        average_time = sum(times) // len(times) if times else 0
+        
+        # Topic analysis
+        topic_stats = {}
+        for perf in performances:
+            topic = perf.topic_at_time or 'Unknown'
+            if topic not in topic_stats:
+                topic_stats[topic] = {'correct': 0, 'total': 0}
+            topic_stats[topic]['total'] += 1
+            if perf.is_correct:
+                topic_stats[topic]['correct'] += 1
+        
+        # Calculate topic success rates
+        topic_rates = {}
+        for topic, stats in topic_stats.items():
+            topic_rates[topic] = (stats['correct'] / stats['total']) * 100 if stats['total'] > 0 else 0
+        
+        # Identify strong and weak topics
+        strong_topics = [topic for topic, rate in topic_rates.items() if rate >= 75 and topic_stats[topic]['total'] >= 3]
+        weak_topics = [topic for topic, rate in topic_rates.items() if rate <= 50 and topic_stats[topic]['total'] >= 3]
+        
+        return {
+            'total_attempts': total_attempts,
+            'success_rate': round(success_rate, 2),
+            'average_time': average_time,
+            'strong_topics': strong_topics[:5],  # Top 5
+            'weak_topics': weak_topics[:5]  # Bottom 5
+        }
+
+class QuestionBank(db.Model):
+    __tablename__ = 'question_bank'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    question_text = db.Column(db.Text, nullable=False)
+    option_a = db.Column(db.String(500), nullable=False)
+    option_b = db.Column(db.String(500), nullable=False)
+    option_c = db.Column(db.String(500), nullable=False)
+    option_d = db.Column(db.String(500), nullable=False)
+    correct_option = db.Column(db.String(1), nullable=False)  # A, B, C, or D
+    explanation = db.Column(db.Text)
+    marks = db.Column(db.Integer, default=1)
+    
+    # Question bank specific fields
+    topic = db.Column(db.String(200), nullable=False)  # Topic/subject area
+    difficulty = db.Column(db.String(20), nullable=False)  # easy, medium, hard
+    source = db.Column(db.String(50), default='ai_generated')  # ai_generated, manual, imported
+    tags = db.Column(db.Text)  # JSON array of tags for categorization
+    
+    # Verification fields
+    is_verified = db.Column(db.Boolean, default=False)
+    verification_method = db.Column(db.String(50))  # gemini, manual, peer_review
+    verification_confidence = db.Column(db.Float)
+    verification_notes = db.Column(db.Text)
+    verified_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    verified_at = db.Column(db.DateTime)
+    
+    # Metadata
+    usage_count = db.Column(db.Integer, default=0)  # How many times used in quizzes
+    last_used = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Content hash for deduplication
+    content_hash = db.Column(db.String(64), unique=True, nullable=False)
+    
+    # Relationships
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
+    chapter = db.relationship('Chapter', backref='question_bank_questions')
+    verified_by_user = db.relationship('User', backref='verified_questions')
+    
+    def __repr__(self):
+        return f'<QuestionBank {self.id}: {self.topic}>'
+    
+    def to_dict(self, include_answer=False):
+        data = {
+            'id': self.id,
+            'question_text': self.question_text,
+            'option_a': self.option_a,
+            'option_b': self.option_b,
+            'option_c': self.option_c,
+            'option_d': self.option_d,
+            'marks': self.marks,
+            'topic': self.topic,
+            'difficulty': self.difficulty,
+            'source': self.source,
+            'tags': json.loads(self.tags) if self.tags else [],
+            'is_verified': self.is_verified,
+            'verification_method': self.verification_method,
+            'verification_confidence': self.verification_confidence,
+            'verification_notes': self.verification_notes,
+            'usage_count': self.usage_count,
+            'last_used': self.last_used.isoformat() if self.last_used else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'chapter_id': self.chapter_id
+        }
+        
+        if include_answer:
+            data['correct_option'] = self.correct_option
+            data['explanation'] = self.explanation
+            
+        return data
+    
+    def set_tags(self, tags_list):
+        """Set tags as JSON array"""
+        self.tags = json.dumps(tags_list) if tags_list else None
+    
+    def get_tags(self):
+        """Get tags as list"""
+        return json.loads(self.tags) if self.tags else []
+    
+    def generate_content_hash(self):
+        """Generate hash for deduplication based on question content"""
+        import hashlib
+        content = f"{self.question_text}{self.option_a}{self.option_b}{self.option_c}{self.option_d}{self.correct_option}"
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+    
+    def mark_verified(self, method, confidence, verified_by_user_id, notes=None):
+        """Mark question as verified"""
+        self.is_verified = True
+        self.verification_method = method
+        self.verification_confidence = confidence
+        self.verified_by = verified_by_user_id
+        self.verification_notes = notes
+        self.verified_at = datetime.utcnow()
+    
+    def increment_usage(self):
+        """Increment usage count and update last used timestamp"""
+        self.usage_count += 1
+        self.last_used = datetime.utcnow()
+    
+    @classmethod
+    def find_duplicates(cls, question_text, options):
+        """Find potential duplicate questions based on content hash"""
+        import hashlib
+        content = f"{question_text}{options['A']}{options['B']}{options['C']}{options['D']}"
+        content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+        return cls.query.filter_by(content_hash=content_hash).first()
+    
+    @classmethod
+    def search_by_topic_and_difficulty(cls, topic=None, difficulty=None, verified_only=True, limit=None):
+        """Search question bank by topic and difficulty"""
+        query = cls.query
+        
+        if verified_only:
+            query = query.filter_by(is_verified=True)
+        if topic:
+            query = query.filter(cls.topic.ilike(f'%{topic}%'))
+        if difficulty:
+            query = query.filter_by(difficulty=difficulty)
+            
+        query = query.order_by(cls.usage_count.asc(), cls.created_at.desc())
+        
+        if limit:
+            query = query.limit(limit)
+            
+        return query.all()
+    
+    def get_performance_stats(self):
+        """Get performance statistics for this question"""
+        from sqlalchemy import func
+        
+        # Import here to avoid any potential circular import issues
+        performances = db.session.query(QuestionPerformance).filter_by(question_bank_id=self.id)
+        
+        total_attempts = performances.count()
+        if total_attempts == 0:
+            return {
+                'total_attempts': 0,
+                'success_rate': 0,
+                'average_time': 0,
+                'difficulty_rating': self.difficulty
+            }
+        
+        correct_attempts = performances.filter_by(is_correct=True).count()
+        success_rate = (correct_attempts / total_attempts) * 100
+        
+        # Average time taken
+        avg_time_result = performances.with_entities(func.avg(QuestionPerformance.time_taken)).scalar()
+        average_time = int(avg_time_result) if avg_time_result else 0
+        
+        return {
+            'total_attempts': total_attempts,
+            'success_rate': round(success_rate, 2),
+            'average_time': average_time,
+            'difficulty_rating': self.difficulty,
+            'last_used': self.last_used.isoformat() if self.last_used else None
+        }
+    
+    def needs_review(self, min_attempts=10, min_success_rate=60):
+        """Check if question needs review based on performance"""
+        stats = self.get_performance_stats()
+        return (stats['total_attempts'] >= min_attempts and 
+                stats['success_rate'] < min_success_rate)
+    
+    def get_usage_trends(self, days=30):
+        """Get usage trends over specified days"""
+        from sqlalchemy import func, and_
+        from datetime import timedelta
+        
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        daily_usage = db.session.query(
+            func.date(QuestionPerformance.answered_at).label('date'),
+            func.count(QuestionPerformance.id).label('count')
+        ).filter(
+            and_(
+                QuestionPerformance.question_bank_id == self.id,
+                QuestionPerformance.answered_at >= start_date,
+                QuestionPerformance.answered_at <= end_date
+            )
+        ).group_by(func.date(QuestionPerformance.answered_at)).all()
+        
+        return [{'date': str(usage.date), 'count': usage.count} for usage in daily_usage]
+
+

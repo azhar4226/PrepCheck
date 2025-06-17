@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import axios from 'axios'
+import api from '@/services/api.js'
 
 // Shared state
 const user = ref(null)
@@ -36,46 +37,8 @@ const setAuthHeader = (authToken) => {
   }
 }
 
-// Create axios instance with base configuration
-const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' 
-    ? 'http://localhost:8000'  // Docker backend URL
-    : 'http://localhost:5000', // Development backend URL
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-})
-
-// Request interceptor to add token
-api.interceptors.request.use(
-  (config) => {
-    const authToken = token.value || localStorage.getItem('prepcheck_token')
-    if (authToken) {
-      config.headers.Authorization = `Bearer ${authToken}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
-
-// Response interceptor to handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
-      logout()
-      // Redirect to login page if not already there
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
-      }
-    }
-    return Promise.reject(error)
-  }
-)
+// Request interceptor is already set up in the API service
+// Response interceptor is already set up in the API service
 
 export function useAuth() {
   // Computed properties
@@ -88,10 +51,11 @@ export function useAuth() {
     try {
       loading.value = true
       
-      const response = await api.post('/api/auth/login', credentials)
+      const response = await api.login(credentials)
       
-      if (response.data.success) {
-        const { token: authToken, user: userData } = response.data.data
+      if (response.access_token) {
+        const authToken = response.access_token
+        const userData = response.user
         
         // Store in reactive state
         token.value = authToken
@@ -106,7 +70,7 @@ export function useAuth() {
         
         return { success: true, user: userData }
       } else {
-        throw new Error(response.data.message || 'Login failed')
+        throw new Error(response.message || 'Login failed')
       }
     } catch (error) {
       console.error('Login error:', error)
@@ -124,10 +88,11 @@ export function useAuth() {
     try {
       loading.value = true
       
-      const response = await api.post('/api/auth/register', registrationData)
+      const response = await api.register(registrationData)
       
-      if (response.data.success) {
-        const { token: authToken, user: userData } = response.data.data
+      if (response.access_token) {
+        const authToken = response.access_token
+        const userData = response.user
         
         // Store in reactive state
         token.value = authToken
@@ -142,7 +107,7 @@ export function useAuth() {
         
         return { success: true, user: userData }
       } else {
-        throw new Error(response.data.message || 'Registration failed')
+        throw new Error(response.message || 'Registration failed')
       }
     } catch (error) {
       console.error('Registration error:', error)
@@ -160,7 +125,7 @@ export function useAuth() {
     try {
       // Try to call logout endpoint
       if (token.value) {
-        await api.post('/api/auth/logout')
+        await api.post('/api/auth/logout', {})
       }
     } catch (error) {
       console.error('Logout error:', error)
@@ -185,8 +150,8 @@ export function useAuth() {
       
       const response = await api.put('/api/auth/profile', profileData)
       
-      if (response.data.success) {
-        const updatedUser = response.data.data
+      if (response.success) {
+        const updatedUser = response.data
         
         // Update reactive state
         user.value = updatedUser
@@ -196,7 +161,7 @@ export function useAuth() {
         
         return { success: true, user: updatedUser }
       } else {
-        throw new Error(response.data.message || 'Profile update failed')
+        throw new Error(response.message || 'Profile update failed')
       }
     } catch (error) {
       console.error('Profile update error:', error)
@@ -216,10 +181,10 @@ export function useAuth() {
       
       const response = await api.put('/api/auth/password', passwordData)
       
-      if (response.data.success) {
+      if (response.success) {
         return { success: true, message: 'Password changed successfully' }
       } else {
-        throw new Error(response.data.message || 'Password change failed')
+        throw new Error(response.message || 'Password change failed')
       }
     } catch (error) {
       console.error('Password change error:', error)
@@ -241,8 +206,8 @@ export function useAuth() {
       
       const response = await api.get('/api/auth/me')
       
-      if (response.data.success) {
-        const userData = response.data.data
+      if (response.success) {
+        const userData = response.data
         
         // Update reactive state
         user.value = userData
@@ -252,7 +217,7 @@ export function useAuth() {
         
         return { success: true, user: userData }
       } else {
-        throw new Error(response.data.message || 'Failed to refresh user data')
+        throw new Error(response.message || 'Failed to refresh user data')
       }
     } catch (error) {
       console.error('Refresh user error:', error)

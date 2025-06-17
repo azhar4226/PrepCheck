@@ -47,6 +47,10 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
+    
+    # Import models to ensure they are registered with SQLAlchemy
+    from app.models import User, Subject, Chapter, Quiz, Question, QuizAttempt, StudyMaterial, QuestionBank, QuestionPerformance
+    
     jwt.init_app(app)
     
     # Configure CORS properly
@@ -70,6 +74,9 @@ def create_app(config_name=None):
     from app.controllers.ai_controller import ai_bp
     from app.controllers.analytics_controller import analytics_bp
     from app.controllers.notifications_controller import notifications_bp
+    from app.controllers.question_controller import question_bp
+    from app.controllers.study_material_controller import study_material_bp
+    from app.controllers.question_bank_controller import question_bank_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
@@ -78,6 +85,9 @@ def create_app(config_name=None):
     app.register_blueprint(ai_bp, url_prefix='/api/ai')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(question_bp, url_prefix='/api/admin/questions')
+    app.register_blueprint(study_material_bp, url_prefix='/api/study-materials')
+    app.register_blueprint(question_bank_bp, url_prefix='/api/admin/question-bank')
     
     # Serve uploaded files
     from flask import send_from_directory
@@ -87,9 +97,17 @@ def create_app(config_name=None):
         uploads_path = os.path.join(app.root_path, '..', 'uploads')
         return send_from_directory(uploads_path, filename)
     
-    # Create tables and seed admin user
+    # Create tables and apply migrations
     with app.app_context():
         db.create_all()
+        
+        # Apply database migrations if needed
+        try:
+            from app.utils.migrate import apply_migrations
+            apply_migrations()
+        except Exception as e:
+            print(f"Migration error (this is normal for new databases): {e}")
+        
         from app.utils.seed_data import seed_admin_user
         seed_admin_user()
     

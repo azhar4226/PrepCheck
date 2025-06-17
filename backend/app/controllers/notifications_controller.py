@@ -1,13 +1,62 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from app import db
 from app.models import User, Quiz, QuizAttempt
 import json
+import os
 
 notifications_bp = Blueprint('notifications', __name__)
 
 class NotificationService:
+    @staticmethod
+    def get_read_notifications_file(user_id):
+        """Get path to read notifications file for a user"""
+        read_dir = os.path.join('instance', 'read_notifications')
+        os.makedirs(read_dir, exist_ok=True)
+        return os.path.join(read_dir, f"user_{user_id}.json")
+    
+    @staticmethod
+    def get_read_notifications(user_id):
+        """Get set of read notification IDs for a user"""
+        try:
+            file_path = NotificationService.get_read_notifications_file(user_id)
+            if os.path.exists(file_path):
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                    return set(data.get('read_notifications', []))
+        except:
+            pass
+        return set()
+    
+    @staticmethod
+    def mark_notification_read(user_id, notification_id):
+        """Mark a notification as read"""
+        try:
+            file_path = NotificationService.get_read_notifications_file(user_id)
+            read_notifications = NotificationService.get_read_notifications(user_id)
+            read_notifications.add(notification_id)
+            
+            with open(file_path, 'w') as f:
+                json.dump({'read_notifications': list(read_notifications)}, f)
+            return True
+        except:
+            return False
+    
+    @staticmethod
+    def mark_all_notifications_read(user_id, notification_ids):
+        """Mark multiple notifications as read"""
+        try:
+            file_path = NotificationService.get_read_notifications_file(user_id)
+            read_notifications = NotificationService.get_read_notifications(user_id)
+            read_notifications.update(notification_ids)
+            
+            with open(file_path, 'w') as f:
+                json.dump({'read_notifications': list(read_notifications)}, f)
+            return True
+        except:
+            return False
+
     @staticmethod
     def create_notification(user_id, title, message, type='info', data=None):
         """Create a new notification for a user"""
@@ -29,6 +78,9 @@ class NotificationService:
     @staticmethod
     def get_user_notifications(user_id, limit=20):
         """Get notifications for a user"""
+        # Get read notification IDs
+        read_notifications = NotificationService.get_read_notifications(user_id)
+        
         # For demo purposes, create some sample notifications
         notifications = []
         
@@ -57,13 +109,14 @@ class NotificationService:
                 title = '📚 Keep Practicing!'
                 message = f'You scored {percentage}% on {attempt.quiz.title}. Review the topics and try again!'
             
+            notification_id = f"quiz_{attempt.id}"
             notifications.append({
-                'id': f"quiz_{attempt.id}",
+                'id': notification_id,
                 'title': title,
                 'message': message,
                 'type': notification_type,
                 'created_at': attempt.completed_at.isoformat(),
-                'read': False,
+                'read': notification_id in read_notifications,
                 'data': {
                     'quiz_id': attempt.quiz_id,
                     'attempt_id': attempt.id,
@@ -78,36 +131,40 @@ class NotificationService:
         ).count()
         
         if total_attempts == 1:
+            notification_id = f"achievement_first_quiz_{user_id}"
             notifications.append({
-                'id': f"achievement_first_quiz_{user_id}",
+                'id': notification_id,
                 'title': '🎯 First Quiz Complete!',
                 'message': 'Congratulations on completing your first quiz!',
                 'type': 'success',
                 'created_at': (datetime.utcnow() - timedelta(days=1)).isoformat(),
-                'read': False,
+                'read': notification_id in read_notifications,
                 'data': {'achievement': 'first_quiz'}
             })
-        elif total_attempts == 10:
+        elif total_attempts >= 10:
+            notification_id = f"achievement_10_quizzes_{user_id}"
             notifications.append({
-                'id': f"achievement_10_quizzes_{user_id}",
+                'id': notification_id,
                 'title': '🏆 Quiz Master!',
                 'message': 'Amazing! You\'ve completed 10 quizzes!',
                 'type': 'success',
                 'created_at': (datetime.utcnow() - timedelta(hours=2)).isoformat(),
-                'read': False,
+                'read': notification_id in read_notifications,
                 'data': {'achievement': '10_quizzes'}
             })
         
-        # Study streak notifications
-        notifications.append({
-            'id': f"streak_{user_id}",
-            'title': '🔥 Study Streak!',
-            'message': 'You\'re on a 3-day study streak! Keep it up!',
-            'type': 'info',
-            'created_at': (datetime.utcnow() - timedelta(hours=6)).isoformat(),
-            'read': False,
-            'data': {'streak_days': 3}
-        })
+        # Study streak notifications (only if user has some activity)
+        if total_attempts > 0:
+            notification_id = f"streak_{user_id}"
+            notifications.append({
+                'id': notification_id,
+                'title': '🔥 Study Streak!',
+                'message': 'You\'re on a 3-day study streak! Keep it up!',
+                'type': 'info',
+                'created_at': (datetime.utcnow() - timedelta(hours=6)).isoformat(),
+                'read': notification_id in read_notifications,
+                'data': {'streak_days': 3}
+            })
         
         # Sort by created_at descending
         notifications.sort(key=lambda x: x['created_at'], reverse=True)
@@ -140,10 +197,13 @@ def mark_notification_read(notification_id):
     try:
         user_id = int(get_jwt_identity())
         
-        # In a real implementation, you'd update the notification in the database
-        # For now, we'll just return success
+        # Mark the notification as read
+        success = NotificationService.mark_notification_read(user_id, notification_id)
         
-        return jsonify({'message': 'Notification marked as read'}), 200
+        if success:
+            return jsonify({'message': 'Notification marked as read'}), 200
+        else:
+            return jsonify({'error': 'Failed to mark notification as read'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -155,10 +215,17 @@ def mark_all_notifications_read():
     try:
         user_id = int(get_jwt_identity())
         
-        # In a real implementation, you'd update all notifications in the database
-        # For now, we'll just return success
+        # Get all current notifications to mark them as read
+        notifications = NotificationService.get_user_notifications(user_id)
+        notification_ids = [n['id'] for n in notifications]
         
-        return jsonify({'message': 'All notifications marked as read'}), 200
+        # Mark all as read
+        success = NotificationService.mark_all_notifications_read(user_id, notification_ids)
+        
+        if success:
+            return jsonify({'message': 'All notifications marked as read'}), 200
+        else:
+            return jsonify({'error': 'Failed to mark all notifications as read'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

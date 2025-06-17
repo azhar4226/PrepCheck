@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import desc
 from app import db, redis_client
 from app.models import User, Quiz, Question, QuizAttempt, Subject, Chapter
+from app.services.quiz_performance_integration_service import QuizPerformanceIntegrationService
+from app.services.question_bank_service import QuestionBankService
 import json
 
 quiz_bp = Blueprint('quiz', __name__)
@@ -41,45 +43,7 @@ def browse_quizzes():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@quiz_bp.route('/subjects', methods=['GET'])
-@jwt_required()
-def get_quiz_subjects():
-    """Get all subjects that have quizzes"""
-    try:
-        user = get_current_user()
-        if not user or not user.is_active:
-            return jsonify({'error': 'User not found'}), 404
-        
-        subjects = Subject.query.filter_by(is_active=True).all()
-        subject_list = [subject.to_dict() for subject in subjects]
-        
-        return jsonify({
-            'subjects': subject_list,
-            'total': len(subject_list)
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@quiz_bp.route('/chapters', methods=['GET'])
-@jwt_required()
-def get_quiz_chapters():
-    """Get all chapters that have quizzes"""
-    try:
-        user = get_current_user()
-        if not user or not user.is_active:
-            return jsonify({'error': 'User not found'}), 404
-        
-        chapters = Chapter.query.filter_by(is_active=True).all()
-        chapter_list = [chapter.to_dict() for chapter in chapters]
-        
-        return jsonify({
-            'chapters': chapter_list,
-            'total': len(chapter_list)
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @quiz_bp.route('/<int:quiz_id>/start', methods=['POST'])
 @jwt_required()
@@ -186,13 +150,20 @@ def submit_quiz(quiz_id):
         
         db.session.commit()
         
+        # Track performance in question bank
+        performance_tracking = QuizPerformanceIntegrationService.track_quiz_attempt_performance(
+            attempt=attempt,
+            question_time_data=data.get('question_times', {})
+        )
+        
         # Get detailed results
         results = get_quiz_results(attempt)
         
         return jsonify({
             'message': 'Quiz submitted successfully',
             'attempt': attempt.to_dict(),
-            'results': results
+            'results': results,
+            'performance_tracking': performance_tracking
         }), 200
         
     except Exception as e:
@@ -231,9 +202,16 @@ def save_quiz_progress(quiz_id):
             attempt.calculate_score()
             db.session.commit()
             
+            # Track performance in question bank for auto-submitted quiz
+            performance_tracking = QuizPerformanceIntegrationService.track_quiz_attempt_performance(
+                attempt=attempt,
+                question_time_data=data.get('question_times', {})
+            )
+            
             return jsonify({
                 'message': 'Quiz auto-submitted due to time limit',
-                'attempt': attempt.to_dict()
+                'attempt': attempt.to_dict(),
+                'performance_tracking': performance_tracking
             }), 200
         
         # Save progress
@@ -356,6 +334,165 @@ def preview_quiz(quiz_id):
         )
         
         return jsonify(quiz_info), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@quiz_bp.route('/user-analytics', methods=['GET'])
+@jwt_required()
+def get_user_analytics():
+    """Get user performance analytics including question bank data"""
+    try:
+        user = get_current_user()
+        if not user or not user.is_active:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Get query parameters
+        days = request.args.get('days', 30, type=int)
+        subject_id = request.args.get('subject_id', type=int)
+        chapter_id = request.args.get('chapter_id', type=int)
+        
+        # Calculate date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Build base query for quiz attempts
+        attempts_query = QuizAttempt.query.filter(
+            QuizAttempt.user_id == user.id,
+            QuizAttempt.is_completed == True,
+            QuizAttempt.completed_at >= start_date,
+            QuizAttempt.completed_at <= end_date
+        )
+        
+        # Add filters if provided
+        if subject_id or chapter_id:
+            attempts_query = attempts_query.join(Quiz).join(Chapter)
+            if subject_id:
+                attempts_query = attempts_query.filter(Chapter.subject_id == subject_id)
+            if chapter_id:
+                attempts_query = attempts_query.filter(Quiz.chapter_id == chapter_id)
+        
+        attempts = attempts_query.order_by(QuizAttempt.completed_at.desc()).all()
+        
+        # Calculate basic stats
+        total_attempts = len(attempts)
+        total_score = sum(attempt.score for attempt in attempts)
+        total_possible = sum(attempt.total_marks for attempt in attempts)
+        average_score = (total_score / total_possible * 100) if total_possible > 0 else 0
+        
+        # Calculate trends (compare to previous period)
+        prev_start = start_date - timedelta(days=days)
+        prev_attempts_query = QuizAttempt.query.filter(
+            QuizAttempt.user_id == user.id,
+            QuizAttempt.is_completed == True,
+            QuizAttempt.completed_at >= prev_start,
+            QuizAttempt.completed_at < start_date
+        )
+        
+        if subject_id or chapter_id:
+            prev_attempts_query = prev_attempts_query.join(Quiz).join(Chapter)
+            if subject_id:
+                prev_attempts_query = prev_attempts_query.filter(Chapter.subject_id == subject_id)
+            if chapter_id:
+                prev_attempts_query = prev_attempts_query.filter(Quiz.chapter_id == chapter_id)
+        
+        prev_attempts = prev_attempts_query.all()
+        prev_total_score = sum(attempt.score for attempt in prev_attempts)
+        prev_total_possible = sum(attempt.total_marks for attempt in prev_attempts)
+        prev_average_score = (prev_total_score / prev_total_possible * 100) if prev_total_possible > 0 else 0
+        
+        score_trend = average_score - prev_average_score
+        
+        # Get recent performance by day
+        daily_performance = {}
+        for attempt in attempts:
+            day_key = attempt.completed_at.strftime('%Y-%m-%d')
+            if day_key not in daily_performance:
+                daily_performance[day_key] = {'attempts': 0, 'score': 0, 'possible': 0}
+            daily_performance[day_key]['attempts'] += 1
+            daily_performance[day_key]['score'] += attempt.score
+            daily_performance[day_key]['possible'] += attempt.total_marks
+        
+        # Convert to list and calculate percentages
+        performance_data = []
+        for day, data in sorted(daily_performance.items()):
+            percentage = (data['score'] / data['possible'] * 100) if data['possible'] > 0 else 0
+            performance_data.append({
+                'date': day,
+                'attempts': data['attempts'],
+                'percentage': round(percentage, 2)
+            })
+        
+        # Get subject/chapter breakdown
+        subject_performance = {}
+        for attempt in attempts:
+            if attempt.quiz and attempt.quiz.chapter and attempt.quiz.chapter.subject:
+                subject_name = attempt.quiz.chapter.subject.name
+                chapter_name = attempt.quiz.chapter.name
+                
+                if subject_name not in subject_performance:
+                    subject_performance[subject_name] = {
+                        'attempts': 0, 
+                        'score': 0, 
+                        'possible': 0,
+                        'chapters': {}
+                    }
+                
+                subject_performance[subject_name]['attempts'] += 1
+                subject_performance[subject_name]['score'] += attempt.score
+                subject_performance[subject_name]['possible'] += attempt.total_marks
+                
+                if chapter_name not in subject_performance[subject_name]['chapters']:
+                    subject_performance[subject_name]['chapters'][chapter_name] = {
+                        'attempts': 0, 'score': 0, 'possible': 0
+                    }
+                
+                subject_performance[subject_name]['chapters'][chapter_name]['attempts'] += 1
+                subject_performance[subject_name]['chapters'][chapter_name]['score'] += attempt.score
+                subject_performance[subject_name]['chapters'][chapter_name]['possible'] += attempt.total_marks
+        
+        # Convert to list with percentages
+        subjects_data = []
+        for subject_name, data in subject_performance.items():
+            percentage = (data['score'] / data['possible'] * 100) if data['possible'] > 0 else 0
+            
+            chapters_data = []
+            for chapter_name, chapter_data in data['chapters'].items():
+                chapter_percentage = (chapter_data['score'] / chapter_data['possible'] * 100) if chapter_data['possible'] > 0 else 0
+                chapters_data.append({
+                    'name': chapter_name,
+                    'attempts': chapter_data['attempts'],
+                    'percentage': round(chapter_percentage, 2)
+                })
+            
+            subjects_data.append({
+                'name': subject_name,
+                'attempts': data['attempts'],
+                'percentage': round(percentage, 2),
+                'chapters': chapters_data
+            })
+        
+        # Get question bank analytics for this user using QuestionBankService
+        question_bank_service = QuestionBankService()
+        question_analytics = question_bank_service.get_user_question_analytics(user.id, days=days)
+        
+        return jsonify({
+            'summary': {
+                'total_attempts': total_attempts,
+                'average_score': round(average_score, 2),
+                'score_trend': round(score_trend, 2),
+                'period_days': days
+            },
+            'daily_performance': performance_data,
+            'subject_performance': subjects_data,
+            'question_analytics': question_analytics,
+            'filters': {
+                'subject_id': subject_id,
+                'chapter_id': chapter_id,
+                'days': days
+            }
+        }), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -72,47 +72,4 @@ def login():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@auth_bp.route('/profile', methods=['GET'])
-@jwt_required()
-def get_profile():
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-        
-        if not user or not user.is_active:
-            return jsonify({'error': 'User not found'}), 404
-        
-        return jsonify({'user': user.to_dict()}), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@auth_bp.route('/profile', methods=['PUT'])
-@jwt_required()
-def update_profile():
-    try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-        
-        if not user or not user.is_active:
-            return jsonify({'error': 'User not found'}), 404
-        
-        data = request.get_json()
-        
-        # Update allowed fields
-        if 'full_name' in data:
-            user.full_name = data['full_name']
-        
-        if 'password' in data and data['password']:
-            user.set_password(data['password'])
-        
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Profile updated successfully',
-            'user': user.to_dict()
-        }), 200
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
