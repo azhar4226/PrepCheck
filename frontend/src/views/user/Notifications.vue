@@ -55,7 +55,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import notificationsService from '@/services/notificationsService'
 
 const notifications = ref([])
 const loading = ref(false)
@@ -67,7 +67,7 @@ const hasUnreadNotifications = computed(() => {
 const loadNotifications = async () => {
   try {
     loading.value = true
-    const response = await api.getNotifications()
+    const response = await notificationsService.getNotifications()
     notifications.value = response.notifications || []
   } catch (error) {
     console.error('Failed to load notifications:', error)
@@ -78,7 +78,7 @@ const loadNotifications = async () => {
 
 const markAsRead = async (notificationId) => {
   try {
-    await api.markNotificationAsRead(notificationId)
+    await notificationsService.markAsRead(notificationId)
     const notification = notifications.value.find(n => n.id === notificationId)
     if (notification) {
       notification.read = true
@@ -90,7 +90,7 @@ const markAsRead = async (notificationId) => {
 
 const markAllAsRead = async () => {
   try {
-    await api.markAllNotificationsAsRead()
+    await notificationsService.markAllAsRead()
     notifications.value.forEach(n => n.read = true)
   } catch (error) {
     console.error('Failed to mark all notifications as read:', error)

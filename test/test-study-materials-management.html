@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Materials Management Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-container { max-width: 800px; margin: 0 auto; }
+        .test-step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .api-test { margin: 10px 0; }
+        .endpoint { font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Study Materials Management UI Test</h1>
+        
+        <div class="test-step info">
+            <h3>Test Overview</h3>
+            <p>This test will verify the complete Study Materials Management functionality including:</p>
+            <ul>
+                <li>Loading the Study Materials Management page</li>
+                <li>Testing API endpoints for CRUD operations</li>
+                <li>Testing modal functionality</li>
+                <li>Testing file upload features</li>
+                <li>Testing filtering and pagination</li>
+            </ul>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 1: Access Study Materials Management</h3>
+            <p>First, let's access the Study Materials Management page:</p>
+            <button class="btn-primary" onclick="openStudyMaterialsPage()">
+                Open Study Materials Management
+            </button>
+            <div id="step1-result"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 2: Test Backend API Endpoints</h3>
+            <p>Test the Study Materials API endpoints:</p>
+            
+            <div class="api-test">
+                <button class="btn-primary" onclick="testGetStudyMaterials()">
+                    Test GET /api/admin/study-materials
+                </button>
+                <div id="get-materials-result"></div>
+            </div>
+            
+            <div class="api-test">
+                <button class="btn-primary" onclick="testGetSubjects()">
+                    Test GET /api/admin/subjects
+                </button>
+                <div id="get-subjects-result"></div>
+            </div>
+            
+            <div class="api-test">
+                <button class="btn-primary" onclick="testGetChapters()">
+                    Test GET /api/admin/chapters
+                </button>
+                <div id="get-chapters-result"></div>
+            </div>
+            
+            <div class="api-test">
+                <button class="btn-success" onclick="testCreateMaterial()">
+                    Test CREATE Study Material
+                </button>
+                <div id="create-material-result"></div>
+            </div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 3: Manual UI Testing</h3>
+            <p>Please manually test the following features in the Study Materials Management page:</p>
+            <ul>
+                <li>✓ Page loads without errors</li>
+                <li>✓ Subjects and chapters load in dropdowns</li>
+                <li>✓ "Add Material" button opens create modal</li>
+                <li>✓ Material type selection works</li>
+                <li>✓ File upload area responds to drag/drop</li>
+                <li>✓ Form validation works correctly</li>
+                <li>✓ Create material functionality works</li>
+                <li>✓ View material modal shows details</li>
+                <li>✓ Edit material modal pre-fills data</li>
+                <li>✓ Delete confirmation works</li>
+                <li>✓ Filtering by subject/chapter/type works</li>
+                <li>✓ Search functionality works</li>
+                <li>✓ Pagination works if many materials</li>
+            </ul>
+        </div>
+
+        <div id="overall-result" class="test-step"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let authToken = null;
+
+        // Get auth token from localStorage (if user is logged in)
+        function getAuthToken() {
+            return localStorage.getItem('prepcheck_token');
+        }
+
+        function makeAuthenticatedRequest(url, options = {}) {
+            const token = getAuthToken();
+            if (!token) {
+                throw new Error('No authentication token found. Please log in first.');
+            }
+            
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...options.headers
+            };
+            
+            return fetch(url, {
+                ...options,
+                headers
+            });
+        }
+
+        function openStudyMaterialsPage() {
+            const studyMaterialsUrl = 'http://localhost/admin/study-materials';
+            window.open(studyMaterialsUrl, '_blank');
+            
+            document.getElementById('step1-result').innerHTML = `
+                <div class="success">
+                    <strong>✓ Action completed:</strong> Study Materials Management page opened in new tab.<br>
+                    <strong>URL:</strong> ${studyMaterialsUrl}<br>
+                    <em>Check the new tab to verify the page loads correctly.</em>
+                </div>
+            `;
+        }
+
+        async function testGetStudyMaterials() {
+            const resultDiv = document.getElementById('get-materials-result');
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing GET /api/admin/study-materials...</div>';
+                
+                const response = await makeAuthenticatedRequest(`${API_BASE}/api/admin/study-materials?per_page=5`);
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✓ GET Study Materials:</strong> Success<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Materials Count:</strong> ${data.materials ? data.materials.length : 0}<br>
+                            <strong>Total:</strong> ${data.total || 0}<br>
+                            <strong>Pages:</strong> ${data.pages || 0}
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>✗ GET Study Materials:</strong> Failed<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Error:</strong> ${data.error || 'Unknown error'}
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>✗ GET Study Materials:</strong> Request failed<br>
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testGetSubjects() {
+            const resultDiv = document.getElementById('get-subjects-result');
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing GET /api/admin/subjects...</div>';
+                
+                const response = await makeAuthenticatedRequest(`${API_BASE}/api/admin/subjects`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✓ GET Subjects:</strong> Success<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Subjects Count:</strong> ${Array.isArray(data) ? data.length : 0}
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>✗ GET Subjects:</strong> Failed<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Error:</strong> ${data.error || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>✗ GET Subjects:</strong> Request failed<br>
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testGetChapters() {
+            const resultDiv = document.getElementById('get-chapters-result');
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing GET /api/admin/chapters...</div>';
+                
+                const response = await makeAuthenticatedRequest(`${API_BASE}/api/admin/chapters`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✓ GET Chapters:</strong> Success<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Chapters Count:</strong> ${Array.isArray(data) ? data.length : 0}
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>✗ GET Chapters:</strong> Failed<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Error:</strong> ${data.error || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>✗ GET Chapters:</strong> Request failed<br>
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testCreateMaterial() {
+            const resultDiv = document.getElementById('create-material-result');
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing CREATE Study Material...</div>';
+                
+                const testMaterial = {
+                    title: `Test Material ${Date.now()}`,
+                    description: 'This is a test study material created by the automated test',
+                    material_type: 'text',
+                    content: 'This is test content for the study material.\n\nIt includes multiple lines and formatting.',
+                    is_active: true
+                };
+                
+                const response = await makeAuthenticatedRequest(`${API_BASE}/api/admin/study-materials`, {
+                    method: 'POST',
+                    body: JSON.stringify(testMaterial)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✓ CREATE Study Material:</strong> Success<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Created ID:</strong> ${data.material?.id}<br>
+                            <strong>Title:</strong> ${data.material?.title}
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>✗ CREATE Study Material:</strong> Failed<br>
+                            <strong>Status:</strong> ${response.status}<br>
+                            <strong>Error:</strong> ${data.error || 'Unknown error'}
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>✗ CREATE Study Material:</strong> Request failed<br>
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize test
+        window.onload = function() {
+            const token = getAuthToken();
+            if (!token) {
+                document.getElementById('overall-result').innerHTML = `
+                    <div class="warning">
+                        <strong>⚠ Authentication Required:</strong><br>
+                        Please log into the PrepCheck application first, then return to this test page.<br>
+                        <a href="http://localhost/login" target="_blank">Open Login Page</a>
+                    </div>
+                `;
+            } else {
+                document.getElementById('overall-result').innerHTML = `
+                    <div class="info">
+                        <strong>✓ Authentication:</strong> Token found. Ready to test API endpoints.<br>
+                        <strong>Next:</strong> Run the tests above to verify Study Materials Management functionality.
+                    </div>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

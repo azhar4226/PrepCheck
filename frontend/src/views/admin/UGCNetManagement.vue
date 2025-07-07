@@ -346,6 +346,7 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
+import adminService from '@/services/adminService'
 
 export default {
   name: 'QuizManagement',
@@ -358,6 +359,7 @@ export default {
     const error = ref('')
     const quizzes = ref([])
     const subjects = ref([])
+    const chapters = ref([])
     const currentPage = ref(1)
     const totalPages = ref(1)
     const itemsPerPage = ref(10)
@@ -422,8 +424,7 @@ export default {
     
     const availableChapters = computed(() => {
       if (!quizForm.value.subject_id) return []
-      const subject = subjects.value.find(s => s.id === parseInt(quizForm.value.subject_id))
-      return subject?.chapters || []
+      return chapters.value || []
     })
     
     const visiblePages = computed(() => {
@@ -444,16 +445,11 @@ export default {
         loading.value = true
         error.value = ''
         
-        const response = await api.get('/api/admin/quizzes', {
-          params: {
-            page: currentPage.value,
-            per_page: itemsPerPage.value
-          }
-        })
+        const response = await adminService.getQuizzes()
         
-        if (response.data.success) {
-          quizzes.value = response.data.data.quizzes || []
-          totalPages.value = response.data.data.total_pages || 1
+        if (response) {
+          quizzes.value = response.quizzes || []
+          totalPages.value = Math.ceil((response.total || 0) / itemsPerPage.value)
         }
       } catch (err) {
         error.value = err.response?.data?.message || 'Failed to load quizzes'
@@ -465,12 +461,24 @@ export default {
     
     const loadSubjects = async () => {
       try {
-        const response = await api.get('/api/admin/subjects')
-        if (response.data.success) {
-          subjects.value = response.data.data || []
-        }
+        const response = await adminService.getSubjects()
+        subjects.value = response || []
       } catch (err) {
         console.error('Error loading subjects:', err)
+      }
+    }
+    
+    const loadChapters = async (subjectId = null) => {
+      try {
+        if (subjectId) {
+          const response = await adminService.getChapters(subjectId)
+          chapters.value = response || []
+        } else {
+          chapters.value = []
+        }
+      } catch (err) {
+        console.error('Error loading chapters:', err)
+        chapters.value = []
       }
     }
     
@@ -493,21 +501,18 @@ export default {
       try {
         saving.value = true
         
-        const url = editingQuiz.value 
-          ? `/api/admin/quizzes/${editingQuiz.value.id}`
-          : '/api/admin/quizzes'
-        
-        const method = editingQuiz.value ? 'put' : 'post'
-        
-        const response = await api[method](url, quizForm.value)
-        
-        if (response.data.success) {
-          closeModal()
-          loadQuizzes()
-          
-          // Show success message (you might want to add a toast notification here)
-          alert(editingQuiz.value ? 'Quiz updated successfully!' : 'Quiz created successfully!')
+        if (editingQuiz.value) {
+          // Update existing quiz
+          await adminService.updateQuiz(editingQuiz.value.id, quizForm.value)
+          alert('Quiz updated successfully!')
+        } else {
+          // Create new quiz
+          await adminService.createQuiz(quizForm.value)
+          alert('Quiz created successfully!')
         }
+        
+        closeModal()
+        loadQuizzes()
       } catch (err) {
         alert(err.response?.data?.message || 'Failed to save quiz')
         console.error('Error saving quiz:', err)
@@ -520,7 +525,7 @@ export default {
       if (!confirm(`Are you sure you want to duplicate "${quiz.title}"?`)) return
       
       try {
-        const response = await api.post(`/api/admin/quizzes/${quiz.id}/duplicate`)
+        const response = await apiClient.post(`/api/admin/quizzes/${quiz.id}/duplicate`)
         if (response.data.success) {
           loadQuizzes()
           alert('Quiz duplicated successfully!')
@@ -535,11 +540,9 @@ export default {
       if (!confirm(`Are you sure you want to delete "${quiz.title}"? This action cannot be undone.`)) return
       
       try {
-        const response = await api.delete(`/api/admin/quizzes/${quiz.id}`)
-        if (response.data.success) {
-          loadQuizzes()
-          alert('Quiz deleted successfully!')
-        }
+        await adminService.deleteQuiz(quiz.id)
+        loadQuizzes()
+        alert('Quiz deleted successfully!')
       } catch (err) {
         alert(err.response?.data?.message || 'Failed to delete quiz')
         console.error('Error deleting quiz:', err)
@@ -580,9 +583,14 @@ export default {
       return new Date(dateString).toLocaleDateString()
     }
     
-    // Watch for subject changes to clear chapter selection
-    watch(() => quizForm.value.subject_id, () => {
+    // Watch for subject changes to clear chapter selection and load chapters
+    watch(() => quizForm.value.subject_id, (newSubjectId) => {
       quizForm.value.chapter_id = ''
+      if (newSubjectId) {
+        loadChapters(newSubjectId)
+      } else {
+        chapters.value = []
+      }
     })
     
     // Lifecycle
@@ -598,6 +606,7 @@ export default {
       error,
       quizzes,
       subjects,
+      chapters,
       currentPage,
       totalPages,
       showCreateModal,
@@ -613,6 +622,8 @@ export default {
       
       // Methods
       loadQuizzes,
+      loadSubjects,
+      loadChapters,
       editQuiz,
       saveQuiz,
       duplicateQuiz,

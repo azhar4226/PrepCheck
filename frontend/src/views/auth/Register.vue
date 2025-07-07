@@ -191,7 +191,7 @@
 <script>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/services/api'
+import authService from '@/services/authService'
 import { validateEmail, validatePassword } from '@/services/utils'
 
 export default {
@@ -274,7 +274,7 @@ export default {
       message.value = ''
       
       try {
-        const response = await api.register({
+        const response = await authService.register({
           full_name: form.value.full_name.trim(),
           email: form.value.email.toLowerCase().trim(),
           password: form.value.password

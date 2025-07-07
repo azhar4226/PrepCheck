@@ -125,7 +125,7 @@
 </template>
 
 <script>
-import api from '@/services/api'
+import authService from '@/services/authService'
 
 export default {
   name: 'Login',
@@ -152,7 +152,7 @@ export default {
       this.isLoading = true
 
       try {
-        const response = await api.login({
+        const response = await authService.login({
           email: this.form.email,
           password: this.form.password
         })

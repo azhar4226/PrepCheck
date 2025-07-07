@@ -28,7 +28,7 @@ class Config:
     # App Settings
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL')
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') 
-    QUIZ_TIME_LIMIT = int(os.environ.get('QUIZ_TIME_LIMIT') or 60)
+    MOCK_TEST_TIME_LIMIT = int(os.environ.get('MOCK_TEST_TIME_LIMIT') or 60)
     CACHE_TIMEOUT = int(os.environ.get('CACHE_TIMEOUT') or 300)
 
 class DevelopmentConfig(Config):

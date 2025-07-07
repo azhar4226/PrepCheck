@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 import calendar
 
 def send_daily_reminders():
-    """Send daily reminders to inactive users and notify about new quizzes"""
+    """Send daily reminders to inactive users and notify about new mock tests"""
     try:
         # Import here to avoid circular import
         from app import create_app, db
-        from app.models.models import User, Quiz, QuizAttempt
+        from app.models.models import User, UGCNetMockTest, UGCNetMockAttempt
         from app.utils.email_service import send_email
         
         with create_app().app_context():
@@ -18,35 +18,35 @@ def send_daily_reminders():
                 User.last_login < three_days_ago
             ).all()
             
-            # Find users who haven't attempted quizzes recently
+            # Find users who haven't attempted mock tests recently
             reminders_sent = 0
             for user in inactive_users:
-                last_attempt = QuizAttempt.query.filter_by(
+                last_attempt = UGCNetMockAttempt.query.filter_by(
                     user_id=user.id
-                ).order_by(QuizAttempt.started_at.desc()).first()
+                ).order_by(UGCNetMockAttempt.started_at.desc()).first()
                 
                 if not last_attempt or last_attempt.started_at < three_days_ago:
                     if send_inactivity_reminder(user):
                         reminders_sent += 1
             
-            # Notify about new quizzes (created in last 24 hours)
+            # Notify about new mock tests (created in last 24 hours)
             yesterday = datetime.utcnow() - timedelta(days=1)
-            new_quizzes = Quiz.query.filter(
-                Quiz.created_at >= yesterday,
-                Quiz.is_active == True
+            new_mock_tests = UGCNetMockTest.query.filter(
+                UGCNetMockTest.created_at >= yesterday,
+                UGCNetMockTest.is_active == True
             ).all()
             
             notifications_sent = 0
-            if new_quizzes:
+            if new_mock_tests:
                 active_users = User.query.filter_by(
                     is_admin=False, is_active=True
                 ).all()
                 
                 for user in active_users:
-                    if send_new_quiz_notification(user, new_quizzes):
+                    if send_new_quiz_notification(user, new_mock_tests):
                         notifications_sent += 1
                     
-            return f"Sent reminders to {reminders_sent} inactive users and notified {notifications_sent} users about {len(new_quizzes)} new quizzes"
+            return f"Sent reminders to {reminders_sent} inactive users and notified {notifications_sent} users about {len(new_mock_tests)} new mock tests"
         
     except Exception as e:
         return f"Error sending daily reminders: {str(e)}"
@@ -56,7 +56,7 @@ def send_monthly_reports():
     try:
         # Import here to avoid circular import  
         from app import create_app, db
-        from app.models.models import User, QuizAttempt
+        from app.models.models import User
         from app.utils.email_service import send_email
         
         with create_app().app_context():
@@ -139,20 +139,20 @@ def send_inactivity_reminder(user):
         print(f"Error sending inactivity reminder to {user.email}: {str(e)}")
         return False
 
-def send_new_quiz_notification(user, new_quizzes):
-    """Send notification about new quizzes"""
+def send_new_quiz_notification(user, new_mock_tests):
+    """Send notification about new UGC NET mock tests"""
     try:
         from app.utils.email_service import send_email
         
-        subject = f"🎯 {len(new_quizzes)} New Quiz{'es' if len(new_quizzes) > 1 else ''} Available!"
+        subject = f"🎯 {len(new_mock_tests)} New UGC NET Mock Test{'s' if len(new_mock_tests) > 1 else ''} Available!"
         
-        quiz_list = ""
-        for quiz in new_quizzes[:5]:  # Show max 5 quizzes
-            quiz_list += f"""
+        test_list = ""
+        for test in new_mock_tests[:5]:  # Show max 5 tests
+            test_list += f"""
             <li style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
-                <strong>{quiz.title}</strong><br>
+                <strong>{test.title}</strong><br>
                 <span style="color: #666; font-size: 14px;">
-                    {quiz.chapter.subject.name} → {quiz.chapter.name}
+                    {test.subject.name} • {test.total_questions} Questions • {test.time_limit} minutes
                 </span>
             </li>
             """
@@ -169,18 +169,18 @@ def send_new_quiz_notification(user, new_quizzes):
                 <h2 style="color: #333;">Hi {user.full_name}!</h2>
                 
                 <p style="color: #555; line-height: 1.6;">
-                    Great news! We've added {len(new_quizzes)} new quiz{'es' if len(new_quizzes) > 1 else ''} 
+                    Great news! We've added {len(new_mock_tests)} new UGC NET mock test{'s' if len(new_mock_tests) > 1 else ''} 
                     for you to practice with:
                 </p>
                 
                 <ul style="list-style: none; padding: 0;">
-                    {quiz_list}
+                    {test_list}
                 </ul>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:3000/quizzes" 
+                    <a href="http://localhost:3000/ugc-net" 
                        style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                        Explore New Quizzes
+                        Explore New Mock Tests
                     </a>
                 </div>
             </div>
@@ -190,23 +190,23 @@ def send_new_quiz_notification(user, new_quizzes):
         
         return send_email(user.email, subject, html_content)
     except Exception as e:
-        print(f"Error sending new quiz notification to {user.email}: {str(e)}")
+        print(f"Error sending new mock test notification to {user.email}: {str(e)}")
         return False
 
 def get_user_monthly_data(user, start_date, end_date):
     """Get user's monthly activity data"""
     try:
-        from app.models.models import QuizAttempt
+        from app.models.models import UGCNetMockAttempt
         
-        attempts = QuizAttempt.query.filter(
-            QuizAttempt.user_id == user.id,
-            QuizAttempt.is_completed == True,
-            QuizAttempt.completed_at >= start_date,
-            QuizAttempt.completed_at < end_date
+        attempts = UGCNetMockAttempt.query.filter(
+            UGCNetMockAttempt.user_id == user.id,
+            UGCNetMockAttempt.is_completed == True,
+            UGCNetMockAttempt.completed_at >= start_date,
+            UGCNetMockAttempt.completed_at < end_date
         ).all()
         
         total_attempts = len(attempts)
-        total_score = sum(attempt.score for attempt in attempts)
+        total_score = sum(attempt.marks_obtained for attempt in attempts)
         total_possible = sum(attempt.total_marks for attempt in attempts)
         avg_percentage = round((total_score / total_possible) * 100, 2) if total_possible > 0 else 0
         
@@ -233,7 +233,7 @@ def get_user_monthly_data(user, start_date, end_date):
 def get_admin_monthly_data(start_date, end_date):
     """Get admin's monthly system data"""
     try:
-        from app.models.models import User, QuizAttempt
+        from app.models.models import User, UGCNetMockAttempt
         
         new_users = User.query.filter(
             User.is_admin == False,
@@ -241,10 +241,10 @@ def get_admin_monthly_data(start_date, end_date):
             User.created_at < end_date
         ).count()
         
-        total_attempts = QuizAttempt.query.filter(
-            QuizAttempt.is_completed == True,
-            QuizAttempt.completed_at >= start_date,
-            QuizAttempt.completed_at < end_date
+        total_attempts = UGCNetMockAttempt.query.filter(
+            UGCNetMockAttempt.is_completed == True,
+            UGCNetMockAttempt.completed_at >= start_date,
+            UGCNetMockAttempt.completed_at < end_date
         ).count()
         
         active_users = User.query.filter(

@@ -7,6 +7,9 @@ import axios from 'axios'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
+// Import global styles
+import '@/assets/styles/global.css'
+
 // Configure axios defaults
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 axios.defaults.headers.common['Content-Type'] = 'application/json'
@@ -34,6 +37,19 @@ const app = createApp(App)
 
 // Make axios available globally
 app.config.globalProperties.$http = axios
+
+// Register service worker to block tracking requests
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('🔧 Service worker registered successfully:', registration.scope);
+            })
+            .catch((error) => {
+                console.log('❌ Service worker registration failed:', error);
+            });
+    });
+}
 
 app.use(router)
 app.mount('#app')

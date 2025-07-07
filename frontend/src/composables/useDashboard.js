@@ -133,10 +133,10 @@ export function useDashboard() {
     } else {
       return userRecentQuizzes.value.map(quiz => ({
         id: quiz.id,
-        title: quiz.title,
-        subtitle: quiz.subject,
+        title: quiz.quiz_title || quiz.title,
+        subtitle: `${quiz.subject_name || quiz.subject} • ${quiz.chapter_name || quiz.chapter}`,
         timestamp: quiz.completed_at,
-        badge: `${quiz.percentage}%`,
+        badge: `${quiz.percentage || quiz.score}%`,
         clickable: true
       }))
     }
@@ -148,13 +148,22 @@ export function useDashboard() {
       loading.value = true
       error.value = ''
       
-      const [statsRes, quizzesRes] = await Promise.all([
-        userService.getUserStats(),
-        userService.getRecentQuizzes()
+      const [dashboardRes, historyRes] = await Promise.all([
+        userService.getDashboard(),
+        userService.getHistory(1, 5)
       ])
       
-      userStats.value = statsRes.data
-      userRecentQuizzes.value = quizzesRes.data || []
+      // Extract stats from dashboard response
+      const stats = dashboardRes.stats || {}
+      userStats.value = {
+        quizzes_taken: stats.total_attempts || 0,
+        average_score: stats.average_score || 0,
+        study_streak: stats.study_streak || 0,
+        rank: stats.rank || null
+      }
+      
+      // Extract recent quizzes from history response
+      userRecentQuizzes.value = historyRes.attempts || []
       
     } catch (err) {
       console.error('Error loading user dashboard:', err)

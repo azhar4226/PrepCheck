@@ -11,6 +11,9 @@
         type="button" 
         data-bs-toggle="collapse" 
         data-bs-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
       >
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -35,10 +38,13 @@
             </li>
             
             <li v-if="!user?.is_admin" class="nav-item">
-              <router-link class="nav-link" to="/quiz" exact>
-                <i class="bi bi-list-check me-1"></i>
-                Quizzes
+              <router-link class="nav-link" to="/ugc-net" exact>
+                <i class="bi bi-mortarboard me-1"></i>
+                UGC NET
               </router-link>
+            </li>
+            
+            <li v-if="!user?.is_admin" class="nav-item">
             </li>
             
             <li v-if="!user?.is_admin" class="nav-item">
@@ -57,12 +63,15 @@
               <a 
                 class="nav-link dropdown-toggle" 
                 href="#" 
-                data-bs-toggle="dropdown"
+                id="profileDropdown"
+                role="button"
+                @click.prevent="toggleDropdown"
+                aria-expanded="false"
               >
                 <i class="bi bi-person-circle me-1"></i>
                 {{ user?.full_name }}
               </a>
-              <ul class="dropdown-menu">
+              <ul class="dropdown-menu" :class="{ show: dropdownOpen }" aria-labelledby="profileDropdown">
                 <li>
                   <router-link class="dropdown-item" to="/profile">
                     <i class="bi bi-person me-2"></i>
@@ -86,18 +95,38 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, nextTick, ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
 import NotificationsDropdown from '@/components/layout/NotificationsDropdown.vue'
 
 const { isAuthenticated, user, logout } = useAuth()
 const router = useRouter()
+const dropdownOpen = ref(false)
 
 const handleLogout = () => {
   logout()
   router.push('/login')
 }
+
+const toggleDropdown = () => {
+  dropdownOpen.value = !dropdownOpen.value
+}
+
+const closeDropdown = (event) => {
+  if (!event.target.closest('.dropdown')) {
+    dropdownOpen.value = false
+  }
+}
+
+// Close dropdown when clicking outside
+onMounted(() => {
+  document.addEventListener('click', closeDropdown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdown)
+})
 </script>
 
 <style scoped>

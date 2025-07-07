@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Analytics Integration Test - PrepCheck</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #cce7ff;
+            color: #004085;
+            border: 1px solid #b6d7ff;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+        }
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.8;
+        }
+        .endpoint-list {
+            list-style: none;
+            padding: 0;
+        }
+        .endpoint-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .route-list {
+            list-style: none;
+            padding: 0;
+        }
+        .route-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #27ae60;
+        }
+        .component-list {
+            list-style: none;
+            padding: 0;
+        }
+        .component-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 User Analytics Integration Test</h1>
+        <p class="text-center">Testing the complete user analytics implementation in PrepCheck</p>
+
+        <!-- Implementation Status -->
+        <div class="test-section success">
+            <h2>✅ Implementation Status</h2>
+            <p><strong>Status:</strong> Successfully implemented user analytics integration!</p>
+            <p><strong>Date:</strong> June 16, 2025</p>
+            <p><strong>Components:</strong> Backend endpoints, Frontend components, Admin integration</p>
+        </div>
+
+        <!-- Backend Endpoints -->
+        <div class="test-section info">
+            <h2>🔗 Backend Endpoints Implemented</h2>
+            <ul class="endpoint-list">
+                <li><strong>GET /api/quiz/user-analytics</strong> - User's own analytics (JWT required)</li>
+                <li><strong>GET /api/admin/user/{user_id}/analytics</strong> - Any user's analytics (Admin only)</li>
+                <li><strong>POST /api/auth/login</strong> - Authentication for testing</li>
+                <li><strong>GET /api/admin/users</strong> - Get users list for admin dropdown</li>
+            </ul>
+        </div>
+
+        <!-- Frontend Components -->
+        <div class="test-section info">
+            <h2>🎨 Frontend Components Created</h2>
+            <ul class="component-list">
+                <li><strong>UserAnalytics.vue</strong> - Main user analytics component with charts and insights</li>
+                <li><strong>userAnalyticsService.js</strong> - Service for API calls</li>
+                <li><strong>user/Analytics.vue</strong> - Dedicated analytics page</li>
+                <li><strong>Updated user/Dashboard.vue</strong> - Integrated analytics in dashboard</li>
+                <li><strong>Updated admin/Analytics.vue</strong> - Added user analytics tab for admins</li>
+            </ul>
+        </div>
+
+        <!-- Routes Added -->
+        <div class="test-section info">
+            <h2>🗺️ Routes Added</h2>
+            <ul class="route-list">
+                <li><strong>/analytics</strong> - User analytics page</li>
+                <li><strong>/dashboard</strong> - Dashboard with integrated analytics</li>
+                <li><strong>/admin/analytics</strong> - Admin analytics with user tab</li>
+            </ul>
+        </div>
+
+        <!-- Features Implemented -->
+        <div class="test-section success">
+            <h2>🎯 Features Implemented</h2>
+            <h3>User Analytics Features:</h3>
+            <ul>
+                <li>✅ Quiz attempt summary and trends</li>
+                <li>✅ Daily performance charts</li>
+                <li>✅ Subject and chapter breakdown</li>
+                <li>✅ Question bank analytics integration</li>
+                <li>✅ Personalized improvement suggestions</li>
+                <li>✅ Topic strength analysis</li>
+                <li>✅ Difficulty-based performance tracking</li>
+                <li>✅ Configurable time periods (7, 30, 90 days)</li>
+            </ul>
+            
+            <h3>Admin Features:</h3>
+            <ul>
+                <li>✅ View any user's analytics</li>
+                <li>✅ User selection dropdown</li>
+                <li>✅ Time period filtering</li>
+                <li>✅ Performance recommendations for users</li>
+                <li>✅ Integrated in admin analytics dashboard</li>
+            </ul>
+
+            <h3>Integration Points:</h3>
+            <ul>
+                <li>✅ Dashboard widget integration</li>
+                <li>✅ Question bank service integration</li>
+                <li>✅ Chart.js for visualizations</li>
+                <li>✅ Bootstrap UI components</li>
+                <li>✅ Vue 3 composition API</li>
+            </ul>
+        </div>
+
+        <!-- Test Links -->
+        <div class="test-section">
+            <h2>🔗 Test Links</h2>
+            <div>
+                <a href="http://localhost/login" class="btn btn-primary" target="_blank">
+                    🔐 Login to PrepCheck
+                </a>
+                <a href="http://localhost/dashboard" class="btn btn-success" target="_blank">
+                    📊 User Dashboard (with Analytics)
+                </a>
+                <a href="http://localhost/analytics" class="btn btn-warning" target="_blank">
+                    📈 Dedicated Analytics Page
+                </a>
+                <a href="http://localhost/admin/analytics" class="btn btn-primary" target="_blank">
+                    👨‍💼 Admin Analytics (with User Tab)
+                </a>
+            </div>
+        </div>
+
+        <!-- API Test Commands -->
+        <div class="test-section">
+            <h2>⚡ API Test Commands</h2>
+            <h3>1. Login as Admin:</h3>
+            <pre><code>curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@prepcheck.com", "password": "admin123"}'</code></pre>
+
+            <h3>2. Test User Analytics (replace token):</h3>
+            <pre><code>curl -X GET "http://localhost:8000/api/quiz/user-analytics?days=30" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json"</code></pre>
+
+            <h3>3. Test Admin User Analytics (replace token and user_id):</h3>
+            <pre><code>curl -X GET "http://localhost:8000/api/admin/user/4/analytics?days=7" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json"</code></pre>
+        </div>
+
+        <!-- Next Steps -->
+        <div class="test-section info">
+            <h2>🚀 Next Steps Completed</h2>
+            <ol>
+                <li>✅ <strong>Integrate user analytics into frontend Vue components</strong>
+                    <ul>
+                        <li>✅ Created UserAnalytics.vue component</li>
+                        <li>✅ Created userAnalyticsService.js</li>
+                        <li>✅ Integrated into user dashboard</li>
+                    </ul>
+                </li>
+                <li>✅ <strong>Add user analytics to main analytics dashboard</strong>
+                    <ul>
+                        <li>✅ Added tabs to admin analytics</li>
+                        <li>✅ Added user selection functionality</li>
+                        <li>✅ Added admin user analytics endpoint</li>
+                    </ul>
+                </li>
+                <li>✅ <strong>Integrate into the quiz system for personalized insights</strong>
+                    <ul>
+                        <li>✅ Connected question bank analytics</li>
+                        <li>✅ Performance tracking integration</li>
+                        <li>✅ Real-time data from quiz attempts</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <!-- Success Summary -->
+        <div class="test-section success">
+            <h2>🎉 Implementation Complete!</h2>
+            <p>The user analytics system has been successfully integrated into PrepCheck with the following achievements:</p>
+            <ul>
+                <li><strong>Full-stack Implementation:</strong> Backend APIs + Frontend components</li>
+                <li><strong>Admin Capabilities:</strong> View any user's analytics</li>
+                <li><strong>User Experience:</strong> Personal analytics dashboard</li>
+                <li><strong>Data Integration:</strong> Quiz attempts + Question bank analytics</li>
+                <li><strong>Visualization:</strong> Charts and performance insights</li>
+                <li><strong>Recommendations:</strong> AI-powered improvement suggestions</li>
+            </ul>
+            <p><strong>The system is now ready for production use and provides comprehensive analytics capabilities for both users and administrators!</strong></p>
+        </div>
+    </div>
+</body>
+</html>

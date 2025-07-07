@@ -67,16 +67,62 @@ export const generateId = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 }
 
+// Badge utility functions
+export const getDifficultyBadgeClass = (difficulty) => {
+  const classes = {
+    easy: 'badge-difficulty-easy',
+    medium: 'badge-difficulty-medium', 
+    hard: 'badge-difficulty-hard'
+  }
+  return classes[difficulty] || 'bg-secondary'
+}
+
+export const getStatusBadgeClass = (status) => {
+  const classes = {
+    active: 'bg-success',
+    inactive: 'bg-secondary',
+    draft: 'bg-warning',
+    completed: 'bg-success',
+    in_progress: 'bg-info',
+    failed: 'bg-danger'
+  }
+  return classes[status] || 'bg-secondary'
+}
+
+// Validation utilities
 export const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
 export const validatePassword = (password) => {
-  // At least 6 characters
-  return password && password.length >= 6
+  return {
+    isValid: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+  }
 }
 
-export const validateRequired = (value) => {
-  return value && value.toString().trim().length > 0
+// Array utilities
+export const groupBy = (array, key) => {
+  return array.reduce((groups, item) => {
+    const group = item[key]
+    groups[group] = groups[group] || []
+    groups[group].push(item)
+    return groups
+  }, {})
+}
+
+export const sortBy = (array, key, direction = 'asc') => {
+  return [...array].sort((a, b) => {
+    const aVal = a[key]
+    const bVal = b[key]
+    const modifier = direction === 'desc' ? -1 : 1
+    
+    if (aVal < bVal) return -1 * modifier
+    if (aVal > bVal) return 1 * modifier
+    return 0
+  })
 }

@@ -37,8 +37,9 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     
-    # Relationships
-    quiz_attempts = db.relationship('QuizAttempt', backref='user', lazy=True, cascade='all, delete-orphan')
+    # Relationships - Updated to use UGC NET models only
+    ugc_net_mock_attempts = db.relationship('UGCNetMockAttempt', backref='attempt_user', lazy=True, cascade='all, delete-orphan')
+    ugc_net_practice_attempts = db.relationship('UGCNetPracticeAttempt', backref='attempt_user', lazy=True, cascade='all, delete-orphan')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -87,6 +88,14 @@ class Subject(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # UGC NET specific fields
+    subject_code = db.Column(db.String(10))  # UGC NET subject code
+    paper_type = db.Column(db.String(20), default='paper2')  # 'paper1', 'paper2', 'both'
+    total_marks_paper1 = db.Column(db.Integer, default=100)  # Total marks for Paper 1
+    total_marks_paper2 = db.Column(db.Integer, default=100)  # Total marks for Paper 2
+    exam_duration_paper1 = db.Column(db.Integer, default=60)  # Duration in minutes
+    exam_duration_paper2 = db.Column(db.Integer, default=120)  # Duration in minutes
+    
     # Relationships
     chapters = db.relationship('Chapter', backref='subject', lazy=True, cascade='all, delete-orphan')
     
@@ -98,7 +107,13 @@ class Subject(db.Model):
             'description': self.description,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'chapters_count': Chapter.query.filter_by(subject_id=self.id).count()
+            'chapters_count': Chapter.query.filter_by(subject_id=self.id).count(),
+            'subject_code': self.subject_code,
+            'paper_type': self.paper_type,
+            'total_marks_paper1': self.total_marks_paper1,
+            'total_marks_paper2': self.total_marks_paper2,
+            'exam_duration_paper1': self.exam_duration_paper1,
+            'exam_duration_paper2': self.exam_duration_paper2
         }
 
 class Chapter(db.Model):
@@ -111,8 +126,15 @@ class Chapter(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relationships
-    quizzes = db.relationship('Quiz', backref='chapter', lazy=True, cascade='all, delete-orphan')
+    # UGC NET specific fields
+    weightage_paper1 = db.Column(db.Integer, default=0)  # Weightage for Paper 1 (0-100)
+    weightage_paper2 = db.Column(db.Integer, default=0)  # Weightage for Paper 2 (0-100)
+    estimated_questions_paper1 = db.Column(db.Integer, default=0)  # Expected questions in Paper 1
+    estimated_questions_paper2 = db.Column(db.Integer, default=0)  # Expected questions in Paper 2
+    chapter_order = db.Column(db.Integer, default=0)  # Order in syllabus
+    
+    # Relationships - Updated to use QuestionBank instead of Quiz
+    # Note: backref relationships are defined in child models to avoid conflicts
     
     def to_dict(self):
         return {
@@ -123,189 +145,12 @@ class Chapter(db.Model):
             'subject_name': self.subject.name if self.subject else None,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'quizzes_count': Quiz.query.filter_by(chapter_id=self.id).count()
-        }
-
-class Quiz(db.Model):
-    __tablename__ = 'quizzes'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'), nullable=False)
-    difficulty = db.Column(db.String(20), default='medium')  # easy, medium, hard
-    time_limit = db.Column(db.Integer, default=60)  # minutes
-    total_marks = db.Column(db.Integer, default=0)
-    is_active = db.Column(db.Boolean, default=True)
-    is_ai_generated = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
-    quiz_attempts = db.relationship('QuizAttempt', backref='quiz', lazy=True, cascade='all, delete-orphan')
-    
-    def update_total_marks(self):
-        questions = Question.query.filter_by(quiz_id=self.id).all()
-        self.total_marks = sum(q.marks for q in questions)
-        db.session.commit()
-    
-    def to_dict(self):
-        questions_count = Question.query.filter_by(quiz_id=self.id).count()
-        
-        # Map is_active to status for frontend compatibility
-        if self.is_active:
-            status = 'active'
-        else:
-            status = 'inactive'
-            
-        return {
-            'id': self.id,
-            'title': self.title,
-            'description': self.description,
-            'chapter_id': self.chapter_id,
-            'chapter_name': self.chapter.name if self.chapter else None,
-            'subject_name': self.chapter.subject.name if self.chapter and self.chapter.subject else None,
-            'subject_id': self.chapter.subject_id if self.chapter else None,
-            'difficulty': self.difficulty,
-            'time_limit': self.time_limit,
-            'total_marks': self.total_marks,
-            'is_active': self.is_active,
-            'status': status,
-            'is_ai_generated': self.is_ai_generated,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'questions_count': questions_count,
-            'total_questions': questions_count
-        }
-
-class Question(db.Model):
-    __tablename__ = 'questions'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
-    question_text = db.Column(db.Text, nullable=False)
-    option_a = db.Column(db.String(500), nullable=False)
-    option_b = db.Column(db.String(500), nullable=False)
-    option_c = db.Column(db.String(500), nullable=False)
-    option_d = db.Column(db.String(500), nullable=False)
-    correct_option = db.Column(db.String(1), nullable=False)  # A, B, C, or D
-    explanation = db.Column(db.Text)
-    marks = db.Column(db.Integer, default=1)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # AI Verification fields
-    is_verified = db.Column(db.Boolean, default=False)
-    verification_confidence = db.Column(db.Float)
-    verification_attempts = db.Column(db.Integer, default=0)
-    verification_status = db.Column(db.String(20), default='pending')  # pending, verified, failed, manual_review
-    verification_metadata = db.Column(db.Text)  # JSON string for verification details
-    verified_at = db.Column(db.DateTime)
-    
-    def to_dict(self, include_answer=False):
-        data = {
-            'id': self.id,
-            'quiz_id': self.quiz_id,
-            'question_text': self.question_text,
-            'option_a': self.option_a,
-            'option_b': self.option_b,
-            'option_c': self.option_c,
-            'option_d': self.option_d,
-            'marks': self.marks,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'is_verified': self.is_verified,
-            'verification_status': self.verification_status,
-            'verification_confidence': self.verification_confidence
-        }
-        
-        if include_answer:
-            data['correct_option'] = self.correct_option
-            data['explanation'] = self.explanation
-            
-        return data
-    
-    def set_verification_metadata(self, metadata_dict):
-        """Store verification metadata as JSON"""
-        self.verification_metadata = json.dumps(metadata_dict)
-    
-    def get_verification_metadata(self):
-        """Retrieve verification metadata as dict"""
-        return json.loads(self.verification_metadata) if self.verification_metadata else {}
-    
-    def mark_verified(self, confidence, metadata=None):
-        """Mark question as verified"""
-        self.is_verified = True
-        self.verification_status = 'verified'
-        self.verification_confidence = confidence
-        self.verified_at = datetime.utcnow()
-        if metadata:
-            self.set_verification_metadata(metadata)
-    
-    def mark_failed_verification(self, metadata=None):
-        """Mark question as failed verification"""
-        self.verification_status = 'failed'
-        if metadata:
-            self.set_verification_metadata(metadata)
-    
-    def get_options_dict(self):
-        """Get options as dictionary for verification"""
-        return {
-            'A': self.option_a,
-            'B': self.option_b,
-            'C': self.option_c,
-            'D': self.option_d
-        }
-
-class QuizAttempt(db.Model):
-    __tablename__ = 'quiz_attempts'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
-    score = db.Column(db.Integer, default=0)
-    total_marks = db.Column(db.Integer, default=0)
-    time_taken = db.Column(db.Integer)  # in seconds
-    answers = db.Column(db.Text)  # JSON string of user answers
-    started_at = db.Column(db.DateTime, default=datetime.utcnow)
-    completed_at = db.Column(db.DateTime)
-    is_completed = db.Column(db.Boolean, default=False)
-    
-    def set_answers(self, answers_dict):
-        self.answers = json.dumps(answers_dict)
-    
-    def get_answers(self):
-        return json.loads(self.answers) if self.answers else {}
-    
-    def calculate_score(self):
-        if not self.is_completed:
-            return 0
-            
-        user_answers = self.get_answers()
-        score = 0
-        
-        for question in self.quiz.questions:
-            question_id = str(question.id)
-            if question_id in user_answers:
-                if user_answers[question_id].upper() == question.correct_option:
-                    score += question.marks
-        
-        self.score = score
-        self.total_marks = self.quiz.total_marks
-        db.session.commit()
-        return score
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'quiz_id': self.quiz_id,
-            'quiz_title': self.quiz.title if self.quiz else None,
-            'subject_name': self.quiz.chapter.subject.name if self.quiz and self.quiz.chapter and self.quiz.chapter.subject else None,
-            'score': self.score,
-            'total_marks': self.total_marks,
-            'percentage': round((self.score / self.total_marks) * 100, 2) if self.total_marks > 0 else 0,
-            'time_taken': self.time_taken,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
-            'is_completed': self.is_completed
+            'questions_count': QuestionBank.query.filter_by(chapter_id=self.id).count(),
+            'weightage_paper1': self.weightage_paper1,
+            'weightage_paper2': self.weightage_paper2,
+            'estimated_questions_paper1': self.estimated_questions_paper1,
+            'estimated_questions_paper2': self.estimated_questions_paper2,
+            'chapter_order': self.chapter_order
         }
 
 class StudyMaterial(db.Model):
@@ -325,8 +170,8 @@ class StudyMaterial(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    chapter = db.relationship('Chapter', backref='study_materials')
-    creator = db.relationship('User', backref='created_study_materials')
+    chapter = db.relationship('Chapter', backref='materials')
+    creator = db.relationship('User', backref='study_materials')
     
     def to_dict(self):
         return {
@@ -344,142 +189,8 @@ class StudyMaterial(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
-class QuestionPerformance(db.Model):
-    """Track performance analytics for each question attempt"""
-    __tablename__ = 'question_performance'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    question_bank_id = db.Column(db.Integer, db.ForeignKey('question_bank.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    quiz_attempt_id = db.Column(db.Integer, db.ForeignKey('quiz_attempts.id'))
-    
-    # Answer data
-    selected_option = db.Column(db.String(1), nullable=False)  # A, B, C, or D
-    is_correct = db.Column(db.Boolean, nullable=False)
-    time_taken = db.Column(db.Integer)  # Time in seconds
-    
-    # Context
-    difficulty_at_time = db.Column(db.String(20))  # Difficulty when answered
-    topic_at_time = db.Column(db.String(200))  # Topic when answered
-    
-    # Timestamps
-    answered_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    question_bank = db.relationship('QuestionBank', backref='performance_history')
-    user = db.relationship('User', backref='question_performances')
-    quiz_attempt = db.relationship('QuizAttempt', backref='question_performances')
-    
-    def __repr__(self):
-        return f'<QuestionPerformance {self.id}: Q{self.question_bank_id} U{self.user_id}>'
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'question_bank_id': self.question_bank_id,
-            'user_id': self.user_id,
-            'quiz_attempt_id': self.quiz_attempt_id,
-            'selected_option': self.selected_option,
-            'is_correct': self.is_correct,
-            'time_taken': self.time_taken,
-            'difficulty_at_time': self.difficulty_at_time,
-            'topic_at_time': self.topic_at_time,
-            'answered_at': self.answered_at.isoformat() if self.answered_at else None
-        }
-    
-    @classmethod
-    def get_question_stats(cls, question_bank_id: int) -> Dict:
-        """Get performance statistics for a specific question"""
-        from sqlalchemy import func
-        
-        performances = cls.query.filter_by(question_bank_id=question_bank_id)
-        total_attempts = performances.count()
-        
-        if total_attempts == 0:
-            return {
-                'total_attempts': 0,
-                'success_rate': 0,
-                'average_time': 0,
-                'difficulty_perception': 'unknown'
-            }
-        
-        correct_attempts = performances.filter_by(is_correct=True).count()
-        success_rate = (correct_attempts / total_attempts) * 100
-        
-        # Average time taken
-        avg_time_result = performances.with_entities(func.avg(cls.time_taken)).scalar()
-        average_time = int(avg_time_result) if avg_time_result else 0
-        
-        # Difficulty perception based on success rate
-        if success_rate >= 80:
-            difficulty_perception = 'easy'
-        elif success_rate >= 60:
-            difficulty_perception = 'medium'
-        else:
-            difficulty_perception = 'hard'
-        
-        return {
-            'total_attempts': total_attempts,
-            'success_rate': round(success_rate, 2),
-            'average_time': average_time,
-            'difficulty_perception': difficulty_perception
-        }
-    
-    @classmethod
-    def get_user_performance(cls, user_id: int, question_bank_id: Optional[int] = None) -> Dict:
-        """Get performance statistics for a user, optionally for a specific question"""
-        query = cls.query.filter_by(user_id=user_id)
-        
-        if question_bank_id:
-            query = query.filter_by(question_bank_id=question_bank_id)
-        
-        performances = query.all()
-        total_attempts = len(performances)
-        
-        if total_attempts == 0:
-            return {
-                'total_attempts': 0,
-                'success_rate': 0,
-                'average_time': 0,
-                'strong_topics': [],
-                'weak_topics': []
-            }
-        
-        correct_attempts = len([p for p in performances if p.is_correct])
-        success_rate = (correct_attempts / total_attempts) * 100
-        
-        # Average time
-        times = [p.time_taken for p in performances if p.time_taken is not None]
-        average_time = sum(times) // len(times) if times else 0
-        
-        # Topic analysis
-        topic_stats = {}
-        for perf in performances:
-            topic = perf.topic_at_time or 'Unknown'
-            if topic not in topic_stats:
-                topic_stats[topic] = {'correct': 0, 'total': 0}
-            topic_stats[topic]['total'] += 1
-            if perf.is_correct:
-                topic_stats[topic]['correct'] += 1
-        
-        # Calculate topic success rates
-        topic_rates = {}
-        for topic, stats in topic_stats.items():
-            topic_rates[topic] = (stats['correct'] / stats['total']) * 100 if stats['total'] > 0 else 0
-        
-        # Identify strong and weak topics
-        strong_topics = [topic for topic, rate in topic_rates.items() if rate >= 75 and topic_stats[topic]['total'] >= 3]
-        weak_topics = [topic for topic, rate in topic_rates.items() if rate <= 50 and topic_stats[topic]['total'] >= 3]
-        
-        return {
-            'total_attempts': total_attempts,
-            'success_rate': round(success_rate, 2),
-            'average_time': average_time,
-            'strong_topics': strong_topics[:5],  # Top 5
-            'weak_topics': weak_topics[:5]  # Bottom 5
-        }
-
 class QuestionBank(db.Model):
+    """Enhanced question bank for UGC NET preparation"""
     __tablename__ = 'question_bank'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -492,11 +203,23 @@ class QuestionBank(db.Model):
     explanation = db.Column(db.Text)
     marks = db.Column(db.Integer, default=1)
     
+    # UGC NET specific fields
+    paper_type = db.Column(db.String(20), default='paper2')  # 'paper1', 'paper2'
+    year = db.Column(db.Integer)  # Question year (2019, 2020, etc.)
+    session = db.Column(db.String(20))  # 'june', 'december'
+    question_type = db.Column(db.String(20), default='practice')  # 'previous_year', 'ai_generated', 'practice'
+    
     # Question bank specific fields
     topic = db.Column(db.String(200), nullable=False)  # Topic/subject area
     difficulty = db.Column(db.String(20), nullable=False)  # easy, medium, hard
-    source = db.Column(db.String(50), default='ai_generated')  # ai_generated, manual, imported
+    weightage = db.Column(db.Integer, default=5)  # Difficulty weightage out of 10
+    source = db.Column(db.String(50), default='ai_generated')  # ai_generated, manual, imported, previous_year
     tags = db.Column(db.Text)  # JSON array of tags for categorization
+    
+    # Performance analytics
+    avg_solve_time = db.Column(db.Integer)  # Average time to solve in seconds
+    success_rate = db.Column(db.Float, default=0.0)  # Success percentage (0-100)
+    attempt_count = db.Column(db.Integer, default=0)  # Total attempts across all users
     
     # Verification fields
     is_verified = db.Column(db.Boolean, default=False)
@@ -517,8 +240,8 @@ class QuestionBank(db.Model):
     
     # Relationships
     chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
-    chapter = db.relationship('Chapter', backref='question_bank_questions')
-    verified_by_user = db.relationship('User', backref='verified_questions')
+    chapter = db.relationship('Chapter', backref='questions')
+    verifier = db.relationship('User', foreign_keys=[verified_by])
     
     def __repr__(self):
         return f'<QuestionBank {self.id}: {self.topic}>'
@@ -532,10 +255,18 @@ class QuestionBank(db.Model):
             'option_c': self.option_c,
             'option_d': self.option_d,
             'marks': self.marks,
+            'paper_type': self.paper_type,
+            'year': self.year,
+            'session': self.session,
+            'question_type': self.question_type,
             'topic': self.topic,
             'difficulty': self.difficulty,
+            'weightage': self.weightage,
             'source': self.source,
             'tags': json.loads(self.tags) if self.tags else [],
+            'avg_solve_time': self.avg_solve_time,
+            'success_rate': self.success_rate,
+            'attempt_count': self.attempt_count,
             'is_verified': self.is_verified,
             'verification_method': self.verification_method,
             'verification_confidence': self.verification_confidence,
@@ -553,117 +284,527 @@ class QuestionBank(db.Model):
             
         return data
     
-    def set_tags(self, tags_list):
-        """Set tags as JSON array"""
-        self.tags = json.dumps(tags_list) if tags_list else None
-    
-    def get_tags(self):
-        """Get tags as list"""
-        return json.loads(self.tags) if self.tags else []
-    
-    def generate_content_hash(self):
-        """Generate hash for deduplication based on question content"""
-        import hashlib
-        content = f"{self.question_text}{self.option_a}{self.option_b}{self.option_c}{self.option_d}{self.correct_option}"
-        return hashlib.sha256(content.encode('utf-8')).hexdigest()
-    
-    def mark_verified(self, method, confidence, verified_by_user_id, notes=None):
-        """Mark question as verified"""
-        self.is_verified = True
-        self.verification_method = method
-        self.verification_confidence = confidence
-        self.verified_by = verified_by_user_id
-        self.verification_notes = notes
-        self.verified_at = datetime.utcnow()
+    def update_performance_stats(self):
+        """Update performance statistics based on question attempts"""
+        # This would calculate avg_solve_time and success_rate from QuestionPerformance
+        # Implementation would depend on your analytics requirements
+        pass
     
     def increment_usage(self):
         """Increment usage count and update last used timestamp"""
-        self.usage_count += 1
+        self.usage_count = (self.usage_count or 0) + 1
         self.last_used = datetime.utcnow()
-    
-    @classmethod
-    def find_duplicates(cls, question_text, options):
-        """Find potential duplicate questions based on content hash"""
-        import hashlib
-        content = f"{question_text}{options['A']}{options['B']}{options['C']}{options['D']}"
-        content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-        return cls.query.filter_by(content_hash=content_hash).first()
-    
-    @classmethod
-    def search_by_topic_and_difficulty(cls, topic=None, difficulty=None, verified_only=True, limit=None):
-        """Search question bank by topic and difficulty"""
-        query = cls.query
-        
-        if verified_only:
-            query = query.filter_by(is_verified=True)
-        if topic:
-            query = query.filter(cls.topic.ilike(f'%{topic}%'))
-        if difficulty:
-            query = query.filter_by(difficulty=difficulty)
-            
-        query = query.order_by(cls.usage_count.asc(), cls.created_at.desc())
-        
-        if limit:
-            query = query.limit(limit)
-            
-        return query.all()
     
     def get_performance_stats(self):
         """Get performance statistics for this question"""
-        from sqlalchemy import func
-        
-        # Import here to avoid any potential circular import issues
-        performances = db.session.query(QuestionPerformance).filter_by(question_bank_id=self.id)
-        
-        total_attempts = performances.count()
-        if total_attempts == 0:
-            return {
-                'total_attempts': 0,
-                'success_rate': 0,
-                'average_time': 0,
-                'difficulty_rating': self.difficulty
-            }
-        
-        correct_attempts = performances.filter_by(is_correct=True).count()
-        success_rate = (correct_attempts / total_attempts) * 100
-        
-        # Average time taken
-        avg_time_result = performances.with_entities(func.avg(QuestionPerformance.time_taken)).scalar()
-        average_time = int(avg_time_result) if avg_time_result else 0
-        
         return {
-            'total_attempts': total_attempts,
-            'success_rate': round(success_rate, 2),
-            'average_time': average_time,
+            'total_attempts': self.attempt_count or 0,
+            'success_rate': self.success_rate or 0.0,
+            'average_time': self.avg_solve_time or 0,
             'difficulty_rating': self.difficulty,
+            'usage_count': self.usage_count or 0,
             'last_used': self.last_used.isoformat() if self.last_used else None
         }
     
-    def needs_review(self, min_attempts=10, min_success_rate=60):
-        """Check if question needs review based on performance"""
-        stats = self.get_performance_stats()
-        return (stats['total_attempts'] >= min_attempts and 
-                stats['success_rate'] < min_success_rate)
-    
     def get_usage_trends(self, days=30):
-        """Get usage trends over specified days"""
-        from sqlalchemy import func, and_
-        from datetime import timedelta
+        """Get usage trends over specified days - simplified version"""
+        # Simplified implementation since we don't have detailed QuestionPerformance data
+        return []
+
+class UGCNetMockTest(db.Model):
+    """UGC NET Mock Test Configuration with weightage system"""
+    __tablename__ = 'ugc_net_mock_tests'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    
+    # UGC NET specific configuration
+    paper_type = db.Column(db.String(20), nullable=False)  # 'paper1', 'paper2'
+    total_questions = db.Column(db.Integer, default=100)  # Standard UGC NET question count
+    total_marks = db.Column(db.Integer, default=200)  # Standard UGC NET marks
+    time_limit = db.Column(db.Integer, default=180)  # 3 hours in minutes
+    
+    # Question distribution
+    previous_year_percentage = db.Column(db.Float, default=70.0)  # 70% previous year questions
+    ai_generated_percentage = db.Column(db.Float, default=30.0)   # 30% AI generated questions
+    
+    # Difficulty distribution
+    easy_percentage = db.Column(db.Float, default=30.0)
+    medium_percentage = db.Column(db.Float, default=50.0)
+    hard_percentage = db.Column(db.Float, default=20.0)
+    
+    # Configuration JSON for chapter weightages
+    weightage_config = db.Column(db.Text)  # JSON string with chapter weightages
+    
+    # Status and metadata
+    is_active = db.Column(db.Boolean, default=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    subject = db.relationship('Subject', backref='ugc_net_mock_tests')
+    creator = db.relationship('User', backref='created_mock_tests')
+    
+    def set_weightage_config(self, config_dict):
+        """Store weightage configuration as JSON"""
+        self.weightage_config = json.dumps(config_dict)
+    
+    def get_weightage_config(self):
+        """Retrieve weightage configuration as dict"""
+        return json.loads(self.weightage_config) if self.weightage_config else {}
+    
+    def to_dict(self, include_questions=False):
+        result = {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'subject_id': self.subject_id,
+            'subject_name': self.subject.name if self.subject else None,
+            'paper_type': self.paper_type,
+            'total_questions': self.total_questions,
+            'total_marks': self.total_marks,
+            'time_limit': self.time_limit,
+            'previous_year_percentage': self.previous_year_percentage,
+            'ai_generated_percentage': self.ai_generated_percentage,
+            'easy_percentage': self.easy_percentage,
+            'medium_percentage': self.medium_percentage,
+            'hard_percentage': self.hard_percentage,
+            'weightage_config': self.get_weightage_config(),
+            'is_active': self.is_active,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
         
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days)
+        # Note: In the current implementation, questions are generated dynamically
+        # and not stored with the mock test, so include_questions has no effect
+        if include_questions:
+            result['note'] = 'Questions are generated dynamically when attempts are started'
         
-        daily_usage = db.session.query(
-            func.date(QuestionPerformance.answered_at).label('date'),
-            func.count(QuestionPerformance.id).label('count')
-        ).filter(
-            and_(
-                QuestionPerformance.question_bank_id == self.id,
-                QuestionPerformance.answered_at >= start_date,
-                QuestionPerformance.answered_at <= end_date
-            )
-        ).group_by(func.date(QuestionPerformance.answered_at)).all()
+        return result
+
+class UGCNetMockAttempt(db.Model):
+    """UGC NET Mock Test Attempts with detailed analytics"""
+    __tablename__ = 'ugc_net_mock_attempts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    mock_test_id = db.Column(db.Integer, db.ForeignKey('ugc_net_mock_tests.id'), nullable=False)
+    
+    # Attempt status and timing
+    status = db.Column(db.String(20), default='in_progress')  # 'in_progress', 'completed', 'abandoned'
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    end_time = db.Column(db.DateTime)
+    time_limit = db.Column(db.Integer, default=180)  # Time limit in minutes
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Basic attempt data
+    score = db.Column(db.Float, default=0.0)  # Changed to Float for percentage scores
+    total_marks = db.Column(db.Integer, default=0)
+    correct_answers = db.Column(db.Integer, default=0)
+    total_questions = db.Column(db.Integer, default=0)
+    percentage = db.Column(db.Float, default=0.0)
+    time_taken = db.Column(db.Integer)  # in seconds
+    
+    # Answer data
+    answers_data = db.Column(db.Text)  # JSON string of user answers
+    detailed_results = db.Column(db.Text)  # JSON string with detailed question-wise results
+    analytics = db.Column(db.Text)  # JSON string with performance analytics
+    
+    # UGC NET specific analytics
+    paper1_score = db.Column(db.Integer, default=0)  # If applicable
+    paper2_score = db.Column(db.Integer, default=0)
+    qualification_status = db.Column(db.String(20))  # 'qualified', 'not_qualified', 'borderline'
+    predicted_rank = db.Column(db.Integer)  # Predicted rank based on performance
+    
+    # Chapter-wise performance (JSON)
+    chapter_wise_performance = db.Column(db.Text)  # JSON string with chapter scores
+    
+    # Question-wise data (legacy fields for backward compatibility)
+    answers = db.Column(db.Text)  # JSON string of user answers
+    question_ids = db.Column(db.Text)  # JSON array of question IDs used in this attempt
+    
+    # Time tracking (legacy fields for backward compatibility)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    is_completed = db.Column(db.Boolean, default=False)
+    
+    # Analysis data
+    strengths = db.Column(db.Text)  # JSON array of strength areas
+    weaknesses = db.Column(db.Text)  # JSON array of weakness areas
+    recommendations = db.Column(db.Text)  # JSON array of study recommendations
+    
+    # Relationships
+    mock_test = db.relationship('UGCNetMockTest', backref='attempts')
+    
+    def set_answers(self, answers_dict):
+        self.answers = json.dumps(answers_dict)
+    
+    def get_answers(self):
+        return json.loads(self.answers) if self.answers else {}
+    
+    def set_question_ids(self, question_ids_list):
+        self.question_ids = json.dumps(question_ids_list)
+    
+    def get_question_ids(self):
+        return json.loads(self.question_ids) if self.question_ids else []
+    
+    def set_chapter_wise_performance(self, performance_dict):
+        self.chapter_wise_performance = json.dumps(performance_dict)
+    
+    def get_chapter_wise_performance(self):
+        return json.loads(self.chapter_wise_performance) if self.chapter_wise_performance else {}
+    
+    def set_strengths(self, strengths_list):
+        self.strengths = json.dumps(strengths_list)
+    
+    def get_strengths(self):
+        return json.loads(self.strengths) if self.strengths else []
+    
+    def set_weaknesses(self, weaknesses_list):
+        self.weaknesses = json.dumps(weaknesses_list)
+    
+    def get_weaknesses(self):
+        return json.loads(self.weaknesses) if self.weaknesses else []
+    
+    def set_recommendations(self, recommendations_list):
+        self.recommendations = json.dumps(recommendations_list)
+    
+    def get_recommendations(self):
+        return json.loads(self.recommendations) if self.recommendations else []
+    
+    def calculate_ugc_net_score(self):
+        """Calculate UGC NET specific scoring and qualification status"""
+        if not self.is_completed:
+            return 0
+            
+        # Basic score calculation
+        user_answers = self.get_answers()
+        question_ids = self.get_question_ids()
         
-        return [{'date': str(usage.date), 'count': usage.count} for usage in daily_usage]
+        score = 0
+        chapter_scores = {}
+        
+        for q_id in question_ids:
+            question = QuestionBank.query.get(q_id)
+            if question and str(q_id) in user_answers:
+                if user_answers[str(q_id)].upper() == question.correct_option:
+                    score += question.marks
+                    
+                    # Track chapter-wise performance
+                    chapter_name = question.chapter.name if question.chapter else 'General'
+                    if chapter_name not in chapter_scores:
+                        chapter_scores[chapter_name] = {'correct': 0, 'total': 0}
+                    chapter_scores[chapter_name]['correct'] += 1
+                
+                # Always count total
+                chapter_name = question.chapter.name if question.chapter else 'General'
+                if chapter_name not in chapter_scores:
+                    chapter_scores[chapter_name] = {'correct': 0, 'total': 0}
+                chapter_scores[chapter_name]['total'] += 1
+        
+        self.score = score
+        self.percentage = round((score / self.total_marks) * 100, 2) if self.total_marks > 0 else 0
+        self.set_chapter_wise_performance(chapter_scores)
+        
+        # Determine qualification status (simplified logic)
+        if self.percentage >= 40:  # UGC NET qualification threshold
+            self.qualification_status = 'qualified'
+        elif self.percentage >= 35:
+            self.qualification_status = 'borderline'
+        else:
+            self.qualification_status = 'not_qualified'
+        
+        db.session.commit()
+        return score
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'mock_test_id': self.mock_test_id,
+            'mock_test_title': self.mock_test.title if self.mock_test else None,
+            'status': self.status,
+            'start_time': self.start_time.isoformat() + 'Z' if self.start_time else None,
+            'end_time': self.end_time.isoformat() + 'Z' if self.end_time else None,
+            'time_limit': self.time_limit,
+            'created_at': self.created_at.isoformat() + 'Z' if self.created_at else None,
+            'score': self.score,
+            'total_marks': self.total_marks,
+            'correct_answers': self.correct_answers,
+            'total_questions': self.total_questions,
+            'percentage': self.percentage,
+            'time_taken': self.time_taken,
+            'paper1_score': self.paper1_score,
+            'paper2_score': self.paper2_score,
+            'qualification_status': self.qualification_status,
+            'predicted_rank': self.predicted_rank,
+            'chapter_wise_performance': self.get_chapter_wise_performance(),
+            'started_at': self.started_at.isoformat() + 'Z' if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() + 'Z' if self.completed_at else None,
+            'is_completed': self.is_completed,
+            'strengths': self.get_strengths(),
+            'weaknesses': self.get_weaknesses(),
+            'recommendations': self.get_recommendations(),
+            'analytics': json.loads(self.analytics) if self.analytics else {}
+        }
+
+class UGCNetPracticeAttempt(db.Model):
+    """UGC NET Practice Test Attempts for focused chapter-wise practice"""
+    __tablename__ = 'ugc_net_practice_attempts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    
+    # Practice configuration
+    title = db.Column(db.String(200), nullable=False)
+    paper_type = db.Column(db.String(20), default='paper2')  # 'paper1', 'paper2'
+    practice_type = db.Column(db.String(30), default='chapter_wise')  # 'chapter_wise', 'mixed', 'revision'
+    selected_chapters = db.Column(db.Text)  # JSON array of chapter IDs
+    
+    # Question configuration
+    total_questions = db.Column(db.Integer, default=20)
+    difficulty_easy = db.Column(db.Integer, default=30)  # Percentage
+    difficulty_medium = db.Column(db.Integer, default=50)  # Percentage
+    difficulty_hard = db.Column(db.Integer, default=20)  # Percentage
+    
+    # Source distribution
+    previous_year_percentage = db.Column(db.Float, default=70.0)
+    ai_generated_percentage = db.Column(db.Float, default=30.0)
+    
+    # Attempt status and timing
+    status = db.Column(db.String(20), default='generated')  # 'generated', 'in_progress', 'completed', 'abandoned'
+    time_limit = db.Column(db.Integer, default=30)  # Time limit in minutes
+    start_time = db.Column(db.DateTime)
+    end_time = db.Column(db.DateTime)
+    time_taken = db.Column(db.Integer)  # in seconds
+    
+    # Results
+    score = db.Column(db.Float, default=0.0)
+    total_marks = db.Column(db.Integer, default=0)
+    correct_answers = db.Column(db.Integer, default=0)
+    percentage = db.Column(db.Float, default=0.0)
+    
+    # Data storage
+    questions_data = db.Column(db.Text)  # JSON array of question IDs used
+    answers_data = db.Column(db.Text)  # JSON object of user answers
+    detailed_results = db.Column(db.Text)  # JSON with question-wise results
+    
+    # Chapter-wise performance
+    chapter_wise_performance = db.Column(db.Text)  # JSON with chapter scores
+    
+    # Analytics and feedback
+    strengths = db.Column(db.Text)  # JSON array of strength areas
+    weaknesses = db.Column(db.Text)  # JSON array of weakness areas
+    recommendations = db.Column(db.Text)  # JSON array of study recommendations
+    
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    started_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    is_completed = db.Column(db.Boolean, default=False)
+    
+    # Relationships
+    subject = db.relationship('Subject', backref='practice_attempts')
+    
+    def set_selected_chapters(self, chapter_ids_list):
+        """Store selected chapter IDs as JSON"""
+        self.selected_chapters = json.dumps(chapter_ids_list)
+    
+    def get_selected_chapters(self):
+        """Retrieve selected chapter IDs as list"""
+        return json.loads(self.selected_chapters) if self.selected_chapters else []
+    
+    def set_questions_data(self, questions_list):
+        """Store questions data as JSON"""
+        self.questions_data = json.dumps(questions_list)
+    
+    def get_questions_data(self):
+        """Retrieve questions data as list"""
+        return json.loads(self.questions_data) if self.questions_data else []
+    
+    def set_answers_data(self, answers_dict):
+        """Store user answers as JSON"""
+        self.answers_data = json.dumps(answers_dict)
+    
+    def get_answers_data(self):
+        """Retrieve user answers as dict"""
+        return json.loads(self.answers_data) if self.answers_data else {}
+    
+    def set_detailed_results(self, results_dict):
+        """Store detailed results as JSON"""
+        self.detailed_results = json.dumps(results_dict)
+    
+    def get_detailed_results(self):
+        """Retrieve detailed results as dict"""
+        return json.loads(self.detailed_results) if self.detailed_results else {}
+    
+    def set_chapter_wise_performance(self, performance_dict):
+        """Store chapter-wise performance as JSON"""
+        self.chapter_wise_performance = json.dumps(performance_dict)
+    
+    def get_chapter_wise_performance(self):
+        """Retrieve chapter-wise performance as dict"""
+        return json.loads(self.chapter_wise_performance) if self.chapter_wise_performance else {}
+    
+    def set_strengths(self, strengths_list):
+        """Store strengths as JSON"""
+        self.strengths = json.dumps(strengths_list)
+    
+    def get_strengths(self):
+        """Retrieve strengths as list"""
+        return json.loads(self.strengths) if self.strengths else []
+    
+    def set_weaknesses(self, weaknesses_list):
+        """Store weaknesses as JSON"""
+        self.weaknesses = json.dumps(weaknesses_list)
+    
+    def get_weaknesses(self):
+        """Retrieve weaknesses as list"""
+        return json.loads(self.weaknesses) if self.weaknesses else []
+    
+    def set_recommendations(self, recommendations_list):
+        """Store recommendations as JSON"""
+        self.recommendations = json.dumps(recommendations_list)
+    
+    def get_recommendations(self):
+        """Retrieve recommendations as list"""
+        return json.loads(self.recommendations) if self.recommendations else []
+    
+    def calculate_practice_score(self):
+        """Calculate practice test score and analytics"""
+        if not self.is_completed or not self.questions_data or not self.answers_data:
+            return 0
+            
+        questions_data = self.get_questions_data()
+        user_answers = self.get_answers_data()
+        
+        correct_count = 0
+        total_marks = 0
+        chapter_performance = {}
+        detailed_results = []
+        
+        for question_data in questions_data:
+            question_id = question_data['id']
+            total_marks += question_data.get('marks', 1)
+            
+            # Check if answer is correct
+            is_correct = False
+            if str(question_id) in user_answers:
+                user_answer = user_answers[str(question_id)].upper()
+                correct_answer = question_data.get('correct_option', '').upper()
+                is_correct = user_answer == correct_answer
+                
+                if is_correct:
+                    correct_count += 1
+            
+            # Track chapter-wise performance
+            chapter_name = question_data.get('chapter_name', 'General')
+            if chapter_name not in chapter_performance:
+                chapter_performance[chapter_name] = {'correct': 0, 'total': 0}
+            
+            chapter_performance[chapter_name]['total'] += 1
+            if is_correct:
+                chapter_performance[chapter_name]['correct'] += 1
+            
+            # Store detailed result
+            detailed_results.append({
+                'question_id': question_id,
+                'is_correct': is_correct,
+                'user_answer': user_answers.get(str(question_id), ''),
+                'correct_answer': question_data.get('correct_option', ''),
+                'marks': question_data.get('marks', 1),
+                'chapter': chapter_name,
+                'difficulty': question_data.get('difficulty', 'medium')
+            })
+        
+        # Update attempt data
+        self.correct_answers = correct_count
+        self.total_marks = total_marks
+        self.score = correct_count  # For practice tests, score = correct answers
+        self.percentage = round((correct_count / len(questions_data)) * 100, 2) if questions_data else 0
+        
+        # Store analysis data
+        self.set_detailed_results({'questions': detailed_results})
+        self.set_chapter_wise_performance(chapter_performance)
+        
+        # Generate strengths and weaknesses
+        strengths = []
+        weaknesses = []
+        
+        for chapter, perf in chapter_performance.items():
+            chapter_percentage = (perf['correct'] / perf['total']) * 100 if perf['total'] > 0 else 0
+            if chapter_percentage >= 70:
+                strengths.append(chapter)
+            elif chapter_percentage < 50:
+                weaknesses.append(chapter)
+        
+        self.set_strengths(strengths)
+        self.set_weaknesses(weaknesses)
+        
+        # Generate recommendations
+        recommendations = []
+        if weaknesses:
+            recommendations.append(f"Focus more on: {', '.join(weaknesses)}")
+        if self.percentage < 60:
+            recommendations.append("Consider reviewing the basics and practicing more questions")
+        if self.percentage >= 80:
+            recommendations.append("Great performance! Try harder difficulty levels")
+        
+        self.set_recommendations(recommendations)
+        
+        db.session.commit()
+        return self.score
+    
+    def to_dict(self, include_questions=False, include_answers=False):
+        """Convert to dictionary for API responses"""
+        result = {
+            'id': self.id,
+            'user_id': self.user_id,
+            'subject_id': self.subject_id,
+            'subject_name': self.subject.name if self.subject else None,
+            'title': self.title,
+            'paper_type': self.paper_type,
+            'practice_type': self.practice_type,
+            'selected_chapters': self.get_selected_chapters(),
+            'total_questions': self.total_questions,
+            'difficulty_easy': self.difficulty_easy,
+            'difficulty_medium': self.difficulty_medium,
+            'difficulty_hard': self.difficulty_hard,
+            'previous_year_percentage': self.previous_year_percentage,
+            'ai_generated_percentage': self.ai_generated_percentage,
+            'status': self.status,
+            'time_limit': self.time_limit,
+            'start_time': self.start_time.isoformat() + 'Z' if self.start_time else None,
+            'end_time': self.end_time.isoformat() + 'Z' if self.end_time else None,
+            'time_taken': self.time_taken,
+            'score': self.score,
+            'total_marks': self.total_marks,
+            'correct_answers': self.correct_answers,
+            'percentage': self.percentage,
+            'chapter_wise_performance': self.get_chapter_wise_performance(),
+            'strengths': self.get_strengths(),
+            'weaknesses': self.get_weaknesses(),
+            'recommendations': self.get_recommendations(),
+            'created_at': self.created_at.isoformat() + 'Z' if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() + 'Z' if self.updated_at else None,
+            'started_at': self.started_at.isoformat() + 'Z' if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() + 'Z' if self.completed_at else None,
+            'is_completed': self.is_completed
+        }
+        
+        if include_questions:
+            result['questions'] = self.get_questions_data()
+        
+        if include_answers:
+            result['answers'] = self.get_answers_data()
+            result['detailed_results'] = self.get_detailed_results()
+        
+        return result
 
 

@@ -1,58 +1,118 @@
-# Git
+# ========================================
+# PrepCheck Application - Docker Ignore
+# ========================================
+
+# Git & Version Control
 .git
 .gitignore
+.gitattributes
 
-# Documentation
-README.md
-LICENSE
+# Documentation (include in image but ignore during build context)
+README*.md
+docs/
+*.md
 
-# Environment files
+# Environment & Config Files
 .env
 .env.local
 .env.example
+.env.development
+.env.production
+backend/.env.example
 
-# Node modules
-node_modules
+# Development Dependencies
+node_modules/
+frontend/node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
 
-# Python
-__pycache__
+# Python Development
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env
-venv
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
+venv/
+.venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
-# IDEs
-.vscode
-.idea
+# Build Artifacts & Output
+frontend/dist/
+frontend/build/
+backend/build/
+dist/
+build/
+
+# IDE & Editor Files
+.vscode/
+.idea/
 *.swp
 *.swo
+*~
+.editorconfig
 
-# OS
+# OS Generated Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Build artifacts
-dist
-build
+# ========================================
+# PrepCheck Specific Exclusions
+# ========================================
 
-# Test coverage
-coverage
-.coverage
-.nyc_output
+# Development Database (exclude dev DB, use fresh DB in container)
+backend/instance/
+*.db
+*.sqlite*
 
-# Logs
-*.log
+# User Generated Content (should be mounted as volumes)
+exports/
+uploads/
+logs/
+user_uploads/
+quiz_exports/
+temp_attachments/
 
-# Cache
-.cache
-.parcel-cache
+# Development Scripts
+dev-setup.sh
+test-api.sh
 
-# Temporary files
+# Cache & Temporary Files
+.cache/
+.parcel-cache/
 *.tmp
 *.temp
+*.log
+
+# AI Model Cache (should be mounted as volume)
+models/
+model_cache/
+
+# Testing Files
+tests/
+.pytest_cache/
+
+# Backup Files
+*.bak
+*.backup
+*_backup.*
+*_old.*
+
+# Docker Development Files
+docker-compose.override.yml
+docker-compose.dev.yml
+
+# Local Development Tools
+.hintrc

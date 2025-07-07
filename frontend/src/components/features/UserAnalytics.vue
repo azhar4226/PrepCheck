@@ -40,7 +40,7 @@
             <div class="card-body text-center">
               <i class="bi bi-clipboard-check display-6 mb-2"></i>
               <h4 class="mb-1">{{ analytics.summary.total_attempts }}</h4>
-              <p class="mb-0 small">Quiz Attempts</p>
+              <p class="mb-0 small">Mock Test Attempts</p>
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@
           <div class="card bg-warning text-white">
             <div class="card-body text-center">
               <i class="bi bi-question-circle display-6 mb-2"></i>
-              <h4 class="mb-1">{{ analytics.question_analytics.total_questions_answered }}</h4>
+              <h4 class="mb-1">{{ questionsAnswered }}</h4>
               <p class="mb-0 small">Questions Answered</p>
             </div>
           </div>
@@ -94,9 +94,9 @@
               </div>
               <div v-else class="text-center py-4 text-muted">
                 <i class="bi bi-graph-down display-4 mb-3"></i>
-                <p>No quiz data available for the selected period.</p>
-                <router-link to="/quizzes" class="btn btn-primary">
-                  <i class="bi bi-play-circle me-2"></i>Take Your First Quiz
+                <p>No UGC NET mock test data available for the selected period.</p>
+                <router-link to="/ugc-net" class="btn btn-primary">
+                  <i class="bi bi-play-circle me-2"></i>Take Your First UGC NET Mock Test
                 </router-link>
               </div>
             </div>
@@ -228,7 +228,7 @@
               </div>
               <div v-else class="text-muted text-center py-3">
                 <i class="bi bi-trophy display-4 mb-2"></i>
-                <p>Complete more quizzes to see your strongest topics</p>
+                <p>Complete more UGC NET mock tests to see your strongest topics</p>
               </div>
             </div>
           </div>
@@ -301,9 +301,9 @@
     <div v-else class="text-center py-5">
       <i class="bi bi-graph-down display-1 text-muted mb-3"></i>
       <h4 class="text-muted">No analytics data available</h4>
-      <p class="text-muted mb-4">Start taking quizzes to see your performance analytics</p>
-      <router-link to="/quizzes" class="btn btn-primary">
-        <i class="bi bi-play-circle me-2"></i>Browse Quizzes
+      <p class="text-muted mb-4">Start taking UGC NET mock tests to see your performance analytics</p>
+      <router-link to="/ugc-net" class="btn btn-primary">
+        <i class="bi bi-play-circle me-2"></i>Browse UGC NET Mock Tests
       </router-link>
     </div>
   </div>
@@ -311,7 +311,7 @@
 
 <script>
 import { Chart, registerables } from 'chart.js'
-import quizService from '@/services/quizService'
+import ugcNetService from '@/services/ugcNetService'
 
 Chart.register(...registerables)
 
@@ -334,6 +334,13 @@ export default {
         this.analytics.question_analytics.strongest_topics.length > 0 ||
         this.analytics.question_analytics.most_difficult_topics.length > 0
       )
+    },
+    questionsAnswered() {
+      if (!this.analytics) return 0
+      
+      // Use the calculated value from summary if available, otherwise use question analytics
+      return this.analytics.summary.total_questions_answered || 
+             this.analytics.question_analytics.total_questions_answered || 0
     }
   },
   mounted() {
@@ -350,12 +357,17 @@ export default {
       this.error = null
       
       try {
-        this.analytics = await quizService.getUserAnalytics(this.filters)
+        const response = await ugcNetService.getStatistics()
+        if (response.success) {
+          this.analytics = response.data
+        } else {
+          throw new Error(response.error || 'Failed to load statistics')
+        }
         this.$nextTick(() => {
           this.createDailyChart()
         })
       } catch (error) {
-        this.error = error.response?.data?.error || 'Failed to load analytics'
+        this.error = error.response?.data?.error || error.message || 'Failed to load analytics'
         console.error('Error loading user analytics:', error)
       } finally {
         this.loading = false

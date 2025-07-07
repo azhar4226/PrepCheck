@@ -1,156 +1,177 @@
-# PrepCheck - Multi-User Exam Preparation App
+# PrepCheck - Multi-User Exam Preparation Platform
 
-PrepCheck is a comprehensive web application for exam preparation featuring AI-powered quiz generation, multi-user support, and advanced analytics.
+PrepCheck is a comprehensive web application designed for multi-user exam preparation with AI-powered quiz generation, admin management, and real-time analytics.
 
 ## 🚀 Features
 
-- **Multi-User Support**: Admin and user roles with secure authentication
-- **AI-Powered Quizzes**: Generate quizzes using Google Gemini AI
-- **Real-time Progress**: Track learning progress and performance analytics
-- **Async Tasks**: Background processing with Celery and Redis
-- **Email Notifications**: Automated email alerts and updates
-- **Data Export**: CSV export functionality for results
-- **Modern UI**: Responsive design with Vue.js and Bootstrap
-- **PWA Support**: Progressive Web App capabilities
+### For Students
+
+- **User Authentication**: Secure JWT-based login/registration system
+- **Interactive Quizzes**: Take quizzes with immediate feedback
+- **Progress Tracking**: Monitor your performance and improvement over time
+- **Subject Browse**: Explore quizzes by subjects and difficulty levels
+- **Results History**: View detailed quiz results and analytics
+
+### For Administrators
+
+- **User Management**: View and manage all registered users
+- **Subject Management**: Create, edit, and organize quiz subjects
+- **Quiz Management**: Full CRUD operations for quizzes and questions
+- **AI Quiz Generation**: Generate quizzes automatically using Google Gemini AI
+- **AI Verification System**: Automatic verification of AI-generated questions
+- **Analytics Dashboard**: Monitor platform usage and user performance
+- **CSV Export**: Export user data and quiz results
 
 ## 🛠 Tech Stack
 
 ### Backend
+
 - **Flask** - Python web framework
-- **SQLAlchemy** - Database ORM
-- **Celery** - Asynchronous task queue
+- **SQLAlchemy** - Database ORM with PostgreSQL/SQLite support
+- **Celery** - Asynchronous task processing
 - **Redis** - Message broker and caching
-- **JWT** - Secure authentication
-- **Gemini AI** - Quiz generation
+- **Google Gemini AI** - AI-powered quiz generation
+- **JWT** - JSON Web Token authentication
+- **Alembic** - Database migrations
 
 ### Frontend
-- **Vue.js 3** - Progressive JavaScript framework
-- **Bootstrap 5** - UI components and styling
-- **Vite** - Build tool and dev server
 
-## 📋 Prerequisites
+- **Vue.js 3** - Progressive JavaScript framework
+- **Vue Router** - Client-side routing
+- **Bootstrap 5** - CSS framework
+- **Chart.js** - Interactive charts and analytics
+- **Axios** - HTTP client
+
+### Infrastructure
+
+- **Docker** - Containerization
+- **Docker Compose** - Multi-container orchestration
+- **Nginx** - Web server and reverse proxy
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Docker and Docker Compose
 - Git
-- Gemini AI API key
-- Email account for SMTP (Gmail recommended)
 
-## 🚀 Quick Start with Docker
+### Installation
 
 1. **Clone the repository**
+
    ```bash
-   git clone https://github.com/azhar4226/PrepCheck.git
+   git clone <repository-url>
    cd PrepCheck
    ```
 
 2. **Set up environment variables**
+
    ```bash
    cp .env.example .env
-   # Edit .env with your actual API keys and email credentials
+   cp backend/.env.example backend/.env
+   # Edit .env files with your configuration
    ```
 
 3. **Start the application**
+
    ```bash
+   # Make setup script executable
+   chmod +x dev-setup.sh
+   
+   # Run setup (checks prerequisites and starts containers)
+   ./dev-setup.sh
+   
+   # Or manually with Docker Compose
    docker-compose up -d
    ```
 
 4. **Access the application**
-   - Frontend: http://localhost
-   - Backend API: http://localhost:8000
 
-## 🔧 Development Setup
+   - Frontend: <http://localhost:3000>
+   - Backend API: <http://localhost:8000>
+   - Admin login: <admin@prepcheck.com> / admin123
 
-### Backend Development
+### API Testing
+
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Set up environment variables
-export FLASK_APP=app.py
-export FLASK_ENV=development
-
-# Initialize database
-flask db upgrade
-
-# Start development server
-python app.py
+# Test API endpoints
+./test-api.sh
 ```
 
-### Frontend Development
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## 📊 AI Verification System
 
-## 🌍 Environment Variables
+PrepCheck includes an advanced AI verification system that automatically validates AI-generated quiz questions:
 
-Required environment variables (see `.env.example`):
+- **Real-time Verification**: Questions are verified as they're generated
+- **Confidence Scoring**: Each question receives a confidence score
+- **Manual Override**: Administrators can manually approve/reject questions
+- **Retry Mechanism**: Failed verifications can be retried with different parameters
+- **Comprehensive Logging**: Full audit trail of verification processes
 
-- `GEMINI_API_KEY` - Your Google Gemini AI API key
-- `MAIL_SERVER` - SMTP server (e.g., smtp.gmail.com)
-- `MAIL_PORT` - SMTP port (e.g., 587)
-- `MAIL_USERNAME` - Your email address
-- `MAIL_PASSWORD` - Your email app password
+## 🔧 Configuration
 
-## 📊 API Endpoints
+### Environment Variables
+
+Key environment variables to configure:
+
+- `GOOGLE_API_KEY`: Google Gemini AI API key
+- `SECRET_KEY`: Flask application secret key
+- `DATABASE_URL`: Database connection string
+- `REDIS_URL`: Redis connection string
+- `MAIL_SERVER`: SMTP server for email notifications
+
+## 📝 API Documentation
 
 ### Authentication
+
+All API endpoints require JWT authentication except login/register.
+
+### Key Endpoints
+
+- `POST /api/auth/login` - User authentication
 - `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/profile` - Get user profile
+- `GET /api/quiz/` - Get available quizzes
+- `POST /api/quiz/{id}/attempt` - Submit quiz attempt
+- `POST /api/ai/generate-quiz` - Generate AI quiz (Admin)
+- `GET /api/ai/verification-status/{task_id}` - Check verification status
 
-### Quizzes
-- `GET /api/quizzes` - List all quizzes
-- `POST /api/quizzes` - Create new quiz
-- `GET /api/quizzes/{id}` - Get quiz details
-- `POST /api/quizzes/{id}/submit` - Submit quiz answers
+## 🧪 Testing
 
-### Admin
-- `GET /api/admin/users` - List all users
-- `GET /api/admin/analytics` - Get system analytics
-- `POST /api/admin/generate-quiz` - AI-powered quiz generation
+### Backend Testing
 
-## 🔒 Security Features
-
-- JWT-based authentication
-- Password hashing with Werkzeug
-- CORS protection
-- Input validation and sanitization
-- Security headers in production
-
-## 📱 PWA Features
-
-- Offline capability
-- App-like experience
-- Push notifications support
-- Responsive design for all devices
-
-## 🐳 Docker Services
-
-- **Frontend**: Nginx serving Vue.js app (Port 80)
-- **Backend**: Flask API with Gunicorn (Port 8000)
-- **Redis**: Message broker for Celery (Port 6379)
-- **Celery**: Background task worker
-
-## 📈 Monitoring and Logs
-
-View application logs:
 ```bash
-docker-compose logs -f backend
-docker-compose logs -f celery
-docker-compose logs -f frontend
+cd backend
+python -m pytest tests/
 ```
 
-## 🛠 Production Deployment
+### Frontend Testing
 
-1. **Set production environment variables**
-2. **Use strong SECRET_KEY**
-3. **Configure proper email credentials**
-4. **Set up SSL/TLS certificates**
-5. **Configure domain and DNS**
+```bash
+cd frontend
+npm run test
+```
+
+### End-to-End Testing
+
+```bash
+./test-api.sh
+```
+
+## 📦 Deployment
+
+### Docker Production
+
+```bash
+docker-compose -f docker-compose.yml up -d
+```
+
+### Manual Deployment
+
+See `README_DEVELOPMENT.md` for detailed deployment instructions.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
@@ -160,14 +181,10 @@ docker-compose logs -f frontend
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
 ## 📞 Support
 
-For support and questions, please open an issue on GitHub.
+For support and questions, please open an issue in the repository.
 
 ---
 
-**Built with ❤️ using Flask, Vue.js, and modern web technologies**
+**PrepCheck** - Empowering education through intelligent assessment technology.

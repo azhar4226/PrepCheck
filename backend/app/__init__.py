@@ -49,7 +49,9 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     
     # Import models to ensure they are registered with SQLAlchemy
-    from app.models import User, Subject, Chapter, Quiz, Question, QuizAttempt, StudyMaterial, QuestionBank, QuestionPerformance
+    from app.models import (User, Subject, Chapter, StudyMaterial, 
+                           QuestionBank, UGCNetMockTest, UGCNetMockAttempt, 
+                           UGCNetPracticeAttempt)
     
     jwt.init_app(app)
     
@@ -70,24 +72,25 @@ def create_app(config_name=None):
     from app.controllers.auth_controller import auth_bp
     from app.controllers.admin_controller import admin_bp
     from app.controllers.user_controller import user_bp
-    from app.controllers.quiz_controller import quiz_bp
-    from app.controllers.ai_controller import ai_bp
     from app.controllers.analytics_controller import analytics_bp
+    from app.controllers.ai_controller import ai_bp
     from app.controllers.notifications_controller import notifications_bp
-    from app.controllers.question_controller import question_bp
     from app.controllers.study_material_controller import study_material_bp
     from app.controllers.question_bank_controller import question_bank_bp
+    # Import modular UGC NET controllers
+    from app.controllers.ugc_net import register_ugc_net_blueprints
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(user_bp, url_prefix='/api/user')
-    app.register_blueprint(quiz_bp, url_prefix='/api/quiz')
-    app.register_blueprint(ai_bp, url_prefix='/api/ai')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
+    app.register_blueprint(ai_bp, url_prefix='/api/ai')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
-    app.register_blueprint(question_bp, url_prefix='/api/admin/questions')
     app.register_blueprint(study_material_bp, url_prefix='/api/study-materials')
     app.register_blueprint(question_bank_bp, url_prefix='/api/admin/question-bank')
+    
+    # Register modular UGC NET blueprints
+    register_ugc_net_blueprints(app)
     
     # Serve uploaded files
     from flask import send_from_directory

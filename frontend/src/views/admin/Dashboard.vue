@@ -7,7 +7,7 @@
         <button class="btn btn-outline-primary" @click="refreshData">
           <i class="fas fa-refresh me-2"></i>Refresh
         </button>
-        <button class="btn btn-success" @click="$router.push('/admin/quiz-generator')">
+        <button class="btn btn-success" @click="$router.push('/admin/ai-quiz')">
           <i class="fas fa-magic me-2"></i>AI Quiz Generator
         </button>
       </div>
@@ -231,7 +231,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import apiService from '@/services/api'
+import adminService from '@/services/adminService'
 
 export default {
   name: 'AdminDashboard',
@@ -250,16 +250,28 @@ export default {
     const recentAttempts = ref([])
 
     const loadDashboardData = async () => {
+      console.log('🚀 loadDashboardData function started!')
       try {
         loading.value = true
         error.value = ''
 
-        const response = await apiService.get('/admin/dashboard')
-        stats.value = response.data
-        recentAttempts.value = response.data.recent_attempts || []
+        console.log('Calling adminService.getDashboard()...')
+        const response = await adminService.getDashboard()
+        console.log('Raw API response:', response)
+        
+        // Extract data from response object
+        const dashboardData = response.data || response
+        console.log('Extracted dashboard data:', dashboardData)
+        
+        stats.value = dashboardData
+        recentAttempts.value = dashboardData.recent_attempts || dashboardData.top_performers || []
+        
+        console.log('Final stats object:', stats.value)
+        console.log('Total users from stats:', stats.value?.total_users)
       } catch (err) {
         error.value = 'Failed to load dashboard data. Please try again.'
         console.error('Dashboard load error:', err)
+        console.error('Error details:', err.response?.data || err.message)
       } finally {
         loading.value = false
       }
@@ -272,7 +284,7 @@ export default {
     const exportData = async () => {
       try {
         // This would trigger a CSV export
-        await apiService.post('/admin/export')
+        await api.exportAdminData()
         // Show success message or download file
       } catch (err) {
         console.error('Export error:', err)
@@ -297,6 +309,8 @@ export default {
     }
 
     onMounted(() => {
+      console.log('🔥 Dashboard component mounted!')
+      console.log('📊 About to call loadDashboardData()')
       loadDashboardData()
     })
 

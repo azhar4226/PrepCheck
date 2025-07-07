@@ -127,12 +127,42 @@ class AdminService {
   }
 
   // Users Management
-  async getUsers(page = 1, perPage = 20, search = '', filter = 'all') {
-    return await apiClient.get(`/api/admin/users?page=${page}&per_page=${perPage}&search=${search}&filter=${filter}`)
+  async getUsers(page = 1, perPage = 20, search = '', filter = 'all', role = '', status = '') {
+    let url = `/api/admin/users?page=${page}&per_page=${perPage}&search=${search}`
+    
+    // Add separate role and status parameters if provided
+    if (role) {
+      url += `&role=${role}`
+    }
+    if (status) {
+      url += `&status=${status}`
+    }
+    
+    // Add legacy filter parameter for backward compatibility
+    if (filter && filter !== 'all') {
+      url += `&filter=${filter}`
+    }
+    
+    return await apiClient.get(url)
   }
 
-  async getAllUsers(page = 1, perPage = 20, search = '', filter = 'all') {
-    return await apiClient.get(`/api/admin/users?page=${page}&per_page=${perPage}&search=${search}&filter=${filter}`)
+  async getAllUsers(page = 1, perPage = 20, search = '', filter = 'all', role = '', status = '') {
+    let url = `/api/admin/users?page=${page}&per_page=${perPage}&search=${search}`
+    
+    // Add separate role and status parameters if provided
+    if (role) {
+      url += `&role=${role}`
+    }
+    if (status) {
+      url += `&status=${status}`
+    }
+    
+    // Add legacy filter parameter for backward compatibility
+    if (filter && filter !== 'all') {
+      url += `&filter=${filter}`
+    }
+    
+    return await apiClient.get(url)
   }
 
   async getUserById(userId) {

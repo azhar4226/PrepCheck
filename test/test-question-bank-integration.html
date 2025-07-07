@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Bank Integration Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section { 
+            border: 1px solid #ddd; 
+            margin: 10px 0; 
+            padding: 15px; 
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background-color: #e2e3e5; border-color: #d6d8db; color: #383d41; }
+        .warning { background-color: #fff3cd; border-color: #ffeeba; color: #856404; }
+        
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        
+        pre { 
+            background-color: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 4px; 
+            overflow-x: auto; 
+            white-space: pre-wrap;
+        }
+        
+        .stats { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-card { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 5px; 
+            text-align: center;
+        }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { color: #6c757d; }
+        
+        .question-item {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+        }
+        .question-text { font-weight: bold; margin-bottom: 10px; }
+        .question-options { margin-left: 20px; }
+        .question-meta { 
+            margin-top: 10px; 
+            font-size: 0.9em; 
+            color: #6c757d;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Question Bank Integration Test</h1>
+        <p>This test verifies that AI-generated questions are properly stored in the question bank for future reuse.</p>
+        
+        <div class="test-section info">
+            <h3>Test Configuration</h3>
+            <p><strong>Backend URL:</strong> <span id="backendUrl">http://localhost:8000</span></p>
+            <p><strong>Test Topic:</strong> Python Programming</p>
+            <p><strong>Questions per test:</strong> 3</p>
+            <p><strong>Difficulty:</strong> Medium</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Authentication</h2>
+        <div id="authSection">
+            <button onclick="login()">🔐 Login as Admin</button>
+            <div id="authStatus" class="test-section info">Not authenticated</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Question Bank Statistics</h2>
+        <button onclick="getQuestionBankStats()">📊 Get Question Bank Stats</button>
+        <div id="statsSection"></div>
+    </div>
+
+    <div class="container">
+        <h2>AI Quiz Generation & Question Bank Integration</h2>
+        <button onclick="generateQuizAndTestQuestionBank()" id="generateBtn">🚀 Generate Quiz & Test Question Bank</button>
+        <div id="generationResults"></div>
+    </div>
+
+    <div class="container">
+        <h2>Question Bank Verification Test</h2>
+        <button onclick="testQuestionVerification()" id="verifyBtn">✅ Test Question Verification</button>
+        <div id="verificationResults"></div>
+    </div>
+
+    <div class="container">
+        <h2>Question Bank Search Test</h2>
+        <button onclick="searchQuestionBank()">🔍 Search Question Bank</button>
+        <div id="searchResults"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = '';
+        let currentQuizId = null;
+        let generatedQuestions = [];
+
+        // Authentication
+        async function login() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    authToken = data.access_token;
+                    document.getElementById('authStatus').innerHTML = `
+                        <div class="success">✅ Authenticated as admin</div>
+                        <p>Token: ${authToken.substring(0, 20)}...</p>
+                    `;
+                    enableButtons();
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                document.getElementById('authStatus').innerHTML = `
+                    <div class="error">❌ Authentication failed: ${error.message}</div>
+                `;
+            }
+        }
+
+        function enableButtons() {
+            document.getElementById('generateBtn').disabled = false;
+            document.getElementById('verifyBtn').disabled = false;
+        }
+
+        // Question Bank Statistics
+        async function getQuestionBankStats() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            try {
+                // Note: We'll need to create this endpoint
+                const response = await fetch(`${API_BASE}/admin/question-bank/stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const stats = await response.json();
+                    displayStats(stats);
+                } else {
+                    // If endpoint doesn't exist, we'll simulate it
+                    document.getElementById('statsSection').innerHTML = `
+                        <div class="warning">⚠️ Question bank stats endpoint not yet implemented. This will show real data once the endpoint is created.</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('statsSection').innerHTML = `
+                    <div class="error">❌ Error fetching stats: ${error.message}</div>
+                `;
+            }
+        }
+
+        function displayStats(stats) {
+            document.getElementById('statsSection').innerHTML = `
+                <div class="test-section success">
+                    <h3>📊 Question Bank Statistics</h3>
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_questions || 0}</div>
+                            <div class="stat-label">Total Questions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.verified_questions || 0}</div>
+                            <div class="stat-label">Verified Questions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.verification_rate || 0}%</div>
+                            <div class="stat-label">Verification Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.unverified_questions || 0}</div>
+                            <div class="stat-label">Unverified Questions</div>
+                        </div>
+                    </div>
+                    ${stats.difficulty_breakdown ? `
+                        <h4>By Difficulty:</h4>
+                        <div class="stats">
+                            ${stats.difficulty_breakdown.map(d => `
+                                <div class="stat-card">
+                                    <div class="stat-value">${d.count}</div>
+                                    <div class="stat-label">${d.difficulty}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Quiz Generation and Question Bank Test
+        async function generateQuizAndTestQuestionBank() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            document.getElementById('generationResults').innerHTML = `
+                <div class="test-section info">🔄 Generating quiz and testing question bank integration...</div>
+            `;
+
+            try {
+                // Step 1: Generate quiz with AI
+                const quizResponse = await fetch(`${API_BASE}/ai/generate-quiz`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        chapter_id: 1,
+                        topic: 'Python Programming',
+                        difficulty: 'medium',
+                        num_questions: 3,
+                        context: 'Basic Python concepts and syntax'
+                    })
+                });
+
+                const quizData = await quizResponse.json();
+                
+                if (!quizResponse.ok) {
+                    throw new Error(quizData.error || 'Quiz generation failed');
+                }
+
+                currentQuizId = quizData.quiz.id;
+                generatedQuestions = quizData.quiz.questions;
+
+                // Display results
+                let resultHtml = `
+                    <div class="test-section success">
+                        <h3>✅ Quiz Generated Successfully</h3>
+                        <p><strong>Quiz ID:</strong> ${quizData.quiz.id}</p>
+                        <p><strong>Title:</strong> ${quizData.quiz.title}</p>
+                        <p><strong>Questions Generated:</strong> ${quizData.quiz.questions.length}</p>
+                        <p><strong>Generation Time:</strong> ${quizData.ai_metadata.generation_time?.toFixed(2) || 'N/A'}s</p>
+                    </div>
+                `;
+
+                // Check question bank information
+                if (quizData.question_bank) {
+                    const qb = quizData.question_bank;
+                    resultHtml += `
+                        <div class="test-section ${qb.storage_status === 'success' ? 'success' : 'error'}">
+                            <h3>🏦 Question Bank Storage Results</h3>
+                            <p><strong>Storage Status:</strong> ${qb.storage_status}</p>
+                            <p><strong>New Questions Stored:</strong> ${qb.new_questions_stored}</p>
+                            <p><strong>Duplicate Questions Found:</strong> ${qb.duplicate_questions_found}</p>
+                            <p><strong>Failed Questions:</strong> ${qb.failed_questions}</p>
+                            <p><strong>Total Processed:</strong> ${qb.total_processed}</p>
+                            ${qb.error ? `<p><strong>Error:</strong> ${qb.error}</p>` : ''}
+                        </div>
+                    `;
+                } else {
+                    resultHtml += `
+                        <div class="test-section warning">
+                            <h3>⚠️ Question Bank Information Missing</h3>
+                            <p>The response doesn't include question bank storage information. This might indicate an issue with the integration.</p>
+                        </div>
+                    `;
+                }
+
+                // Display generated questions
+                resultHtml += `
+                    <div class="test-section info">
+                        <h3>📝 Generated Questions</h3>
+                        ${quizData.quiz.questions.map((q, index) => `
+                            <div class="question-item">
+                                <div class="question-text">${index + 1}. ${q.question}</div>
+                                <div class="question-options">
+                                    <div>A) ${q.options.A}</div>
+                                    <div>B) ${q.options.B}</div>
+                                    <div>C) ${q.options.C}</div>
+                                    <div>D) ${q.options.D}</div>
+                                </div>
+                                <div class="question-meta">
+                                    <span><strong>Correct:</strong> ${q.correct_answer}</span>
+                                    <span><strong>Marks:</strong> ${q.marks}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                document.getElementById('generationResults').innerHTML = resultHtml;
+
+            } catch (error) {
+                document.getElementById('generationResults').innerHTML = `
+                    <div class="test-section error">
+                        <h3>❌ Quiz Generation Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Question Verification Test
+        async function testQuestionVerification() {
+            if (!authToken || !currentQuizId) {
+                alert('Please generate a quiz first');
+                return;
+            }
+
+            document.getElementById('verificationResults').innerHTML = `
+                <div class="test-section info">🔄 Testing question verification...</div>
+            `;
+
+            try {
+                const verifyResponse = await fetch(`${API_BASE}/ai/verify-answers`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        quiz_id: currentQuizId
+                    })
+                });
+
+                const verifyData = await verifyResponse.json();
+                
+                if (!verifyResponse.ok) {
+                    throw new Error(verifyData.error || 'Verification failed');
+                }
+
+                // Display verification results
+                let resultHtml = `
+                    <div class="test-section success">
+                        <h3>✅ Verification Completed</h3>
+                        <p><strong>Quiz:</strong> ${verifyData.quiz_title}</p>
+                        <p><strong>Total Questions:</strong> ${verifyData.summary.total_questions}</p>
+                        <p><strong>Valid Questions:</strong> ${verifyData.summary.valid_questions}</p>
+                        <p><strong>Validity Score:</strong> ${verifyData.summary.validity_score}%</p>
+                        <p><strong>Needs Review:</strong> ${verifyData.summary.needs_review ? 'Yes' : 'No'}</p>
+                    </div>
+                `;
+
+                // Check question bank updates
+                if (verifyData.question_bank_updates) {
+                    const qbu = verifyData.question_bank_updates;
+                    resultHtml += `
+                        <div class="test-section success">
+                            <h3>🏦 Question Bank Updates</h3>
+                            <p><strong>Verified Questions:</strong> ${qbu.verified_questions}</p>
+                            <p><strong>Failed Verifications:</strong> ${qbu.failed_verifications}</p>
+                            <p><strong>Errors:</strong> ${qbu.errors.length}</p>
+                            ${qbu.errors.length > 0 ? `
+                                <div style="margin-top: 10px;">
+                                    <h4>Verification Errors:</h4>
+                                    <pre>${JSON.stringify(qbu.errors, null, 2)}</pre>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                // Display individual verification results
+                resultHtml += `
+                    <div class="test-section info">
+                        <h3>🔍 Individual Question Verification</h3>
+                        ${verifyData.verification_results.map((result, index) => `
+                            <div class="question-item">
+                                <div class="question-text">${index + 1}. ${result.question_text.substring(0, 100)}...</div>
+                                <div class="question-meta">
+                                    <span><strong>Valid:</strong> ${result.is_valid ? '✅' : '❌'}</span>
+                                    <span><strong>Confidence:</strong> ${result.confidence?.toFixed(2) || 'N/A'}</span>
+                                    ${result.error ? `<span><strong>Error:</strong> ${result.error}</span>` : ''}
+                                </div>
+                                ${result.suggested_corrections?.length > 0 ? `
+                                    <div style="margin-top: 5px;">
+                                        <strong>Suggestions:</strong> ${result.suggested_corrections.join(', ')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                document.getElementById('verificationResults').innerHTML = resultHtml;
+
+            } catch (error) {
+                document.getElementById('verificationResults').innerHTML = `
+                    <div class="test-section error">
+                        <h3>❌ Verification Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Search Question Bank
+        async function searchQuestionBank() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            try {
+                // Note: We'll need to create this endpoint
+                const response = await fetch(`${API_BASE}/admin/question-bank/search?topic=Python&difficulty=medium`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const questions = await response.json();
+                    displaySearchResults(questions);
+                } else {
+                    document.getElementById('searchResults').innerHTML = `
+                        <div class="warning">⚠️ Question bank search endpoint not yet implemented. This will show stored questions once the endpoint is created.</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="error">❌ Error searching question bank: ${error.message}</div>
+                `;
+            }
+        }
+
+        function displaySearchResults(questions) {
+            if (!questions || questions.length === 0) {
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="test-section info">📝 No questions found in question bank</div>
+                `;
+                return;
+            }
+
+            const resultHtml = `
+                <div class="test-section success">
+                    <h3>🔍 Question Bank Search Results (${questions.length} questions)</h3>
+                    ${questions.map((q, index) => `
+                        <div class="question-item">
+                            <div class="question-text">${index + 1}. ${q.question_text}</div>
+                            <div class="question-options">
+                                <div>A) ${q.option_a}</div>
+                                <div>B) ${q.option_b}</div>
+                                <div>C) ${q.option_c}</div>
+                                <div>D) ${q.option_d}</div>
+                            </div>
+                            <div class="question-meta">
+                                <span><strong>Topic:</strong> ${q.topic}</span>
+                                <span><strong>Difficulty:</strong> ${q.difficulty}</span>
+                                <span><strong>Source:</strong> ${q.source}</span>
+                                <span><strong>Verified:</strong> ${q.is_verified ? '✅' : '❌'}</span>
+                                <span><strong>Usage Count:</strong> ${q.usage_count}</span>
+                                <span><strong>Created:</strong> ${new Date(q.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            document.getElementById('searchResults').innerHTML = resultHtml;
+        }
+
+        // Initialize buttons as disabled
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('verifyBtn').disabled = true;
+        });
+
+        // Auto-load stats when page loads
+        setTimeout(getQuestionBankStats, 1000);
+    </script>
+</body>
+</html>

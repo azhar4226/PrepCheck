@@ -1,10 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import User, Quiz, Question, Chapter, QuestionBank
+from app.models import User, Chapter, QuestionBank, UGCNetMockAttempt, UGCNetPracticeAttempt
 from app.services.ai_service import AIService
 from app.services.question_bank_service import QuestionBankService
-# from app.tasks.verification_tasks import verify_and_store_quiz_task, verify_single_question_task
 from datetime import datetime
 import json
 import time
@@ -12,235 +11,206 @@ import time
 ai_bp = Blueprint('ai', __name__)
 
 def admin_required():
+    """Check if the current user is an admin"""
     user_id = get_jwt_identity()
     user = User.query.get(int(user_id))
     return user and user.is_admin
 
-@ai_bp.route('/generate-quiz', methods=['POST'])
+# ========================================
+# ADMIN TASK 1: AI-POWERED QUESTION GENERATION
+# ========================================
+
+@ai_bp.route('/generate-questions', methods=['POST'])
 @jwt_required()
-def generate_quiz():
+def generate_questions():
+    """
+    Admin Task 1: Generate AI-powered questions with options and answers
+    
+    This endpoint allows admins to generate questions using AI, which are then
+    stored in the QuestionBank for use in UGC NET tests.
+    """
     try:
         if not admin_required():
             return jsonify({'error': 'Admin access required'}), 403
         
         data = request.get_json()
         
+        # Validate required fields
         required_fields = ['chapter_id', 'topic', 'difficulty', 'num_questions']
         if not all(field in data for field in required_fields):
-            return jsonify({'error': 'Missing required fields'}), 400
+            return jsonify({'error': 'Missing required fields: chapter_id, topic, difficulty, num_questions'}), 400
         
         # Verify chapter exists
         chapter = Chapter.query.get(data['chapter_id'])
         if not chapter:
             return jsonify({'error': 'Chapter not found'}), 404
         
+        # Validate difficulty level
+        if data['difficulty'] not in ['easy', 'medium', 'hard']:
+            return jsonify({'error': 'Difficulty must be one of: easy, medium, hard'}), 400
+        
+        # Validate number of questions
+        if not isinstance(data['num_questions'], int) or data['num_questions'] < 1 or data['num_questions'] > 20:
+            return jsonify({'error': 'Number of questions must be between 1 and 20'}), 400
+        
+        print(f"🚀 Admin generating {data['num_questions']} questions for: {data['topic']} ({data['difficulty']})")
+        start_time = time.time()
+        
         # Initialize AI service
         ai_service = AIService()
         
-        # Generate quiz content
-        print(f"🚀 Starting quiz generation for: {data['topic']} ({data['difficulty']}, {data['num_questions']} questions)")
-        start_time = time.time()
-        
         try:
+            # Generate questions using AI
             quiz_data = ai_service.generate_quiz(
                 topic=data['topic'],
                 difficulty=data['difficulty'],
                 num_questions=data['num_questions'],
                 additional_context=data.get('context', '')
             )
+            
             generation_time = time.time() - start_time
-            print(f"⚡ Quiz generation completed in {generation_time:.2f}s")
+            print(f"⚡ Question generation completed in {generation_time:.2f}s")
+            
         except Exception as e:
-            print(f"❌ Quiz generation failed: {str(e)}")
+            print(f"❌ AI generation failed: {str(e)}")
             return jsonify({'error': f'AI generation failed: {str(e)}'}), 500
         
-        # Create quiz (draft mode) - OPTIMIZED
-        print("💾 Creating quiz in database...")
+        # Store questions in QuestionBank
+        print("💾 Storing questions in QuestionBank...")
         db_start = time.time()
         
-        quiz = Quiz(
-            title=f"AI Generated: {data['topic']}",
-            description=quiz_data.get('description', ''),
-            chapter_id=data['chapter_id'],
-            time_limit=data.get('time_limit', 60),
-            is_ai_generated=True,
-            is_active=True  # Make active immediately for user access
-        )
+        questions_added = []
+        failed_questions = []
         
-        db.session.add(quiz)
-        db.session.flush()  # Get quiz ID without full commit
-        
-        # Batch create questions for better performance
-        questions_to_add = []
-        valid_questions = []
+        # Prepare metadata tags
+        tags = [data['topic'], 'ai_generated', f"difficulty_{data['difficulty']}"]
+        if data.get('context'):
+            tags.append('contextual')
         
         for i, q_data in enumerate(quiz_data['questions']):
             try:
-                question = Question(
-                    quiz_id=quiz.id,
-                    question_text=q_data['question'],
-                    option_a=q_data['options']['A'],
-                    option_b=q_data['options']['B'],
-                    option_c=q_data['options']['C'],
-                    option_d=q_data['options']['D'],
-                    correct_option=q_data['correct_answer'],
-                    explanation=q_data.get('explanation', ''),
-                    marks=q_data.get('marks', 1)
+                # Store each question in QuestionBank
+                question_bank_entry, is_new = QuestionBankService.store_ai_question(
+                    question_data=q_data,
+                    topic=data['topic'],
+                    difficulty=data['difficulty'],
+                    chapter_id=data['chapter_id'],
+                    tags=tags
                 )
                 
-                questions_to_add.append(question)
-                valid_questions.append(q_data)
+                questions_added.append(question_bank_entry)
                 
             except Exception as e:
-                print(f"⚠️ Skipping invalid question {i+1}: {str(e)}")
-                continue
+                print(f"⚠️ Failed to store question {i+1}: {str(e)}")
+                failed_questions.append({
+                    'index': i + 1,
+                    'question': q_data.get('question', 'Unknown'),
+                    'error': str(e)
+                })
         
-        if not questions_to_add:
-            db.session.rollback()
-            return jsonify({'error': 'No valid questions were generated'}), 400
+        if not questions_added:
+            return jsonify({'error': 'No questions were successfully generated and stored'}), 400
         
-        # Batch add all questions
-        db.session.add_all(questions_to_add)
-        
-        # Commit everything at once
-        try:
-            db.session.commit()
-            db_time = time.time() - db_start
-            print(f"✅ Database operations completed in {db_time:.2f}s")
-        except Exception as e:
-            db.session.rollback()
-            print(f"❌ Database error: {str(e)}")
-            return jsonify({'error': f'Database error: {str(e)}'}), 500
-        
-        # Update quiz total marks efficiently
-        quiz.total_marks = len(questions_to_add)  # Since each question is 1 mark
-        db.session.commit()
-        
-        # Start background verification process
-        verification_config = {
-            'min_confidence': data.get('verification_threshold', 0.7),
-            'max_retry_attempts': data.get('max_retry_attempts', 3),
-            'fallback_strategy': data.get('fallback_strategy', 'skip'),
-            'notify_admin': True
-        }
-        
-        # verification_task = verify_and_store_quiz_task.delay(quiz.id, verification_config)
-        
+        db_time = time.time() - db_start
         total_time = time.time() - start_time
-        print(f"🎉 Quiz generation completed in {total_time:.2f}s total")
         
-        # Prepare quiz data with questions in frontend-expected format
-        quiz_data_response = quiz.to_dict()
+        print(f"✅ Generated {len(questions_added)} questions in {total_time:.2f}s")
         
-        # Transform questions to match frontend expectations
-        frontend_questions = []
-        for q in questions_to_add:
+        # Format response for frontend
+        generated_questions = []
+        for q in questions_added:
             q_dict = q.to_dict(include_answer=True)
-            frontend_question = {
+            generated_questions.append({
+                'id': q_dict['id'],
                 'question': q_dict['question_text'],
                 'options': {
                     'A': q_dict['option_a'],
-                    'B': q_dict['option_b'], 
+                    'B': q_dict['option_b'],
                     'C': q_dict['option_c'],
                     'D': q_dict['option_d']
                 },
                 'correct_answer': q_dict['correct_option'],
                 'explanation': q_dict.get('explanation', ''),
-                'marks': q_dict.get('marks', 1)
-            }
-            frontend_questions.append(frontend_question)
-        
-        quiz_data_response['questions'] = frontend_questions
-        
-        # Store questions in question bank for future reuse
-        print("🏦 Storing questions in question bank...")
-        question_bank_start = time.time()
-        
-        # Prepare tags for categorization
-        tags = [data['topic'], f"quiz_{quiz.id}"]
-        if data.get('context'):
-            tags.append('contextual')
-        
-        try:
-            # Store all valid questions in the question bank
-            question_bank_result = QuestionBankService.bulk_store_ai_questions(
-                questions_data=valid_questions,
-                topic=data['topic'],
-                difficulty=data['difficulty'],
-                chapter_id=data['chapter_id'],
-                tags=tags
-            )
-            
-            question_bank_time = time.time() - question_bank_start
-            print(f"🏦 Question bank storage completed in {question_bank_time:.2f}s")
-            print(f"   - New questions: {question_bank_result['new_questions']}")
-            print(f"   - Duplicates: {question_bank_result['duplicate_questions']}")
-            print(f"   - Failed: {question_bank_result['failed_questions']}")
-            
-        except Exception as e:
-            # Don't fail the entire request if question bank storage fails
-            print(f"⚠️ Question bank storage failed: {str(e)}")
-            question_bank_result = {
-                'error': str(e),
-                'new_questions': 0,
-                'duplicate_questions': 0,
-                'failed_questions': len(valid_questions)
-            }
+                'marks': q_dict.get('marks', 1),
+                'topic': q_dict['topic'],
+                'difficulty': q_dict['difficulty'],
+                'chapter_id': q_dict['chapter_id']
+            })
         
         return jsonify({
-            'message': 'Quiz generated successfully',  # (verification temporarily disabled)
-            'quiz': quiz_data_response,
-            # 'verification_task_id': verification_task.id,
-            'verification_status': 'disabled',  # temporarily disabled
-            'ai_metadata': {
-                'generation_timestamp': quiz_data.get('timestamp'),
-                'model_used': quiz_data.get('model', 'Gemini'),
-                'confidence_score': quiz_data.get('confidence', 0.8),
-                'generation_time': total_time,
-                'questions_count': len(questions_to_add)
+            'message': f'Successfully generated {len(questions_added)} questions',
+            'questions': generated_questions,
+            'generation_summary': {
+                'total_requested': data['num_questions'],
+                'successfully_generated': len(questions_added),
+                'failed_count': len(failed_questions),
+                'generation_time_seconds': round(generation_time, 2),
+                'storage_time_seconds': round(db_time, 2),
+                'total_time_seconds': round(total_time, 2)
             },
-            'question_bank': {
-                'storage_status': 'success' if 'error' not in question_bank_result else 'failed',
-                'new_questions_stored': question_bank_result.get('new_questions', 0),
-                'duplicate_questions_found': question_bank_result.get('duplicate_questions', 0),
-                'failed_questions': question_bank_result.get('failed_questions', 0),
-                'total_processed': question_bank_result.get('total_questions', len(valid_questions)),
-                'error': question_bank_result.get('error')
-            }
+            'metadata': {
+                'topic': data['topic'],
+                'difficulty': data['difficulty'],
+                'chapter_id': data['chapter_id'],
+                'generated_at': datetime.utcnow().isoformat(),
+                'generated_by': get_jwt_identity()
+            },
+            'failed_questions': failed_questions if failed_questions else None
         }), 201
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Question generation endpoint failed: {str(e)}")
+        return jsonify({'error': f'Question generation failed: {str(e)}'}), 500
 
-@ai_bp.route('/verify-answers', methods=['POST'])
+# ========================================
+# ADMIN TASK 2: AI-POWERED QUESTION VALIDATION
+# ========================================
+
+@ai_bp.route('/validate-questions', methods=['POST'])
 @jwt_required()
-def verify_answers():
+def validate_questions():
+    """
+    Admin Task 2: Validate AI-generated questions and answers
+    
+    This endpoint allows admins to validate questions in the QuestionBank
+    using AI to ensure accuracy and quality.
+    """
     try:
         if not admin_required():
             return jsonify({'error': 'Admin access required'}), 403
         
         data = request.get_json()
         
-        if 'quiz_id' not in data:
-            return jsonify({'error': 'Quiz ID required'}), 400
+        if 'question_ids' not in data or not isinstance(data['question_ids'], list):
+            return jsonify({'error': 'question_ids must be provided as a list'}), 400
         
-        quiz = Quiz.query.get(data['quiz_id'])
-        if not quiz or not quiz.is_ai_generated:
-            return jsonify({'error': 'AI-generated quiz not found'}), 404
+        if len(data['question_ids']) == 0:
+            return jsonify({'error': 'At least one question ID must be provided'}), 400
+        
+        if len(data['question_ids']) > 10:
+            return jsonify({'error': 'Cannot validate more than 10 questions at once'}), 400
+        
+        print(f"🔍 Admin validating {len(data['question_ids'])} questions")
+        
+        # Get questions from QuestionBank
+        questions = QuestionBank.query.filter(QuestionBank.id.in_(data['question_ids'])).all()
+        
+        if not questions:
+            return jsonify({'error': 'No questions found with the provided IDs'}), 404
         
         # Initialize AI service
         ai_service = AIService()
         
-        # Get all questions for verification
-        questions = Question.query.filter_by(quiz_id=quiz.id).all()
-        
-        verification_results = []
+        validation_results = []
+        start_time = time.time()
         
         for question in questions:
             try:
-                # Verify each question and answer
-                verification = ai_service.verify_question_answer(
+                print(f"🔍 Validating question {question.id}: {question.question_text[:50]}...")
+                
+                # Use AI to validate the question
+                validation = ai_service.verify_question_answer(
                     question=question.question_text,
                     options={
                         'A': question.option_a,
@@ -249,500 +219,261 @@ def verify_answers():
                         'D': question.option_d
                     },
                     correct_answer=question.correct_option,
-                    explanation=question.explanation
+                    explanation=question.explanation or ""
                 )
                 
-                verification_results.append({
+                validation_result = {
                     'question_id': question.id,
                     'question_text': question.question_text,
-                    'is_valid': verification['is_valid'],
-                    'confidence': verification['confidence'],
-                    'suggested_corrections': verification.get('corrections', []),
-                    'ai_explanation': verification.get('explanation', '')
-                })
+                    'is_valid': validation['is_valid'],
+                    'confidence': validation['confidence'],
+                    'validation_notes': validation.get('explanation', ''),
+                    'suggested_improvements': validation.get('corrections', [])
+                }
+                
+                # Update question if validation passed
+                if validation['is_valid'] and validation['confidence'] >= 0.7:
+                    question.is_verified = True
+                    question.verification_method = 'ai_validated'
+                    question.verification_confidence = validation['confidence']
+                    question.verified_at = datetime.utcnow()
+                    question.verified_by = get_jwt_identity()
+                    validation_result['status'] = 'approved'
+                else:
+                    validation_result['status'] = 'needs_review'
+                
+                validation_results.append(validation_result)
                 
             except Exception as e:
-                verification_results.append({
+                print(f"❌ Validation failed for question {question.id}: {str(e)}")
+                validation_results.append({
                     'question_id': question.id,
                     'question_text': question.question_text,
                     'is_valid': False,
-                    'error': str(e)
+                    'error': str(e),
+                    'status': 'validation_failed'
                 })
         
-        # Calculate overall validity score
-        valid_questions = [r for r in verification_results if r.get('is_valid', False)]
-        validity_score = len(valid_questions) / len(verification_results) if verification_results else 0
-        
-        # Update question bank with verification results
-        print("🔍 Updating question bank with verification results...")
-        question_bank_updates = {
-            'verified_questions': 0,
-            'failed_verifications': 0,
-            'errors': []
-        }
-        
-        current_user_id = get_jwt_identity()
-        
-        for result in verification_results:
-            try:
-                # Find corresponding question bank entry
-                question = Question.query.get(result['question_id'])
-                if question:
-                    # Find in question bank by content
-                    question_bank_entry = QuestionBankService.check_duplicate(
-                        question.question_text,
-                        {
-                            'A': question.option_a,
-                            'B': question.option_b,
-                            'C': question.option_c,
-                            'D': question.option_d
-                        },
-                        question.correct_option
-                    )
-                    
-                    if question_bank_entry:
-                        if result['is_valid']:
-                            # Update question bank with verification
-                            QuestionBankService.verify_question(
-                                question_bank_id=question_bank_entry.id,
-                                verification_method='gemini',
-                                confidence=result['confidence'],
-                                verified_by_user_id=int(current_user_id),
-                                notes=result.get('ai_explanation', '')
-                            )
-                            question_bank_updates['verified_questions'] += 1
-                        else:
-                            # Mark as failed verification
-                            question_bank_entry.verification_status = 'failed'
-                            question_bank_entry.verification_notes = result.get('error', 'Failed AI verification')
-                            db.session.commit()
-                            question_bank_updates['failed_verifications'] += 1
-                            
-            except Exception as e:
-                question_bank_updates['errors'].append({
-                    'question_id': result['question_id'],
-                    'error': str(e)
-                })
-        
-        print(f"✅ Question bank updated - Verified: {question_bank_updates['verified_questions']}, Failed: {question_bank_updates['failed_verifications']}")
-        
-        return jsonify({
-            'quiz_id': quiz.id,
-            'quiz_title': quiz.title,
-            'verification_results': verification_results,
-            'summary': {
-                'total_questions': len(verification_results),
-                'valid_questions': len(valid_questions),
-                'validity_score': round(validity_score * 100, 2),
-                'needs_review': validity_score < 0.8
-            },
-            'question_bank_updates': question_bank_updates
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/publish-quiz', methods=['POST'])
-@jwt_required()
-def publish_ai_quiz():
-    try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        data = request.get_json()
-        
-        if 'quiz_id' not in data:
-            return jsonify({'error': 'Quiz ID required'}), 400
-        
-        quiz = Quiz.query.get(data['quiz_id'])
-        if not quiz or not quiz.is_ai_generated:
-            return jsonify({'error': 'AI-generated quiz not found'}), 404
-        
-        # Apply any final edits from admin
-        if 'title' in data:
-            quiz.title = data['title']
-        
-        if 'description' in data:
-            quiz.description = data['description']
-        
-        if 'time_limit' in data:
-            quiz.time_limit = data['time_limit']
-        
-        # Update questions if provided
-        if 'question_updates' in data:
-            for update in data['question_updates']:
-                question = Question.query.get(update['question_id'])
-                if question and question.quiz_id == quiz.id:
-                    if 'question_text' in update:
-                        question.question_text = update['question_text']
-                    if 'options' in update:
-                        question.option_a = update['options'].get('A', question.option_a)
-                        question.option_b = update['options'].get('B', question.option_b)
-                        question.option_c = update['options'].get('C', question.option_c)
-                        question.option_d = update['options'].get('D', question.option_d)
-                    if 'correct_option' in update:
-                        question.correct_option = update['correct_option']
-                    if 'explanation' in update:
-                        question.explanation = update['explanation']
-        
-        # Activate the quiz
-        quiz.is_active = True
-        
+        # Commit changes to database
         db.session.commit()
         
-        # Update total marks
-        quiz.update_total_marks()
+        # Calculate summary statistics
+        total_questions = len(validation_results)
+        valid_questions = len([r for r in validation_results if r.get('is_valid', False)])
+        approved_questions = len([r for r in validation_results if r.get('status') == 'approved'])
+        needs_review = len([r for r in validation_results if r.get('status') == 'needs_review'])
+        
+        validation_time = time.time() - start_time
+        
+        print(f"✅ Validation completed: {approved_questions}/{total_questions} approved in {validation_time:.2f}s")
         
         return jsonify({
-            'message': 'AI-generated quiz published successfully',
-            'quiz': quiz.to_dict()
+            'message': f'Validation completed for {total_questions} questions',
+            'validation_results': validation_results,
+            'summary': {
+                'total_questions': total_questions,
+                'valid_questions': valid_questions,
+                'approved_questions': approved_questions,
+                'needs_review': needs_review,
+                'validation_time_seconds': round(validation_time, 2),
+                'overall_validity_percentage': round((valid_questions / total_questions) * 100, 2) if total_questions > 0 else 0
+            },
+            'metadata': {
+                'validated_at': datetime.utcnow().isoformat(),
+                'validated_by': get_jwt_identity()
+            }
         }), 200
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Question validation endpoint failed: {str(e)}")
+        return jsonify({'error': f'Question validation failed: {str(e)}'}), 500
 
-@ai_bp.route('/quiz-suggestions', methods=['POST'])
+# ========================================
+# USER FEATURE: AI-POWERED RECOMMENDATIONS
+# ========================================
+
+@ai_bp.route('/generate-recommendations', methods=['POST'])
 @jwt_required()
-def get_quiz_suggestions():
+def generate_recommendations():
+    """
+    User Feature: Generate AI-powered study recommendations
+    
+    This endpoint generates personalized study recommendations for users
+    based on their performance in mock tests or practice tests.
+    """
     try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
+        user_id = get_jwt_identity()
         data = request.get_json()
         
-        if 'subject' not in data:
-            return jsonify({'error': 'Subject required'}), 400
+        # Validate required fields
+        if 'attempt_id' not in data or 'attempt_type' not in data:
+            return jsonify({'error': 'attempt_id and attempt_type are required'}), 400
+        
+        attempt_type = data['attempt_type']
+        attempt_id = data['attempt_id']
+        
+        # Validate attempt type
+        if attempt_type not in ['mock', 'practice']:
+            return jsonify({'error': 'attempt_type must be either "mock" or "practice"'}), 400
+        
+        print(f"🧠 Generating recommendations for user {user_id}, {attempt_type} attempt {attempt_id}")
+        
+        # Get the test attempt based on type
+        if attempt_type == 'mock':
+            attempt = UGCNetMockAttempt.query.filter_by(id=attempt_id, user_id=user_id).first()
+        else:  # practice
+            attempt = UGCNetPracticeAttempt.query.filter_by(id=attempt_id, user_id=user_id).first()
+        
+        if not attempt:
+            return jsonify({'error': f'No {attempt_type} attempt found with the provided ID'}), 404
+        
+        if not attempt.is_completed:
+            return jsonify({'error': 'Recommendations can only be generated for completed attempts'}), 400
         
         # Initialize AI service
         ai_service = AIService()
         
+        # Prepare performance data for AI analysis
+        performance_data = {
+            'overall_score': float(attempt.percentage) if attempt.percentage else 0,
+            'total_questions': attempt.total_questions,
+            'correct_answers': attempt.correct_answers,
+            'time_taken': attempt.time_taken,
+            'attempt_type': attempt_type,
+            'attempt_date': attempt.created_at.isoformat() if attempt.created_at else None
+        }
+        
+        # Add attempt-specific data
+        if attempt_type == 'mock':
+            performance_data.update({
+                'subject_name': attempt.mock_test.subject.name if attempt.mock_test and attempt.mock_test.subject else 'UGC NET',
+                'paper_type': attempt.mock_test.paper_type if attempt.mock_test else 'paper2'
+            })
+            
+            # Get chapter-wise performance if available
+            try:
+                if hasattr(attempt, 'get_chapter_wise_performance'):
+                    performance_data['chapter_wise_performance'] = attempt.get_chapter_wise_performance()
+                if hasattr(attempt, 'get_strengths'):
+                    performance_data['strengths'] = attempt.get_strengths()
+                if hasattr(attempt, 'get_weaknesses'):
+                    performance_data['weaknesses'] = attempt.get_weaknesses()
+            except:
+                pass
+        else:
+            performance_data.update({
+                'subject_name': attempt.subject.name if attempt.subject else 'UGC NET',
+                'paper_type': attempt.paper_type if hasattr(attempt, 'paper_type') else 'paper2'
+            })
+        
         try:
-            suggestions = ai_service.suggest_quiz_topics(
-                subject=data['subject'],
-                difficulty_levels=data.get('difficulty_levels', ['easy', 'medium', 'hard']),
-                num_suggestions=data.get('num_suggestions', 10)
-            )
+            start_time = time.time()
+            
+            # Generate AI recommendations
+            recommendations = ai_service.generate_study_recommendations(performance_data)
+            
+            generation_time = time.time() - start_time
+            print(f"🎯 Recommendations generated in {generation_time:.2f}s")
+            
+            # Store recommendations in the attempt
+            recommendations_with_metadata = {
+                **recommendations,
+                'generated_at': datetime.utcnow().isoformat(),
+                'generated_for_user': user_id,
+                'based_on_attempt': attempt_id,
+                'attempt_type': attempt_type
+            }
+            
+            if attempt_type == 'mock':
+                # Store in analytics field for mock attempts
+                existing_analytics = json.loads(attempt.analytics) if attempt.analytics else {}
+                existing_analytics['ai_recommendations'] = recommendations_with_metadata
+                attempt.analytics = json.dumps(existing_analytics)
+            else:
+                # Store recommendations for practice attempts
+                if hasattr(attempt, 'set_recommendations'):
+                    attempt.set_recommendations(recommendations.get('study_plan', []))
+            
+            db.session.commit()
             
             return jsonify({
-                'subject': data['subject'],
-                'suggestions': suggestions
+                'message': 'Study recommendations generated successfully',
+                'recommendations': recommendations,
+                'performance_summary': {
+                    'overall_score': performance_data['overall_score'],
+                    'total_questions': performance_data['total_questions'],
+                    'correct_answers': performance_data['correct_answers'],
+                    'subject': performance_data['subject_name'],
+                    'paper_type': performance_data['paper_type'],
+                    'attempt_type': attempt_type
+                },
+                'metadata': {
+                    'generated_at': datetime.utcnow().isoformat(),
+                    'generation_time_seconds': round(generation_time, 2),
+                    'user_id': user_id,
+                    'attempt_id': attempt_id,
+                    'attempt_type': attempt_type
+                }
             }), 200
             
         except Exception as e:
-            return jsonify({'error': f'AI suggestion failed: {str(e)}'}), 500
+            print(f"❌ AI recommendation generation failed: {str(e)}")
+            return jsonify({'error': f'Recommendation generation failed: {str(e)}'}), 500
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Recommendation endpoint failed: {str(e)}")
+        return jsonify({'error': f'Failed to generate recommendations: {str(e)}'}), 500
 
-@ai_bp.route('/verification-status/<task_id>', methods=['GET'])
+# ========================================
+# UTILITY ENDPOINTS
+# ========================================
+
+@ai_bp.route('/question-bank-stats', methods=['GET'])
 @jwt_required()
-def get_verification_status(task_id):
-    """Get the status of a verification task"""
+def get_question_bank_stats():
+    """Get statistics about AI-generated questions in QuestionBank"""
     try:
         if not admin_required():
             return jsonify({'error': 'Admin access required'}), 403
         
-        from celery.result import AsyncResult
+        # Get AI-generated questions statistics
+        total_ai_questions = QuestionBank.query.filter_by(source='ai_generated').count()
+        verified_questions = QuestionBank.query.filter_by(source='ai_generated', is_verified=True).count()
+        pending_questions = total_ai_questions - verified_questions
         
-        task = AsyncResult(task_id)
-        
-        response = {
-            'task_id': task_id,
-            'status': task.status,
-            'ready': task.ready(),
-            'successful': task.successful() if task.ready() else None
-        }
-        
-        if task.ready():
-            if task.successful():
-                response['result'] = task.result
-            else:
-                response['error'] = str(task.info)
-        else:
-            # Task is still running, get progress info
-            response['info'] = task.info
-        
-        return jsonify(response), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/quiz-verification-summary/<int:quiz_id>', methods=['GET'])
-@jwt_required()
-def get_quiz_verification_summary(quiz_id):
-    """Get verification summary for a quiz"""
-    try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        quiz = Quiz.query.get(quiz_id)
-        if not quiz:
-            return jsonify({'error': 'Quiz not found'}), 404
-        
-        questions = Question.query.filter_by(quiz_id=quiz_id).all()
-        
-        summary = {
-            'quiz_id': quiz_id,
-            'quiz_title': quiz.title,
-            'total_questions': len(questions),
-            'verified_count': sum(1 for q in questions if q.is_verified),
-            'failed_count': sum(1 for q in questions if q.verification_status == 'failed'),
-            'pending_count': sum(1 for q in questions if q.verification_status == 'pending'),
-            'manual_review_count': sum(1 for q in questions if q.verification_status == 'manual_review'),
-            'average_confidence': 0,
-            'is_quiz_active': quiz.is_active,
-            'questions': []
-        }
-        
-        # Calculate average confidence for verified questions
-        verified_questions = [q for q in questions if q.is_verified and q.verification_confidence]
-        if verified_questions:
-            summary['average_confidence'] = sum(q.verification_confidence for q in verified_questions) / len(verified_questions)
-        
-        # Add question details
-        for question in questions:
-            question_data = {
-                'id': question.id,
-                'question_text': question.question_text[:100] + '...' if len(question.question_text) > 100 else question.question_text,
-                'is_verified': question.is_verified,
-                'verification_status': question.verification_status,
-                'verification_confidence': question.verification_confidence,
-                'verification_attempts': question.verification_attempts,
-                'verified_at': question.verified_at.isoformat() if question.verified_at else None
-            }
-            summary['questions'].append(question_data)
-        
-        return jsonify(summary), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/retry-verification', methods=['POST'])
-@jwt_required()
-def retry_verification():
-    """Retry verification for failed questions or entire quiz"""
-    try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        data = request.get_json()
-        
-        if 'quiz_id' in data:
-            # Retry entire quiz
-            quiz_id = data['quiz_id']
-            quiz = Quiz.query.get(quiz_id)
-            if not quiz:
-                return jsonify({'error': 'Quiz not found'}), 404
-            
-            # Reset failed questions to pending
-            failed_questions = Question.query.filter_by(
-                quiz_id=quiz_id, 
-                verification_status='failed'
-            ).all()
-            
-            for question in failed_questions:
-                question.verification_status = 'pending'
-                question.verification_attempts = 0
-            
-            db.session.commit()
-            
-            # Start verification task
-            verification_config = {
-                'min_confidence': data.get('verification_threshold', 0.7),
-                'max_retry_attempts': data.get('max_retry_attempts', 3),
-                'fallback_strategy': data.get('fallback_strategy', 'skip')
-            }
-            
-            # verification_task = verify_and_store_quiz_task.delay(quiz_id, verification_config)
-            
-            return jsonify({
-                'message': f'Retry verification would start for {len(failed_questions)} failed questions (currently disabled)',
-                # 'task_id': verification_task.id,
-                'failed_questions_count': len(failed_questions)
-            }), 200
-            
-        elif 'question_id' in data:
-            # Retry single question
-            question_id = data['question_id']
-            question = Question.query.get(question_id)
-            if not question:
-                return jsonify({'error': 'Question not found'}), 404
-            
-            # Reset question status
-            question.verification_status = 'pending'
-            question.verification_attempts = 0
-            db.session.commit()
-            
-            # Start single question verification
-            verification_config = {
-                'min_confidence': data.get('verification_threshold', 0.7),
-                'max_retry_attempts': data.get('max_retry_attempts', 3)
-            }
-            
-            # verification_task = verify_single_question_task.delay(question_id, verification_config)
-            
-            return jsonify({
-                'message': 'Single question verification would start (currently disabled)',
-                # 'task_id': verification_task.id,
-                'question_id': question_id
-            }), 200
-        
-        else:
-            return jsonify({'error': 'Either quiz_id or question_id is required'}), 400
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/manual-approve-question', methods=['POST'])
-@jwt_required()
-def manual_approve_question():
-    """Manually approve a question that failed verification"""
-    try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        data = request.get_json()
-        
-        if 'question_id' not in data:
-            return jsonify({'error': 'Question ID required'}), 400
-        
-        question = Question.query.get(data['question_id'])
-        if not question:
-            return jsonify({'error': 'Question not found'}), 404
-        
-        # Get admin user for metadata
-        admin_user = User.query.get(get_jwt_identity())
-        
-        # Manually approve the question
-        question.is_verified = True
-        question.verification_status = 'manually_approved'
-        question.verification_confidence = 0.8  # Default confidence for manual approval
-        question.verified_at = datetime.utcnow()
-        
-        # Add manual approval metadata
-        metadata = question.get_verification_metadata()
-        metadata.update({
-            'manual_approval': True,
-            'approved_by': admin_user.email,
-            'approved_at': datetime.utcnow().isoformat(),
-            'approval_reason': data.get('reason', 'Manual approval by admin')
-        })
-        question.set_verification_metadata(metadata)
-        
-        db.session.commit()
+        # Calculate verification rate
+        verification_rate = (verified_questions / total_ai_questions * 100) if total_ai_questions > 0 else 0
         
         return jsonify({
-            'message': 'Question manually approved',
-            'question': question.to_dict(include_answer=True)
+            'total_ai_generated_questions': total_ai_questions,
+            'verified_questions': verified_questions,
+            'pending_verification': pending_questions,
+            'verification_rate_percentage': round(verification_rate, 2),
+            'last_updated': datetime.utcnow().isoformat()
         }), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Failed to get statistics: {str(e)}'}), 500
 
-@ai_bp.route('/verification-config', methods=['GET', 'POST'])
-@jwt_required()
-def verification_config():
-    """Get or update default verification configuration"""
+@ai_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for AI controller"""
     try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        if request.method == 'GET':
-            # Return current configuration (could be stored in database or config file)
-            default_config = {
-                'min_confidence': 0.7,
-                'max_retry_attempts': 3,
-                'fallback_strategy': 'skip',  # 'skip', 'manual_review', 'use_anyway'
-                'auto_verification': True,
-                'notification_settings': {
-                    'notify_on_completion': True,
-                    'notify_on_failures': True
-                }
-            }
-            return jsonify(default_config), 200
-        
-        elif request.method == 'POST':
-            # Update configuration (in a real app, this would be stored in database)
-            config = request.get_json()
-            
-            # Validate configuration
-            valid_strategies = ['skip', 'manual_review', 'use_anyway']
-            if config.get('fallback_strategy') not in valid_strategies:
-                return jsonify({'error': 'Invalid fallback strategy'}), 400
-            
-            if not (0.1 <= config.get('min_confidence', 0.7) <= 1.0):
-                return jsonify({'error': 'Confidence threshold must be between 0.1 and 1.0'}), 400
-            
-            # In a real implementation, save to database or config file
-            return jsonify({
-                'message': 'Configuration updated successfully',
-                'config': config
-            }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/verification-stats', methods=['GET'])
-@jwt_required()
-def get_verification_stats():
-    """Get overall verification statistics"""
-    try:
-        if not admin_required():
-            return jsonify({'error': 'Admin access required'}), 403
-        
-        # Get all AI-generated quizzes
-        ai_quizzes = Quiz.query.filter_by(is_ai_generated=True).all()
-        ai_quiz_ids = [quiz.id for quiz in ai_quizzes]
-        
-        if not ai_quiz_ids:
-            # No AI quizzes found
-            return jsonify({
-                'total_ai_questions': 0,
-                'verified_count': 0,
-                'pending_count': 0,
-                'failed_count': 0,
-                'manually_approved_count': 0,
-                'success_rate': 0,
-                'average_confidence': 0,
-                'total_ai_quizzes': 0,
-                'active_ai_quizzes': 0,
-                'verification_enabled': True
-            }), 200
-        
-        # Get all questions from AI quizzes
-        ai_questions = Question.query.filter(Question.quiz_id.in_(ai_quiz_ids)).all()
-        
-        # Calculate statistics
-        total_ai_questions = len(ai_questions)
-        verified_count = len([q for q in ai_questions if q.is_verified])
-        pending_count = len([q for q in ai_questions if q.verification_status == 'pending'])
-        failed_count = len([q for q in ai_questions if q.verification_status == 'failed'])
-        manually_approved_count = len([q for q in ai_questions if q.verification_status == 'manually_approved'])
-        
-        # Calculate average confidence for verified questions
-        verified_questions = [q for q in ai_questions if q.is_verified and q.verification_confidence]
-        avg_confidence = sum(q.verification_confidence for q in verified_questions) / len(verified_questions) if verified_questions else 0
-        
-        # Calculate quiz statistics
-        total_ai_quizzes = len(ai_quizzes)
-        active_ai_quizzes = len([q for q in ai_quizzes if q.is_active])
-        
-        # Calculate success rate
-        success_rate = (verified_count / total_ai_questions * 100) if total_ai_questions > 0 else 0
-        
+        ai_service = AIService()
         return jsonify({
-            'total_ai_questions': total_ai_questions,
-            'verified_count': verified_count,
-            'pending_count': pending_count,
-            'failed_count': failed_count,
-            'manually_approved_count': manually_approved_count,
-            'success_rate': round(success_rate, 2),
-            'average_confidence': round(avg_confidence, 3) if avg_confidence else 0,
-            'total_ai_quizzes': total_ai_quizzes,
-            'active_ai_quizzes': active_ai_quizzes,
-            'verification_enabled': True
+            'status': 'healthy',
+            'ai_service_mode': 'mock' if ai_service.use_mock else 'real',
+            'endpoints': {
+                'generate_questions': 'POST /ai/generate-questions (Admin)',
+                'validate_questions': 'POST /ai/validate-questions (Admin)',
+                'generate_recommendations': 'POST /ai/generate-recommendations (User)',
+                'question_bank_stats': 'GET /ai/question-bank-stats (Admin)'
+            },
+            'timestamp': datetime.utcnow().isoformat()
         }), 200
-        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500

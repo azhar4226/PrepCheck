@@ -8,7 +8,7 @@
             <h1 class="h2 text-primary">
               <i class="bi bi-speedometer2 me-2"></i>Dashboard
             </h1>
-            <p class="text-muted mb-0">Welcome back, {{ user?.full_name || 'Student' }}!</p>
+            <p class="text-muted mb-0">Welcome back, {{ user?.phone || 'Student' }}!</p>
           </div>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" @click="refreshDashboard">
@@ -86,6 +86,13 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- User Analytics Section -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <UserAnalytics />
       </div>
     </div>
 
@@ -214,11 +221,15 @@
 <script>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/services/api'
+import userService from '@/services/userService'
 import { formatDate, formatTime } from '@/services/utils'
+import UserAnalytics from '@/components/features/UserAnalytics.vue'
 
 export default {
   name: 'UserDashboard',
+  components: {
+    UserAnalytics
+  },
   setup() {
     const router = useRouter()
     
@@ -239,12 +250,12 @@ export default {
         
         // Load user info and stats
         const [userResponse, statsResponse] = await Promise.all([
-          api.get('/user/profile'),
-          api.get('/user/dashboard')
+          userService.getProfile(),
+          userService.getDashboard()
         ])
         
-        user.value = userResponse.data.user
-        stats.value = statsResponse.data.stats
+        user.value = userResponse.user
+        stats.value = statsResponse.stats
         
         // Load recent activity
         await loadRecentActivity()
@@ -265,8 +276,8 @@ export default {
     const loadRecentActivity = async () => {
       try {
         loading.value.activity = true
-        const response = await api.get('/user/history?limit=5')
-        recentActivity.value = response.data.attempts
+        const response = await userService.getHistory(1, 5)
+        recentActivity.value = response.attempts
       } catch (error) {
         console.error('Error loading recent activity:', error)
       } finally {
@@ -277,8 +288,8 @@ export default {
     const loadProgressData = async () => {
       try {
         loading.value.progress = true
-        const response = await api.get('/user/progress')
-        progressData.value = response.data.progress
+        const response = await userService.getProgress()
+        progressData.value = response.progress
         
         // Create chart after data is loaded
         if (progressData.value.length > 0) {
@@ -303,15 +314,51 @@ export default {
     
     const exportData = async () => {
       try {
-        const response = await api.post('/user/export')
+        const response = await userService.exportData()
         
-        if (response.data.task_id) {
-          // Show success message with task ID
-          alert(`Export started! Task ID: ${response.data.task_id}`)
+        if (response.files_created && response.files_created.length > 0) {
+          // Try to download each file
+          const downloadPromises = response.files_created.map(async (filePath) => {
+            const filename = filePath.split('/').pop() // Get filename from path
+            try {
+              const downloadResponse = await userService.downloadExportFile(filename)
+              
+              // Create download link
+              const blob = new Blob([downloadResponse.data], { 
+                type: downloadResponse.headers['content-type'] || 'application/octet-stream' 
+              })
+              const url = window.URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.href = url
+              link.download = filename
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              window.URL.revokeObjectURL(url)
+              
+              return filename
+            } catch (downloadErr) {
+              console.error(`Failed to download ${filename}:`, downloadErr)
+              return null
+            }
+          })
+          
+          const downloadedFiles = await Promise.all(downloadPromises)
+          const successfulDownloads = downloadedFiles.filter(f => f !== null)
+          
+          if (successfulDownloads.length > 0) {
+            alert(`Export completed! Downloaded files: ${successfulDownloads.join(', ')}`)
+          } else {
+            alert(`Export completed! Files created: ${response.files_created.join(', ')}`)
+          }
+        } else if (response.message) {
+          alert(response.message)
+        } else {
+          alert('Export completed successfully!')
         }
       } catch (error) {
         console.error('Error exporting data:', error)
-        alert('Failed to start export. Please try again.')
+        alert('Failed to export data: ' + (error.response?.data?.error || error.message))
       }
     }
     

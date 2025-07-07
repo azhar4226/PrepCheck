@@ -8,7 +8,8 @@ class ApiClient {
       import.meta.env.DEV ? 'http://localhost:8000' : ''
     )
     this.http = axios.create({
-      baseURL: this.baseURL
+      baseURL: this.baseURL,
+      timeout: 30000 // 30 second timeout
       // Don't set default Content-Type - let axios handle it based on data type
     })
 
@@ -34,7 +35,17 @@ class ApiClient {
     this.http.interceptors.response.use(
       (response) => response,
       (error) => {
+        console.error('🚨 API Client Error:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url,
+          method: error.config?.method
+        })
+        
         if (error.response?.status === 401) {
+          console.warn('🔐 Unauthorized - redirecting to login')
           localStorage.removeItem('prepcheck_token')
           localStorage.removeItem('prepcheck_user')
           window.location.href = '/login'

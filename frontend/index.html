@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PrepCheck - Exam Preparation Platform</title>
     <meta name="description" content="PrepCheck - Your comprehensive exam preparation platform with AI-powered quizzes">
+    
+    <!-- Content Security Policy to block external tracking -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+        font-src 'self' https://cdn.jsdelivr.net;
+        img-src 'self' data: blob: http: https:;
+        connect-src 'self' http://localhost:8000 http://localhost:5000 http://localhost:3000 http://localhost:3001 http://localhost:3002 http://localhost:3003;
+        frame-src 'none';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+    ">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
     
     <!-- PWA Meta Tags -->
@@ -24,6 +38,37 @@
 </head>
 <body>
     <div id="app"></div>
+    
+    <!-- Block tracking requests script -->
+    <script>
+        // Override fetch to block tracking domains
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const url = args[0];
+            const urlString = typeof url === 'string' ? url : url.url;
+            
+            if (urlString && urlString.includes('launchdarkly.com')) {
+                console.log('🚫 Blocked LaunchDarkly request:', urlString);
+                return Promise.resolve(new Response('', { status: 204 }));
+            }
+            
+            return originalFetch.apply(this, args);
+        };
+        
+        // Override XMLHttpRequest for older requests
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...args) {
+            if (url && url.includes('launchdarkly.com')) {
+                console.log('🚫 Blocked LaunchDarkly XHR request:', url);
+                // Create a dummy request that does nothing
+                return originalXHROpen.call(this, method, 'data:text/plain,', ...args);
+            }
+            return originalXHROpen.call(this, method, url, ...args);
+        };
+        
+        console.log('🛡️ Tracking protection initialized');
+    </script>
+    
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>

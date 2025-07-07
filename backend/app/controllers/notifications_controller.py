@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from app import db
-from app.models import User, Quiz, QuizAttempt
+from app.models import User, UGCNetMockAttempt, UGCNetPracticeAttempt
 import json
 import os
 
@@ -88,69 +88,104 @@ class NotificationService:
         if not user:
             return notifications
         
-        # Recent quiz completions
-        recent_attempts = QuizAttempt.query.filter_by(
+        # Recent test completions (both mock and practice tests)
+        mock_attempts = UGCNetMockAttempt.query.filter_by(
             user_id=user_id, is_completed=True
-        ).order_by(QuizAttempt.completed_at.desc()).limit(5).all()
+        ).order_by(UGCNetMockAttempt.created_at.desc()).limit(3).all()
         
-        for attempt in recent_attempts:
-            percentage = (attempt.score / attempt.total_marks * 100) if attempt.total_marks > 0 else 0
+        practice_attempts = UGCNetPracticeAttempt.query.filter_by(
+            user_id=user_id, is_completed=True
+        ).order_by(UGCNetPracticeAttempt.created_at.desc()).limit(3).all()
+        
+        # Combine and sort all attempts
+        all_attempts = []
+        for attempt in mock_attempts:
+            all_attempts.append({
+                'attempt': attempt,
+                'type': 'mock',
+                'created_at': attempt.created_at,
+                'percentage': attempt.percentage or 0,
+                'title': f"Mock Test - {attempt.mock_test.subject.name if attempt.mock_test and attempt.mock_test.subject else 'UGC NET'}"
+            })
+        
+        for attempt in practice_attempts:
+            all_attempts.append({
+                'attempt': attempt,
+                'type': 'practice',
+                'created_at': attempt.created_at,
+                'percentage': attempt.percentage or 0,
+                'title': f"Practice Test - {attempt.subject.name if attempt.subject else 'UGC NET'}"
+            })
+        
+        # Sort by created_at and take top 5
+        all_attempts.sort(key=lambda x: x['created_at'], reverse=True)
+        recent_attempts = all_attempts[:5]
+        
+        for attempt_data in recent_attempts:
+            attempt = attempt_data['attempt']
+            percentage = attempt_data['percentage']
+            test_title = attempt_data['title']
             
             if percentage >= 90:
                 notification_type = 'success'
                 title = '🎉 Excellent Performance!'
-                message = f'You scored {percentage}% on {attempt.quiz.title}'
+                message = f'You scored {percentage:.1f}% on {test_title}'
             elif percentage >= 70:
                 notification_type = 'info'
                 title = '✅ Good Job!'
-                message = f'You scored {percentage}% on {attempt.quiz.title}'
+                message = f'You scored {percentage:.1f}% on {test_title}'
             else:
                 notification_type = 'warning'
                 title = '📚 Keep Practicing!'
-                message = f'You scored {percentage}% on {attempt.quiz.title}. Review the topics and try again!'
+                message = f'You scored {percentage:.1f}% on {test_title}. Review the topics and try again!'
             
-            notification_id = f"quiz_{attempt.id}"
+            notification_id = f"{attempt_data['type']}_test_{attempt.id}"
             notifications.append({
                 'id': notification_id,
                 'title': title,
                 'message': message,
                 'type': notification_type,
-                'created_at': attempt.completed_at.isoformat(),
+                'created_at': attempt.created_at.isoformat(),
                 'read': notification_id in read_notifications,
                 'data': {
-                    'quiz_id': attempt.quiz_id,
                     'attempt_id': attempt.id,
-                    'score': attempt.score,
+                    'attempt_type': attempt_data['type'],
                     'percentage': round(percentage, 2)
                 }
             })
         
         # Achievement notifications
-        total_attempts = QuizAttempt.query.filter_by(
+        total_mock_attempts = UGCNetMockAttempt.query.filter_by(
             user_id=user_id, is_completed=True
         ).count()
         
+        total_practice_attempts = UGCNetPracticeAttempt.query.filter_by(
+            user_id=user_id, is_completed=True
+        ).count()
+        
+        total_attempts = total_mock_attempts + total_practice_attempts
+        
         if total_attempts == 1:
-            notification_id = f"achievement_first_quiz_{user_id}"
+            notification_id = f"achievement_first_test_{user_id}"
             notifications.append({
                 'id': notification_id,
-                'title': '🎯 First Quiz Complete!',
-                'message': 'Congratulations on completing your first quiz!',
+                'title': '🎯 First Test Complete!',
+                'message': 'Congratulations on completing your first test!',
                 'type': 'success',
                 'created_at': (datetime.utcnow() - timedelta(days=1)).isoformat(),
                 'read': notification_id in read_notifications,
-                'data': {'achievement': 'first_quiz'}
+                'data': {'achievement': 'first_test'}
             })
         elif total_attempts >= 10:
-            notification_id = f"achievement_10_quizzes_{user_id}"
+            notification_id = f"achievement_10_tests_{user_id}"
             notifications.append({
                 'id': notification_id,
-                'title': '🏆 Quiz Master!',
-                'message': 'Amazing! You\'ve completed 10 quizzes!',
+                'title': '🏆 Test Master!',
+                'message': 'Amazing! You\'ve completed 10 tests!',
                 'type': 'success',
                 'created_at': (datetime.utcnow() - timedelta(hours=2)).isoformat(),
                 'read': notification_id in read_notifications,
-                'data': {'achievement': '10_quizzes'}
+                'data': {'achievement': '10_tests'}
             })
         
         # Study streak notifications (only if user has some activity)

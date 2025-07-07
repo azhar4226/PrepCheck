@@ -74,11 +74,14 @@
               </tr>
             </thead>
             <tbody>
+              <!-- Debug info -->
+              <!-- DEBUG: Data length: {{ data?.length || 0 }}, Paginated length: {{ paginatedData?.length || 0 }} -->
               <tr v-if="paginatedData.length === 0">
                 <td :colspan="columns.length + (showActions ? 1 : 0)" class="text-center text-muted py-4">
                   <slot name="empty">
                     <i class="bi bi-inbox fs-1 mb-2 opacity-50"></i>
                     <p class="mb-0">{{ emptyMessage }}</p>
+                    <!-- Debug: Raw data: {{ JSON.stringify(data) }} -->
                   </slot>
                 </td>
               </tr>
@@ -139,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, toRef } from 'vue'
 import { useTable } from '@/composables/useTable.js'
 
 const props = defineProps({
@@ -186,6 +189,10 @@ const props = defineProps({
   pageSize: {
     type: Number,
     default: 10
+  },
+  enableFrontendFiltering: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -200,6 +207,9 @@ onMounted(() => {
   })
 })
 
+// Make data reactive
+const reactiveData = toRef(props, 'data')
+
 const {
   currentPage,
   sortBy,
@@ -212,9 +222,10 @@ const {
   visiblePages,
   goToPage,
   toggleSort
-} = useTable(props.data, {
+} = useTable(reactiveData, {
   pageSize: props.pageSize,
-  filters: filterValues
+  filters: filterValues,
+  enableFrontendFiltering: props.enableFrontendFiltering
 })
 
 const getSortIcon = (key) => {

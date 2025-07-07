@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Management API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { margin: 5px; padding: 10px 15px; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        .test-section { border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Question Management API Test</h1>
+    <div id="status" class="status info">Ready to test Question Management functionality...</div>
+    
+    <div class="test-section">
+        <h3>📱 Frontend Integration Test</h3>
+        <p><strong>Testing:</strong> Question Management UI and API connectivity</p>
+        <button onclick="testLogin()">1. Test Login</button>
+        <button onclick="testQuestionAPI()" id="questionsBtn" disabled>2. Test Questions API</button>
+        <button onclick="testFullWorkflow()" id="workflowBtn" disabled>3. Test Full Workflow</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 API Response</h3>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔗 Frontend Links</h3>
+        <p><strong>Test in browser:</strong></p>
+        <ul>
+            <li><a href="http://localhost/admin/questions" target="_blank" rel="noopener">📝 Question Management Page</a></li>
+            <li><a href="http://localhost/admin/dashboard" target="_blank" rel="noopener">📊 Admin Dashboard</a></li>
+            <li><a href="http://localhost/login" target="_blank" rel="noopener">🔐 Login Page</a></li>
+        </ul>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function log(message, data = null) {
+            console.log(message, data);
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML += `<p><strong>${new Date().toLocaleTimeString()}:</strong> ${message}</p>`;
+            if (data) {
+                resultDiv.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+        }
+
+        async function testLogin() {
+            try {
+                updateStatus('Testing admin login...', 'info');
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    
+                    log('✅ Login successful', {
+                        user: data.user.full_name,
+                        email: data.user.email,
+                        is_admin: data.user.is_admin,
+                        token_preview: authToken.substring(0, 20) + '...'
+                    });
+                    
+                    updateStatus('Login successful! Ready to test Questions API.', 'success');
+                    document.getElementById('questionsBtn').disabled = false;
+                    document.getElementById('workflowBtn').disabled = false;
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Login failed');
+                }
+                
+            } catch (error) {
+                log('❌ Login failed', { error: error.message });
+                updateStatus(`Login failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testQuestionAPI() {
+            if (!authToken) {
+                updateStatus('Please login first!', 'error');
+                return;
+            }
+
+            try {
+                updateStatus('Testing Questions API...', 'info');
+                
+                const response = await fetch('/api/admin/questions/?page=1&per_page=5', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    log('✅ Questions API working', {
+                        success: data.success,
+                        total_questions: data.total,
+                        current_page: data.current_page,
+                        questions_returned: data.questions?.length || 0,
+                        sample_question: data.questions?.[0] ? {
+                            id: data.questions[0].id,
+                            question_text: data.questions[0].question_text?.substring(0, 50) + '...',
+                            quiz_title: data.questions[0].quiz_title,
+                            subject_name: data.questions[0].subject_name
+                        } : null
+                    });
+                    
+                    updateStatus(`Questions API working! Found ${data.total} total questions.`, 'success');
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'API request failed');
+                }
+                
+            } catch (error) {
+                log('❌ Questions API failed', { error: error.message });
+                updateStatus(`Questions API failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFullWorkflow() {
+            if (!authToken) {
+                updateStatus('Please login first!', 'error');
+                return;
+            }
+
+            try {
+                updateStatus('Testing full workflow...', 'info');
+                
+                // Test 1: Get questions with filters
+                log('🔍 Testing filtered questions...');
+                const filterResponse = await fetch('/api/admin/questions/?difficulty=medium&per_page=3', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (filterResponse.ok) {
+                    const filterData = await filterResponse.json();
+                    log('✅ Filtered questions working', {
+                        total_medium_questions: filterData.total,
+                        returned: filterData.questions?.length || 0
+                    });
+                } else {
+                    throw new Error('Filter test failed');
+                }
+
+                // Test 2: Get subjects (for dropdown)
+                log('📚 Testing subjects for dropdown...');
+                const subjectsResponse = await fetch('/api/admin/subjects', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (subjectsResponse.ok) {
+                    const subjectsData = await subjectsResponse.json();
+                    log('✅ Subjects loaded', {
+                        count: subjectsData.length || 0,
+                        sample: subjectsData[0]?.name || 'No subjects'
+                    });
+                } else {
+                    throw new Error('Subjects test failed');
+                }
+
+                // Test 3: Get quizzes (for dropdown)
+                log('📝 Testing quizzes for dropdown...');
+                const quizzesResponse = await fetch('/api/admin/quizzes?per_page=5', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (quizzesResponse.ok) {
+                    const quizzesData = await quizzesResponse.json();
+                    log('✅ Quizzes loaded', {
+                        count: quizzesData.quizzes?.length || 0,
+                        total: quizzesData.total || 0
+                    });
+                } else {
+                    throw new Error('Quizzes test failed');
+                }
+
+                updateStatus('🎉 All tests passed! Question Management should work correctly.', 'success');
+                
+            } catch (error) {
+                log('❌ Workflow test failed', { error: error.message });
+                updateStatus(`Workflow test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Show current API status
+        log('🚀 Test page loaded. Click buttons above to test functionality.');
+    </script>
+</body>
+</html>

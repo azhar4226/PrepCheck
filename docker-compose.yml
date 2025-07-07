@@ -19,6 +19,8 @@ services:
       - FLASK_ENV=production
       - SECRET_KEY=your-production-secret-key-change-this
       - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - DATABASE_URL=sqlite:////app/instance/prepcheck.db
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - MAIL_SERVER=${MAIL_SERVER}
@@ -27,6 +29,7 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
     volumes:
       - backend_data:/app/instance
+      - ./backend:/app
     depends_on:
       - redis
     restart: unless-stopped

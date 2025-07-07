@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Analytics Endpoint Test - PrepCheck</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        input, select {
+            width: 100%;
+            max-width: 300px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #cce7ff;
+            color: #004085;
+            border: 1px solid #b6d7ff;
+        }
+        .json-display {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .analytics-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .performance-section {
+            margin: 20px 0;
+        }
+        .topic-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .topic-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .topic-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .topic-stats {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .suggestions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .suggestion-item {
+            margin: 10px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #f39c12;
+        }
+        .auth-section {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .token-display {
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 User Analytics Endpoint Test</h1>
+        
+        <!-- Authentication Section -->
+        <div class="auth-section">
+            <h2>🔐 Authentication</h2>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="admin@prepcheck.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="admin123">
+            </div>
+            <button onclick="login()">Login</button>
+            <div id="authStatus"></div>
+            <div id="tokenDisplay" class="token-display" style="display: none;"></div>
+        </div>
+
+        <!-- Analytics Test Section -->
+        <div>
+            <h2>📊 User Analytics Test</h2>
+            <div class="form-group">
+                <label for="days">Days to analyze:</label>
+                <select id="days">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="subject_id">Subject ID (optional):</label>
+                <input type="number" id="subject_id" placeholder="Leave empty for all subjects">
+            </div>
+            <div class="form-group">
+                <label for="chapter_id">Chapter ID (optional):</label>
+                <input type="number" id="chapter_id" placeholder="Leave empty for all chapters">
+            </div>
+            <button onclick="getUserAnalytics()" id="analyticsBtn" disabled>Get User Analytics</button>
+            <div id="analyticsStatus"></div>
+        </div>
+
+        <!-- Analytics Results -->
+        <div id="analyticsResults" style="display: none;">
+            <h2>📈 Analytics Results</h2>
+            
+            <div class="analytics-summary" id="summaryCards"></div>
+            
+            <div class="performance-section">
+                <h3>🎯 Performance Summary</h3>
+                <div id="performanceSummary"></div>
+            </div>
+
+            <div class="performance-section">
+                <h3>📚 Topic Performance</h3>
+                <div id="topicPerformance"></div>
+            </div>
+
+            <div class="performance-section">
+                <h3>💡 Improvement Suggestions</h3>
+                <div id="suggestions"></div>
+            </div>
+
+            <div class="performance-section">
+                <h3>📊 Question Analytics Details</h3>
+                <div id="questionAnalytics"></div>
+            </div>
+
+            <h3>🔍 Raw Response</h3>
+            <div id="analyticsResponse" class="json-display"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+        const API_BASE = 'http://localhost:8000/api';
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const statusDiv = document.getElementById('authStatus');
+            
+            statusDiv.innerHTML = '<div class="status info">Logging in...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    statusDiv.innerHTML = `<div class="status success">✅ Login successful! User: ${data.user.full_name}</div>`;
+                    document.getElementById('tokenDisplay').style.display = 'block';
+                    document.getElementById('tokenDisplay').textContent = `Token: ${authToken}`;
+                    document.getElementById('analyticsBtn').disabled = false;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Login failed: ${data.error || data.message}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function getUserAnalytics() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            const days = document.getElementById('days').value;
+            const subjectId = document.getElementById('subject_id').value;
+            const chapterId = document.getElementById('chapter_id').value;
+            const statusDiv = document.getElementById('analyticsStatus');
+            
+            statusDiv.innerHTML = '<div class="status info">Fetching user analytics...</div>';
+            
+            // Build query parameters
+            const params = new URLSearchParams({ days });
+            if (subjectId) params.append('subject_id', subjectId);
+            if (chapterId) params.append('chapter_id', chapterId);
+            
+            try {
+                const response = await fetch(`${API_BASE}/quiz/user-analytics?${params}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">✅ Analytics retrieved successfully!</div>';
+                    displayAnalytics(data);
+                    document.getElementById('analyticsResults').style.display = 'block';
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Failed to get analytics: ${data.error}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        function displayAnalytics(data) {
+            // Display summary cards
+            const summaryDiv = document.getElementById('summaryCards');
+            summaryDiv.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${data.summary.total_attempts}</div>
+                    <div class="metric-label">Total Attempts</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${data.summary.average_score}%</div>
+                    <div class="metric-label">Average Score</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${data.summary.score_trend > 0 ? '+' : ''}${data.summary.score_trend}%</div>
+                    <div class="metric-label">Score Trend</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${data.question_analytics.total_questions_answered}</div>
+                    <div class="metric-label">Questions Answered</div>
+                </div>
+            `;
+
+            // Display performance summary
+            const performanceDiv = document.getElementById('performanceSummary');
+            performanceDiv.innerHTML = `
+                <p><strong>Accuracy Rate:</strong> ${data.question_analytics.accuracy_rate}% (${data.question_analytics.correct_answers}/${data.question_analytics.total_questions_answered})</p>
+                <p><strong>Period:</strong> Last ${data.summary.period_days} days</p>
+                <p><strong>Active Filters:</strong> ${data.filters.subject_id ? `Subject ID: ${data.filters.subject_id}` : 'All subjects'}, ${data.filters.chapter_id ? `Chapter ID: ${data.filters.chapter_id}` : 'All chapters'}</p>
+            `;
+
+            // Display topic performance
+            const topicDiv = document.getElementById('topicPerformance');
+            if (data.question_analytics.most_difficult_topics.length > 0 || data.question_analytics.strongest_topics.length > 0) {
+                let topicHtml = '<div class="topic-list">';
+                
+                if (data.question_analytics.most_difficult_topics.length > 0) {
+                    topicHtml += '<div><h4>🔴 Most Difficult Topics</h4>';
+                    data.question_analytics.most_difficult_topics.forEach(topic => {
+                        topicHtml += `
+                            <div class="topic-item">
+                                <div class="topic-name">${topic.topic}</div>
+                                <div class="topic-stats">Accuracy: ${topic.accuracy}% (${topic.correct_answers}/${topic.questions_answered})</div>
+                            </div>
+                        `;
+                    });
+                    topicHtml += '</div>';
+                }
+                
+                if (data.question_analytics.strongest_topics.length > 0) {
+                    topicHtml += '<div><h4>🟢 Strongest Topics</h4>';
+                    data.question_analytics.strongest_topics.forEach(topic => {
+                        topicHtml += `
+                            <div class="topic-item">
+                                <div class="topic-name">${topic.topic}</div>
+                                <div class="topic-stats">Accuracy: ${topic.accuracy}% (${topic.correct_answers}/${topic.questions_answered})</div>
+                            </div>
+                        `;
+                    });
+                    topicHtml += '</div>';
+                }
+                
+                topicHtml += '</div>';
+                topicDiv.innerHTML = topicHtml;
+            } else {
+                topicDiv.innerHTML = '<p><em>No topic performance data available. Complete some quizzes to see topic analysis.</em></p>';
+            }
+
+            // Display suggestions
+            const suggestionsDiv = document.getElementById('suggestions');
+            if (data.question_analytics.improvement_suggestions.length > 0) {
+                let suggestionsHtml = '<div class="suggestions">';
+                data.question_analytics.improvement_suggestions.forEach(suggestion => {
+                    suggestionsHtml += `
+                        <div class="suggestion-item">
+                            <strong>${suggestion.type.replace('_', ' ').toUpperCase()}:</strong> ${suggestion.message}
+                            <span style="float: right; color: ${suggestion.priority === 'high' ? 'red' : suggestion.priority === 'medium' ? 'orange' : 'green'};">
+                                ${suggestion.priority.toUpperCase()}
+                            </span>
+                        </div>
+                    `;
+                });
+                suggestionsHtml += '</div>';
+                suggestionsDiv.innerHTML = suggestionsHtml;
+            } else {
+                suggestionsDiv.innerHTML = '<p><em>No improvement suggestions available. Complete more quizzes to get personalized recommendations.</em></p>';
+            }
+
+            // Display question analytics
+            const questionAnalyticsDiv = document.getElementById('questionAnalytics');
+            let questionHtml = '<div class="topic-list">';
+            for (const [difficulty, stats] of Object.entries(data.question_analytics.question_types_breakdown)) {
+                questionHtml += `
+                    <div class="topic-item">
+                        <div class="topic-name">${difficulty} Questions</div>
+                        <div class="topic-stats">Accuracy: ${stats.accuracy}% (${stats.correct_answers}/${stats.questions_answered})</div>
+                    </div>
+                `;
+            }
+            questionHtml += '</div>';
+            if (Object.keys(data.question_analytics.question_types_breakdown).length === 0) {
+                questionHtml = '<p><em>No question difficulty breakdown available.</em></p>';
+            }
+            questionAnalyticsDiv.innerHTML = questionHtml;
+
+            // Display raw response
+            document.getElementById('analyticsResponse').textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Auto-login on page load for convenience
+        window.onload = function() {
+            // You can uncomment this to auto-login for testing
+            // login();
+        };
+    </script>
+</body>
+</html>

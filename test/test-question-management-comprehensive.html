@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Management Comprehensive Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button { margin: 5px; padding: 10px 15px; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; max-height: 400px; }
+        .test-section { border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .test-results { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .progress { width: 100%; background: #f0f0f0; border-radius: 10px; margin: 10px 0; }
+        .progress-bar { height: 20px; background: #007bff; border-radius: 10px; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Question Management Comprehensive Test Suite</h1>
+    
+    <div id="status" class="status info">Ready to start comprehensive testing...</div>
+    
+    <div class="progress">
+        <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🚀 Test Controls</h3>
+        <button onclick="runAllTests()" id="runAllBtn">Run Full Test Suite</button>
+        <button onclick="loginTest()" id="loginBtn">1. Login Test</button>
+        <button onclick="crudTests()" id="crudBtn" disabled>2. CRUD Tests</button>
+        <button onclick="bulkTests()" id="bulkBtn" disabled>3. Bulk Operations</button>
+        <button onclick="filterTests()" id="filterBtn" disabled>4. Filter Tests</button>
+        <button onclick="cleanupTests()" id="cleanupBtn" disabled>5. Cleanup</button>
+    </div>
+
+    <div class="test-results">
+        <div class="test-section">
+            <h3>📊 Test Results</h3>
+            <div id="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📈 Live Data</h3>
+            <div id="live-data"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔗 Frontend Links</h3>
+        <p><strong>Test in browser after API validation:</strong></p>
+        <ul>
+            <li><a href="http://localhost/admin/questions" target="_blank" rel="noopener">📝 Question Management UI</a></li>
+            <li><a href="http://localhost/admin/dashboard" target="_blank" rel="noopener">📊 Admin Dashboard</a></li>
+            <li><a href="http://localhost/login" target="_blank" rel="noopener">🔐 Login Page</a></li>
+        </ul>
+    </div>
+
+    <script>
+        let authToken = null;
+        let testData = {
+            createdQuestions: [],
+            testResults: [],
+            startTime: null
+        };
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+        }
+
+        function logResult(test, success, details) {
+            testData.testResults.push({
+                test,
+                success,
+                details,
+                timestamp: new Date().toISOString()
+            });
+            
+            updateTestResults();
+        }
+
+        function updateTestResults() {
+            const resultsDiv = document.getElementById('test-results');
+            const passed = testData.testResults.filter(t => t.success).length;
+            const total = testData.testResults.length;
+            
+            const html = `
+                <h5>Results: ${passed}/${total} tests passed</h5>
+                ${testData.testResults.map(result => 
+                    `<div class="status ${result.success ? 'success' : 'error'}">
+                        ${result.success ? '✅' : '❌'} ${result.test}
+                        ${result.details ? `<br><small>${result.details}</small>` : ''}
+                    </div>`
+                ).join('')}
+            `;
+            resultsDiv.innerHTML = html;
+        }
+
+        function updateLiveData(data) {
+            const liveDiv = document.getElementById('live-data');
+            liveDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function runAllTests() {
+            testData.testResults = [];
+            testData.startTime = Date.now();
+            updateStatus('Starting comprehensive test suite...', 'info');
+            updateProgress(0);
+
+            try {
+                await loginTest();
+                updateProgress(20);
+                
+                await crudTests();
+                updateProgress(50);
+                
+                await bulkTests();
+                updateProgress(70);
+                
+                await filterTests();
+                updateProgress(90);
+                
+                await cleanupTests();
+                updateProgress(100);
+                
+                const duration = ((Date.now() - testData.startTime) / 1000).toFixed(2);
+                updateStatus(`🎉 All tests completed in ${duration}s!`, 'success');
+                
+            } catch (error) {
+                updateStatus(`❌ Test suite failed: ${error.message}`, 'error');
+                console.error('Test suite error:', error);
+            }
+        }
+
+        async function loginTest() {
+            updateStatus('Testing admin login...', 'info');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    
+                    logResult('Admin Login', true, `Logged in as ${data.user.full_name}`);
+                    updateStatus('✅ Login successful', 'success');
+                    
+                    // Enable other test buttons
+                    document.getElementById('crudBtn').disabled = false;
+                    document.getElementById('bulkBtn').disabled = false;
+                    document.getElementById('filterBtn').disabled = false;
+                    document.getElementById('cleanupBtn').disabled = false;
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Login failed');
+                }
+                
+            } catch (error) {
+                logResult('Admin Login', false, error.message);
+                updateStatus(`❌ Login failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function crudTests() {
+            if (!authToken) throw new Error('Not authenticated');
+            
+            updateStatus('Testing CRUD operations...', 'info');
+            
+            // Test 1: Create Question
+            try {
+                const createData = {
+                    question_text: "CRUD Test: What is the largest planet in our solar system?",
+                    option_a: "Earth",
+                    option_b: "Mars",
+                    option_c: "Jupiter",
+                    option_d: "Saturn",
+                    correct_option: "C",
+                    explanation: "Jupiter is the largest planet in our solar system.",
+                    marks: 1,
+                    quiz_id: 1
+                };
+
+                const createResponse = await fetch('/api/admin/questions/', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(createData)
+                });
+
+                if (createResponse.ok) {
+                    const createResult = await createResponse.json();
+                    testData.createdQuestions.push(createResult.question.id);
+                    logResult('Create Question', true, `Created question ID ${createResult.question.id}`);
+                    updateLiveData({ created_question: createResult.question });
+                    
+                    // Test 2: Read Question
+                    const readResponse = await fetch(`/api/admin/questions/${createResult.question.id}`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (readResponse.ok) {
+                        const readResult = await readResponse.json();
+                        logResult('Read Question', true, `Retrieved question: ${readResult.question.question_text.substring(0, 50)}...`);
+                        
+                        // Test 3: Update Question
+                        const updateData = {
+                            question_text: "CRUD Test Updated: What is the largest planet in our solar system?",
+                            explanation: "Jupiter is the largest planet in our solar system. This explanation has been updated."
+                        };
+
+                        const updateResponse = await fetch(`/api/admin/questions/${createResult.question.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(updateData)
+                        });
+
+                        if (updateResponse.ok) {
+                            const updateResult = await updateResponse.json();
+                            logResult('Update Question', true, `Updated question ID ${createResult.question.id}`);
+                            updateLiveData({ updated_question: updateResult.question });
+                        } else {
+                            throw new Error('Update failed');
+                        }
+                        
+                    } else {
+                        throw new Error('Read failed');
+                    }
+                    
+                } else {
+                    const error = await createResponse.json();
+                    throw new Error(error.error || 'Create failed');
+                }
+                
+            } catch (error) {
+                logResult('CRUD Operations', false, error.message);
+                throw error;
+            }
+        }
+
+        async function bulkTests() {
+            if (!authToken) throw new Error('Not authenticated');
+            
+            updateStatus('Testing bulk operations...', 'info');
+            
+            try {
+                const bulkData = {
+                    questions: [
+                        {
+                            question_text: "Bulk Test 1: What is the capital of Australia?",
+                            option_a: "Sydney",
+                            option_b: "Melbourne", 
+                            option_c: "Canberra",
+                            option_d: "Perth",
+                            correct_option: "C",
+                            explanation: "Canberra is the capital city of Australia.",
+                            marks: 1,
+                            quiz_id: 1
+                        },
+                        {
+                            question_text: "Bulk Test 2: What is the chemical symbol for gold?",
+                            option_a: "Go",
+                            option_b: "Au",
+                            option_c: "Ag",
+                            option_d: "Gd",
+                            correct_option: "B",
+                            explanation: "Au is the chemical symbol for gold from Latin 'aurum'.",
+                            marks: 1,
+                            quiz_id: 1
+                        },
+                        {
+                            question_text: "Bulk Test 3: How many sides does a hexagon have?",
+                            option_a: "5",
+                            option_b: "6",
+                            option_c: "7",
+                            option_d: "8",
+                            correct_option: "B",
+                            explanation: "A hexagon has 6 sides.",
+                            marks: 1,
+                            quiz_id: 1
+                        }
+                    ]
+                };
+
+                const response = await fetch('/api/admin/questions/bulk', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bulkData)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const createdIds = result.questions.map(q => q.id);
+                    testData.createdQuestions.push(...createdIds);
+                    
+                    logResult('Bulk Create', true, `Created ${result.created_count} questions in bulk`);
+                    updateLiveData({ bulk_result: result });
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Bulk create failed');
+                }
+                
+            } catch (error) {
+                logResult('Bulk Operations', false, error.message);
+                throw error;
+            }
+        }
+
+        async function filterTests() {
+            if (!authToken) throw new Error('Not authenticated');
+            
+            updateStatus('Testing filters and pagination...', 'info');
+            
+            try {
+                // Test pagination
+                const paginationResponse = await fetch('/api/admin/questions/?page=1&per_page=3', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (paginationResponse.ok) {
+                    const paginationResult = await paginationResponse.json();
+                    logResult('Pagination', true, `Retrieved page 1 with ${paginationResult.questions.length} questions`);
+                    
+                    // Test search
+                    const searchResponse = await fetch('/api/admin/questions/?search=test&per_page=5', {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (searchResponse.ok) {
+                        const searchResult = await searchResponse.json();
+                        logResult('Search Filter', true, `Found ${searchResult.questions.length} questions matching "test"`);
+                        updateLiveData({ search_result: searchResult });
+                        
+                    } else {
+                        throw new Error('Search failed');
+                    }
+                    
+                } else {
+                    throw new Error('Pagination failed');
+                }
+                
+            } catch (error) {
+                logResult('Filter Tests', false, error.message);
+                throw error;
+            }
+        }
+
+        async function cleanupTests() {
+            if (!authToken) throw new Error('Not authenticated');
+            
+            updateStatus('Cleaning up test data...', 'info');
+            
+            try {
+                let deletedCount = 0;
+                
+                for (const questionId of testData.createdQuestions) {
+                    try {
+                        const response = await fetch(`/api/admin/questions/${questionId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        if (response.ok) {
+                            deletedCount++;
+                        }
+                    } catch (e) {
+                        console.warn(`Failed to delete question ${questionId}:`, e);
+                    }
+                }
+                
+                logResult('Cleanup', true, `Deleted ${deletedCount}/${testData.createdQuestions.length} test questions`);
+                testData.createdQuestions = [];
+                
+            } catch (error) {
+                logResult('Cleanup', false, error.message);
+                throw error;
+            }
+        }
+    </script>
+</body>
+</html>

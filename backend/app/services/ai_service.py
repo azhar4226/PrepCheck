@@ -559,6 +559,193 @@ Rules:
         except Exception as e:
             raise Exception(f"Failed to generate suggestions: {str(e)}")
     
+    def generate_study_recommendations(self, performance_data):
+        """Generate AI-powered study recommendations based on test performance"""
+        
+        if self.use_mock:
+            print("🎭 Using mock study recommendations")
+            return self._generate_mock_recommendations(performance_data)
+        
+        print("🤖 Using real AI study recommendations")
+        return self._generate_real_recommendations(performance_data)
+    
+    def _generate_mock_recommendations(self, performance_data):
+        """Generate mock study recommendations for development/testing"""
+        
+        overall_score = performance_data.get('overall_score', 0)
+        weaknesses = performance_data.get('weaknesses', [])
+        strengths = performance_data.get('strengths', [])
+        subject_name = performance_data.get('subject_name', 'Unknown')
+        
+        # Base recommendations on performance score
+        if overall_score >= 80:
+            performance_level = "excellent"
+            focus_areas = ["Advanced concepts", "Time optimization", "Mock tests"]
+        elif overall_score >= 60:
+            performance_level = "good"
+            focus_areas = ["Review weak areas", "Practice more questions", "Concept clarification"]
+        else:
+            performance_level = "needs_improvement"
+            focus_areas = ["Basic concepts", "Fundamental understanding", "Regular practice"]
+        
+        # Generate chapter-wise recommendations based on weaknesses
+        chapter_recommendations = []
+        for weakness in weaknesses[:3]:  # Top 3 weaknesses
+            chapter_recommendations.append({
+                'chapter': weakness.get('chapter', 'Unknown'),
+                'topic': weakness.get('topic', 'General'),
+                'priority': 'high',
+                'recommended_hours': 4 + (80 - overall_score) // 10,
+                'study_approach': [
+                    'Review fundamental concepts',
+                    'Practice 20-30 questions daily',
+                    'Focus on understanding rather than memorization'
+                ],
+                'resources': [
+                    f"Standard textbooks on {weakness.get('topic', 'this topic')}",
+                    "Online video lectures",
+                    "Previous year question papers"
+                ]
+            })
+        
+        # Study plan recommendations
+        study_plan = [
+            {
+                'week': 1,
+                'focus': 'Foundation Building',
+                'daily_hours': 3,
+                'activities': [
+                    'Review basic concepts',
+                    'Solve practice questions',
+                    'Make summary notes'
+                ]
+            },
+            {
+                'week': 2,
+                'focus': 'Skill Development',
+                'daily_hours': 4,
+                'activities': [
+                    'Practice mock tests',
+                    'Time management exercises',
+                    'Detailed topic revision'
+                ]
+            },
+            {
+                'week': 3,
+                'focus': 'Advanced Practice',
+                'daily_hours': 5,
+                'activities': [
+                    'Full-length mock tests',
+                    'Error analysis',
+                    'Speed improvement'
+                ]
+            }
+        ]
+        
+        return {
+            'overall_assessment': {
+                'performance_level': performance_level,
+                'score': overall_score,
+                'strength_areas': [s.get('topic', 'Unknown') for s in strengths[:3]],
+                'improvement_areas': [w.get('topic', 'Unknown') for w in weaknesses[:3]]
+            },
+            'personalized_message': f"Based on your {overall_score}% score in {subject_name}, you're performing at a {performance_level} level. Focus on the recommended areas to improve further.",
+            'chapter_recommendations': chapter_recommendations,
+            'study_plan': study_plan,
+            'immediate_actions': [
+                'Identify your top 3 weak areas',
+                'Create a daily study schedule',
+                'Start with basic concepts before moving to advanced topics',
+                'Practice regularly with timed tests'
+            ],
+            'confidence_level': 0.85,
+            'generated_at': datetime.utcnow().isoformat()
+        }
+    
+    def _generate_real_recommendations(self, performance_data):
+        """Generate real AI study recommendations using Gemini"""
+        
+        try:
+            # Prepare detailed prompt for AI
+            prompt = f"""
+            You are an expert educational advisor analyzing a student's test performance in {performance_data.get('subject_name', 'UGC NET')}. 
+            Generate personalized study recommendations based on the following performance data:
+
+            PERFORMANCE SUMMARY:
+            - Overall Score: {performance_data.get('overall_score', 0)}%
+            - Total Questions: {performance_data.get('total_questions', 0)}
+            - Correct Answers: {performance_data.get('correct_answers', 0)}
+            - Time Taken: {performance_data.get('time_taken', 0)} minutes
+            - Test Type: {performance_data.get('attempt_type', 'practice')}
+            - Subject: {performance_data.get('subject_name', 'Unknown')}
+            - Paper Type: {performance_data.get('paper_type', 'paper2')}
+
+            STRENGTHS: {json.dumps(performance_data.get('strengths', []))}
+            WEAKNESSES: {json.dumps(performance_data.get('weaknesses', []))}
+            CHAPTER-WISE PERFORMANCE: {json.dumps(performance_data.get('chapter_wise_performance', {}))}
+
+            Please provide a comprehensive study recommendation in the following JSON format:
+            {{
+                "overall_assessment": {{
+                    "performance_level": "excellent/good/average/needs_improvement",
+                    "score": {performance_data.get('overall_score', 0)},
+                    "strength_areas": ["topic1", "topic2", "topic3"],
+                    "improvement_areas": ["topic1", "topic2", "topic3"]
+                }},
+                "personalized_message": "A motivating and specific message based on performance",
+                "chapter_recommendations": [
+                    {{
+                        "chapter": "chapter_name",
+                        "topic": "specific_topic",
+                        "priority": "high/medium/low",
+                        "recommended_hours": 5,
+                        "study_approach": ["approach1", "approach2", "approach3"],
+                        "resources": ["resource1", "resource2", "resource3"]
+                    }}
+                ],
+                "study_plan": [
+                    {{
+                        "week": 1,
+                        "focus": "Foundation Building",
+                        "daily_hours": 3,
+                        "activities": ["activity1", "activity2", "activity3"]
+                    }}
+                ],
+                "immediate_actions": ["action1", "action2", "action3"],
+                "confidence_level": 0.9
+            }}
+
+            Focus on:
+            1. Specific, actionable recommendations
+            2. Prioritizing weak areas while maintaining strengths
+            3. Realistic study schedules
+            4. Subject-specific guidance for {performance_data.get('subject_name', 'UGC NET')}
+            5. Time management strategies
+            """
+
+            # Generate content using Gemini
+            if not self.model:
+                raise Exception("AI model not available")
+            response = self.model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Clean and parse the JSON response
+            json_str = self._clean_json_response(response_text)
+            recommendations = json.loads(json_str)
+            
+            # Add metadata
+            recommendations['generated_at'] = datetime.utcnow().isoformat()
+            recommendations['ai_model'] = 'gemini-1.5-flash'
+            
+            return recommendations
+            
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON parsing failed, using structured fallback: {str(e)}")
+            return self._generate_mock_recommendations(performance_data)
+        except Exception as e:
+            print(f"⚠️ AI recommendation generation failed: {str(e)}")
+            return self._generate_mock_recommendations(performance_data)
+
     def _validate_quiz_data(self, quiz_data):
         """Validate and clean quiz data from AI"""
         

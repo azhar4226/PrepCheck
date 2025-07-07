@@ -14,6 +14,40 @@
       @stat-click="handleStatClick"
     />
 
+    <!-- UGC NET Quick Access -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card bg-gradient-primary text-white">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h5 class="card-title mb-2">
+                  <i class="bi bi-mortarboard me-2"></i>
+                  UGC NET Preparation
+                </h5>
+                <p class="card-text mb-3">
+                  Prepare for UGC NET exam with our comprehensive mock tests and chapter-wise practice.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                  <button class="btn btn-light btn-sm" @click="goToUGCNet">
+                    <i class="bi bi-arrow-right me-1"></i>
+                    Start UGC NET
+                  </button>
+                  <button class="btn btn-outline-light btn-sm" @click="goToTestGenerator">
+                    <i class="bi bi-gear me-1"></i>
+                    Generate Mock Test
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-4 text-center">
+                <i class="bi bi-book display-1 opacity-25"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Recent Activity & Recommendations -->
     <div class="row">
       <div class="col-md-8">
@@ -25,8 +59,8 @@
           empty-icon="bi bi-list-check"
         >
           <template #empty-action>
-            <button class="btn btn-primary" @click="startQuiz">
-              Take Your First Quiz
+            <button class="btn btn-primary" @click="startMockTest">
+              Take Your First UGC NET Mock Test
             </button>
           </template>
           
@@ -118,8 +152,16 @@ export default {
       refreshDashboard
     } = useDashboard()
 
-    const startQuiz = () => {
-      router.push('/quiz')
+    const startMockTest = () => {
+      router.push('/ugc-net')
+    }
+
+    const goToUGCNet = () => {
+      router.push('/ugc-net')
+    }
+
+    const goToTestGenerator = () => {
+      router.push('/ugc-net/test-generator')
     }
 
     const handleStatClick = (stat) => {
@@ -158,7 +200,9 @@ export default {
       recentActivity,
       userRecommendedSubjects,
       userStudyProgress,
-      startQuiz,
+      startMockTest,
+      goToUGCNet,
+      goToTestGenerator,
       handleStatClick,
       formatDate,
       refreshDashboard
@@ -189,5 +233,14 @@ export default {
 
 .progress {
   background-color: #e9ecef;
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.bg-gradient-primary .btn-light:hover {
+  background-color: #f8f9fa;
+  border-color: #f8f9fa;
 }
 </style>

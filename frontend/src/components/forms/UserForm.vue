@@ -8,6 +8,7 @@
           label="Full Name"
           :required="true"
           :error="errors.full_name"
+          :disabled="readonly"
           placeholder="Enter full name"
         />
       </div>
@@ -18,6 +19,7 @@
           label="Email Address"
           :required="true"
           :error="errors.email"
+          :disabled="readonly"
           placeholder="Enter email address"
         />
       </div>
@@ -43,6 +45,7 @@
           type="checkbox"
           label="Administrator Role"
           checkbox-label="Grant administrator privileges"
+          :disabled="readonly"
           :error="errors.is_admin"
         />
       </div>
@@ -52,6 +55,7 @@
           type="checkbox"
           label="Account Status"
           checkbox-label="Account is active"
+          :disabled="readonly"
           :error="errors.is_active"
         />
       </div>
@@ -78,6 +82,10 @@ const props = defineProps({
     default: () => ({})
   },
   isEditing: {
+    type: Boolean,
+    default: false
+  },
+  readonly: {
     type: Boolean,
     default: false
   }

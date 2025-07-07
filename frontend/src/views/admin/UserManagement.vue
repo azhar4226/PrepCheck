@@ -21,31 +21,37 @@
 
     <!-- User Data Table -->
     <DataTable
-      :data="users"
+      :data="debugUsers"
       :columns="userColumns"
       :filters="userFilters"
       :loading="loading"
       :error="error"
+      :show-filters="true"
+      :enable-frontend-filtering="false"
       loading-message="Loading users..."
       empty-message="No users found"
       :show-pagination="true"
+      :show-actions="true"
       :page-size="10"
       @edit="editUser"
       @delete="deleteUser"
       @filter-change="handleFilterChange"
     >
       <!-- Custom cell templates -->
-      <template #cell-name="{ item }">
-        <div class="d-flex align-items-center">
+      <template #cell-full_name="{ item }">
+        <div v-if="item" class="d-flex align-items-center">
           <div class="avatar avatar-sm rounded-circle bg-gradient-info me-2">
-            <span class="text-white text-xs">{{ getUserInitials(item.full_name || item.name) }}</span>
+            <span class="text-white text-xs">{{ getUserInitials(item.full_name) }}</span>
           </div>
-          {{ item.full_name || item.name }}
+          {{ item.full_name }}
+        </div>
+        <div v-else class="text-muted">
+          <em>Invalid user data</em>
         </div>
       </template>
 
       <template #cell-role="{ item }">
-        <div class="form-check form-switch">
+        <div v-if="item" class="form-check form-switch">
           <input 
             class="form-check-input" 
             type="checkbox" 
@@ -61,7 +67,7 @@
       </template>
 
       <template #cell-status="{ item }">
-        <div class="form-check form-switch">
+        <div v-if="item" class="form-check form-switch">
           <input 
             class="form-check-input" 
             type="checkbox" 
@@ -119,17 +125,25 @@
     <!-- User Details Modal -->
     <BaseModal
       v-if="showUserModal"
-      :title="selectedUser ? 'Edit User' : 'Create User'"
+      :title="isViewMode ? 'User Details' : (selectedUser ? 'Edit User' : 'Create User')"
       icon="bi bi-person"
       @close="closeUserModal"
-      @confirm="saveUser"
-      :confirm-disabled="!isUserFormValid"
+      @confirm="isViewMode ? closeUserModal : saveUser"
+      :confirm-disabled="isViewMode ? false : !isUserFormValid"
+      :confirm-text="isViewMode ? 'Close' : 'Save'"
+      :show-footer="true"
     >
       <UserForm
         v-model="userForm"
         :errors="userFormErrors"
         :is-editing="!!selectedUser"
+        :readonly="isViewMode"
       />
+      <template #footer v-if="isViewMode">
+        <button type="button" class="btn btn-secondary" @click="closeUserModal">
+          Close
+        </button>
+      </template>
     </BaseModal>
 
     <!-- Delete Confirmation Modal -->
@@ -148,7 +162,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useNotifications } from '@/composables/useNotifications'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StatsGrid from '@/components/ui/StatsGrid.vue'
@@ -177,13 +191,14 @@ export default {
     const userToDelete = ref(null)
     const showUserModal = ref(false)
     const showDeleteModal = ref(false)
+    const isViewMode = ref(false)
     const dashboardStats = ref(null)
     
     // Filter state
     const currentFilters = ref({
       search: '',
-      role: 'all',
-      status: 'all',
+      role: '',
+      status: '',
       page: 1,
       perPage: 20
     })
@@ -201,7 +216,7 @@ export default {
     // Table configuration
     const userColumns = [
       { key: 'id', label: 'ID', sortable: true },
-      { key: 'name', label: 'Name', sortable: true },
+      { key: 'full_name', label: 'Name', sortable: true },
       { key: 'email', label: 'Email', sortable: true },
       { key: 'role', label: 'Role' },
       { key: 'status', label: 'Status' },
@@ -214,6 +229,7 @@ export default {
         key: 'role',
         label: 'Role',
         type: 'select',
+        placeholder: 'All Roles',
         options: [
           { value: 'admin', label: 'Admin' },
           { value: 'user', label: 'User' }
@@ -223,6 +239,7 @@ export default {
         key: 'status',
         label: 'Status',
         type: 'select',
+        placeholder: 'All Status',
         options: [
           { value: 'active', label: 'Active' },
           { value: 'inactive', label: 'Inactive' }
@@ -343,36 +360,19 @@ export default {
         // Use provided filters or current filters
         const activeFilters = filters || currentFilters.value
         
-        console.log('UserManagement: Loading users with filters:', activeFilters)
-        
-        // Map frontend filter values to backend values
-        let filterType = 'all'
-        if (activeFilters.role === 'admin') filterType = 'admin'
-        else if (activeFilters.role === 'user') filterType = 'user'
-        else if (activeFilters.status === 'active') filterType = 'active'
-        else if (activeFilters.status === 'inactive') filterType = 'inactive'
-        
-        console.log('UserManagement: Calling API with params:', {
-          page: activeFilters.page || 1,
-          perPage: activeFilters.perPage || 20,
-          search: activeFilters.search || '',
-          filterType
-        })
-        
         const response = await adminService.getUsers(
           activeFilters.page || 1,
           activeFilters.perPage || 20,
           activeFilters.search || '',
-          filterType
+          'all', // legacy filter parameter
+          activeFilters.role || '',
+          activeFilters.status || ''
         )
         
-        console.log('UserManagement: Full API response:', response)
-        console.log('UserManagement: Response type:', typeof response)
-        console.log('UserManagement: Response keys:', Object.keys(response || {}))
-        
         if (response && response.users) {
-          users.value = response.users
-          console.log(`UserManagement: Successfully loaded ${users.value.length} users`)
+          // Filter out any undefined or null users
+          const validUsers = response.users.filter(user => user && user.id)
+          users.value = validUsers
         } else {
           console.error('UserManagement: No users property in response:', response)
           users.value = []
@@ -399,8 +399,6 @@ export default {
     }
 
     const handleFilterChange = (filters) => {
-      console.log('UserManagement: Filters changed:', filters)
-      
       // Update current filters
       currentFilters.value = {
         ...currentFilters.value,
@@ -408,24 +406,30 @@ export default {
         page: 1 // Reset to first page when filters change
       }
       
-      console.log('UserManagement: Updated filters:', currentFilters.value)
-      
       // Reload users with new filters
       loadUsers(currentFilters.value)
     }
 
     const editUser = (user) => {
+      console.log('editUser called with:', user)
       selectedUser.value = user
       userForm.value = { ...user }
+      isViewMode.value = false
       showUserModal.value = true
     }
 
     const viewUser = (user) => {
-      // Open user details view
-      console.log('View user:', user)
+      console.log('viewUser called with:', user)
+      
+      // Set the user data for viewing (read-only mode)
+      selectedUser.value = user
+      userForm.value = { ...user }
+      isViewMode.value = true
+      showUserModal.value = true
     }
 
     const deleteUser = (user) => {
+      console.log('deleteUser called with:', user)
       userToDelete.value = user
       showDeleteModal.value = true
     }
@@ -444,30 +448,32 @@ export default {
 
     const toggleUserRole = async (user) => {
       try {
-        const updatedUser = await adminService.updateUser(user.id, {
+        const response = await adminService.updateUser(user.id, {
           is_admin: !user.is_admin
         })
-        const index = users.value.findIndex(u => u.id === user.id)
-        if (index !== -1) {
-          users.value[index] = updatedUser.data
-        }
+        console.log('toggleUserRole response:', response)
+        
+        // Reload users to ensure data consistency
+        await loadUsers()
         showSuccess(`User role updated successfully`)
       } catch (err) {
+        console.error('toggleUserRole error:', err)
         showError('Failed to update user role')
       }
     }
 
     const toggleUserStatus = async (user) => {
       try {
-        const updatedUser = await adminService.updateUser(user.id, {
+        const response = await adminService.updateUser(user.id, {
           is_active: !user.is_active
         })
-        const index = users.value.findIndex(u => u.id === user.id)
-        if (index !== -1) {
-          users.value[index] = updatedUser.data
-        }
+        console.log('toggleUserStatus response:', response)
+        
+        // Reload users to ensure data consistency
+        await loadUsers()
         showSuccess(`User status updated successfully`)
       } catch (err) {
+        console.error('toggleUserStatus error:', err)
         showError('Failed to update user status')
       }
     }
@@ -479,20 +485,20 @@ export default {
         if (selectedUser.value) {
           // Update existing user
           const response = await adminService.updateUser(selectedUser.value.id, userForm.value)
-          const index = users.value.findIndex(u => u.id === selectedUser.value.id)
-          if (index !== -1) {
-            users.value[index] = response.data
-          }
+          console.log('saveUser update response:', response)
           showSuccess('User updated successfully')
         } else {
           // Create new user
           const response = await adminService.createUser(userForm.value)
-          users.value.push(response.data)
+          console.log('saveUser create response:', response)
           showSuccess('User created successfully')
         }
         
+        // Reload users to ensure data consistency
+        await loadUsers()
         closeUserModal()
       } catch (err) {
+        console.error('saveUser error:', err)
         if (err.response?.data?.errors) {
           userFormErrors.value = err.response.data.errors
         }
@@ -503,6 +509,7 @@ export default {
     const closeUserModal = () => {
       showUserModal.value = false
       selectedUser.value = null
+      isViewMode.value = false
       userForm.value = {
         full_name: '',
         email: '',
@@ -537,8 +544,21 @@ export default {
 
     // Initialize
     onMounted(() => {
+      console.log('UserManagement: Component mounted, loading users...')
       loadUsers()
       loadDashboardStats()
+    })
+
+    // Watch users array for changes
+    watch(users, (newUsers) => {
+      console.log('UserManagement: Users array changed:', newUsers)
+      console.log('UserManagement: Users array length:', newUsers?.length || 0)
+    }, { immediate: true, deep: true })
+
+    // Debug computed for DataTable data
+    const debugUsers = computed(() => {
+      console.log('UserManagement: debugUsers computed called, users.value:', users.value)
+      return users.value
     })
 
     return {
@@ -546,10 +566,12 @@ export default {
       loading,
       error,
       users,
+      debugUsers,
       selectedUser,
       userToDelete,
       showUserModal,
       showDeleteModal,
+      isViewMode,
       userForm,
       userFormErrors,
       dashboardStats,

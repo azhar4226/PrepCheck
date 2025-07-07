@@ -55,8 +55,8 @@
                     <button class="btn btn-outline-primary" @click="editSubject(subject)">
                       <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-outline-info" @click="viewChapters(subject)">
-                      <i class="fas fa-list"></i>
+                    <button class="btn btn-outline-info" @click="manageChapters(subject)">
+                      <i class="fas fa-plus"></i> Chapters
                     </button>
                     <button 
                       class="btn btn-outline-danger" 
@@ -75,8 +75,14 @@
     </div>
 
     <!-- Create/Edit Subject Modal -->
-    <div class="modal fade" tabindex="-1" ref="subjectModal">
-      <div class="modal-dialog">
+    <div 
+      v-if="showCreateModal" 
+      class="modal d-block" 
+      tabindex="-1" 
+      style="background-color: rgba(0,0,0,0.5);"
+      @click="closeModal"
+    >
+      <div class="modal-dialog" @click.stop>
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">
@@ -124,8 +130,147 @@
                 Cancel
               </button>
               <button type="submit" class="btn btn-primary" :disabled="saving">
-                <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-                {{ editingSubject ? 'Update' : 'Create' }}
+                <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                {{ editingSubject ? 'Update' : 'Create' }} Subject
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chapters Management Modal -->
+    <div 
+      v-if="showChaptersModal" 
+      class="modal d-block" 
+      tabindex="-1" 
+      style="background-color: rgba(0,0,0,0.5);"
+      @click="closeChaptersModal"
+    >
+      <div class="modal-dialog modal-lg" @click.stop>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Manage Chapters - {{ selectedSubject?.name }}
+            </h5>
+            <button type="button" class="btn-close" @click="closeChaptersModal"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Add Chapter Button -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0">Chapters</h6>
+              <button class="btn btn-primary btn-sm" @click="openCreateChapterModal">
+                <i class="fas fa-plus me-1"></i>Add Chapter
+              </button>
+            </div>
+            
+            <!-- Loading State -->
+            <div v-if="loadingChapters" class="text-center py-3">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading chapters...</span>
+              </div>
+            </div>
+            
+            <!-- Chapters List -->
+            <div v-else-if="chapters.length === 0" class="text-center text-muted py-4">
+              <i class="fas fa-folder-open fa-2x mb-3 opacity-50"></i>
+              <p>No chapters found. Create the first chapter for this subject.</p>
+            </div>
+            
+            <div v-else class="list-group">
+              <div 
+                v-for="chapter in chapters" 
+                :key="chapter.id"
+                class="list-group-item d-flex justify-content-between align-items-center"
+              >
+                <div>
+                  <h6 class="mb-1">{{ chapter.name }}</h6>
+                  <p class="mb-1 text-muted small">{{ chapter.description || 'No description' }}</p>
+                  <small class="text-muted">
+                    {{ chapter.quizzes_count || 0 }} quizzes | 
+                    <span :class="chapter.is_active ? 'text-success' : 'text-danger'">
+                      {{ chapter.is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                  </small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-primary">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-outline-danger">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeChaptersModal">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Chapter Modal -->
+    <div 
+      v-if="showCreateChapterModal" 
+      class="modal d-block" 
+      tabindex="-1" 
+      style="background-color: rgba(0,0,0,0.8);"
+      @click="showCreateChapterModal = false"
+    >
+      <div class="modal-dialog" @click.stop>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Add New Chapter to {{ selectedSubject?.name }}
+            </h5>
+            <button type="button" class="btn-close" @click="showCreateChapterModal = false"></button>
+          </div>
+          <form @submit.prevent="saveChapter">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="chapterName" class="form-label">Chapter Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="chapterName"
+                  v-model="chapterForm.name"
+                  required
+                  maxlength="100"
+                >
+              </div>
+              <div class="mb-3">
+                <label for="chapterDescription" class="form-label">Description</label>
+                <textarea
+                  class="form-control"
+                  id="chapterDescription"
+                  v-model="chapterForm.description"
+                  rows="3"
+                  maxlength="500"
+                ></textarea>
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="chapterActive"
+                  v-model="chapterForm.is_active"
+                >
+                <label class="form-check-label" for="chapterActive">
+                  Active
+                </label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" @click="showCreateChapterModal = false">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary" :disabled="saving">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                Create Chapter
               </button>
             </div>
           </form>
@@ -143,12 +288,14 @@
 </template>
 
 <script>
-import { ref, onMounted, nextTick } from 'vue'
-import apiService from '@/services/api'
+import { ref, onMounted } from 'vue'
+import { useAuth } from '@/composables/useAuth'
+import adminService from '@/services/adminService'
 
 export default {
   name: 'SubjectManagement',
   setup() {
+    const { api } = useAuth()
     const loading = ref(true)
     const saving = ref(false)
     const subjects = ref([])
@@ -156,7 +303,19 @@ export default {
     const editingSubject = ref(null)
     const message = ref('')
     const messageType = ref('')
-    const subjectModal = ref(null)
+    
+    // Chapter management state
+    const showChaptersModal = ref(false)
+    const selectedSubject = ref(null)
+    const chapters = ref([])
+    const loadingChapters = ref(false)
+    const showCreateChapterModal = ref(false)
+    const chapterForm = ref({
+      name: '',
+      description: '',
+      subject_id: null,
+      is_active: true
+    })
 
     const subjectForm = ref({
       name: '',
@@ -167,8 +326,8 @@ export default {
     const loadSubjects = async () => {
       try {
         loading.value = true
-        const response = await apiService.get('/admin/subjects')
-        subjects.value = response.data
+        const response = await adminService.getSubjects()
+        subjects.value = response
       } catch (error) {
         showMessage('Failed to load subjects', 'error')
         console.error('Load subjects error:', error)
@@ -193,11 +352,11 @@ export default {
         
         if (editingSubject.value) {
           // Update existing subject
-          await apiService.put(`/admin/subjects/${editingSubject.value.id}`, subjectForm.value)
+          await api.updateSubject(editingSubject.value.id, subjectForm.value)
           showMessage('Subject updated successfully', 'success')
         } else {
           // Create new subject
-          await apiService.post('/admin/subjects', subjectForm.value)
+          await api.createSubject(subjectForm.value)
           showMessage('Subject created successfully', 'success')
         }
         
@@ -219,7 +378,7 @@ export default {
 
       if (confirm(`Are you sure you want to delete "${subject.name}"?`)) {
         try {
-          await apiService.delete(`/admin/subjects/${subject.id}`)
+          await api.deleteSubject(subject.id)
           showMessage('Subject deleted successfully', 'success')
           await loadSubjects()
         } catch (error) {
@@ -229,10 +388,56 @@ export default {
       }
     }
 
-    const viewChapters = (subject) => {
-      // Navigate to chapters management for this subject
-      // This would be implemented with router navigation
-      console.log('View chapters for:', subject.name)
+    const manageChapters = async (subject) => {
+      selectedSubject.value = subject
+      showChaptersModal.value = true
+      await loadChapters(subject.id)
+    }
+
+    const loadChapters = async (subjectId) => {
+      try {
+        loadingChapters.value = true
+        const response = await api.getChapters(subjectId)
+        chapters.value = response || []
+      } catch (error) {
+        showMessage('Failed to load chapters', 'error')
+        console.error('Load chapters error:', error)
+      } finally {
+        loadingChapters.value = false
+      }
+    }
+
+    const openCreateChapterModal = () => {
+      chapterForm.value = {
+        name: '',
+        description: '',
+        subject_id: selectedSubject.value.id,
+        is_active: true
+      }
+      showCreateChapterModal.value = true
+    }
+
+    const saveChapter = async () => {
+      try {
+        saving.value = true
+        await api.createChapter(chapterForm.value)
+        showMessage('Chapter created successfully', 'success')
+        showCreateChapterModal.value = false
+        await loadChapters(selectedSubject.value.id)
+        await loadSubjects() // Refresh subject list to update chapter counts
+      } catch (error) {
+        showMessage('Failed to create chapter', 'error')
+        console.error('Save chapter error:', error)
+      } finally {
+        saving.value = false
+      }
+    }
+
+    const closeChaptersModal = () => {
+      showChaptersModal.value = false
+      showCreateChapterModal.value = false
+      selectedSubject.value = null
+      chapters.value = []
     }
 
     const closeModal = () => {
@@ -262,14 +467,7 @@ export default {
       })
     }
 
-    // Watch for modal visibility changes
-    const watchModal = async () => {
-      await nextTick()
-      if (showCreateModal.value && subjectModal.value) {
-        const modal = new bootstrap.Modal(subjectModal.value)
-        modal.show()
-      }
-    }
+    // Watch for showCreateModal changes (no longer needed with v-if approach)
 
     onMounted(() => {
       loadSubjects()
@@ -284,15 +482,25 @@ export default {
       message,
       messageType,
       subjectForm,
-      subjectModal,
+      // Chapter management
+      showChaptersModal,
+      selectedSubject,
+      chapters,
+      loadingChapters,
+      showCreateChapterModal,
+      chapterForm,
+      // Methods
       loadSubjects,
       editSubject,
       saveSubject,
       deleteSubject,
-      viewChapters,
+      manageChapters,
+      loadChapters,
+      openCreateChapterModal,
+      saveChapter,
+      closeChaptersModal,
       closeModal,
-      formatDate,
-      watchModal
+      formatDate
     }
   }
 }

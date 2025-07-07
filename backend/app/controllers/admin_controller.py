@@ -2,9 +2,9 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from functools import wraps
 from datetime import datetime, timedelta
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from app import db, redis_client
-from app.models import User, Subject, Chapter, Quiz, Question, QuizAttempt
+from app.models import User, Subject, Chapter, QuestionBank, UGCNetMockTest, UGCNetMockAttempt, UGCNetPracticeAttempt
 import json
 import os
 
@@ -21,23 +21,31 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def get_current_user():
+    user_id = get_jwt_identity()
+    return User.query.get(int(user_id))
+
 # Dashboard Statistics
 @admin_bp.route('/dashboard/test', methods=['GET'])
 def test_dashboard_stats():
     """Test endpoint without authentication for debugging"""
     try:
-        # Basic counts
+        # Basic counts using new models
         total_users = User.query.filter_by(is_admin=False).count()
         total_subjects = Subject.query.filter_by(is_active=True).count()
-        total_quizzes = Quiz.query.filter_by(is_active=True).count()
-        total_attempts = QuizAttempt.query.filter_by(is_completed=True).count()
+        total_questions = QuestionBank.query.count()
+        total_mock_tests = UGCNetMockTest.query.filter_by(is_active=True).count()
+        total_mock_attempts = UGCNetMockAttempt.query.filter_by(is_completed=True).count()
+        total_practice_attempts = UGCNetPracticeAttempt.query.filter_by(is_completed=True).count()
         
         simple_stats = {
             'total_users': total_users,
             'total_subjects': total_subjects,
-            'total_quizzes': total_quizzes,
-            'total_attempts': total_attempts,
-            'debug': 'This is a test endpoint'
+            'total_questions': total_questions,
+            'total_mock_tests': total_mock_tests,
+            'total_mock_attempts': total_mock_attempts,
+            'total_practice_attempts': total_practice_attempts,
+            'debug': 'Updated to use new UGC NET models'
         }
         
         print(f"Test endpoint returning: {simple_stats}")
@@ -50,6 +58,7 @@ def test_dashboard_stats():
 @admin_bp.route('/dashboard', methods=['GET'])
 @admin_required
 def get_dashboard_stats():
+    """Get comprehensive dashboard statistics using new models"""
     try:
         print("=== DASHBOARD ENDPOINT CALLED ===")
         # Check cache first
@@ -73,16 +82,48 @@ def get_dashboard_stats():
         
         print("Generating fresh analytics data...")
         
+        # Time filters
+        time_filter = request.args.get('timeFilter', '7d')
+        
+        # Calculate date range
+        if time_filter == '24h':
+            start_date = datetime.utcnow() - timedelta(hours=24)
+        elif time_filter == '7d':
+            start_date = datetime.utcnow() - timedelta(days=7)
+        elif time_filter == '30d':
+            start_date = datetime.utcnow() - timedelta(days=30)
+        elif time_filter == '90d':
+            start_date = datetime.utcnow() - timedelta(days=90)
+        else:
+            start_date = datetime.utcnow() - timedelta(days=7)
+
         # Basic counts with error handling
         try:
             total_users = User.query.filter_by(is_admin=False).count()
-            total_subjects = Subject.query.filter_by(is_active=True).count()
-            total_quizzes = Quiz.query.filter_by(is_active=True).count()
-            total_questions = Question.query.count()
-            total_attempts = QuizAttempt.query.filter_by(is_completed=True).count()
-            active_users_today = User.query.filter(User.last_login >= datetime.utcnow().date()).count()
+            active_users = User.query.filter(
+                User.is_admin == False,
+                User.last_login >= start_date
+            ).count()
             
-            # Additional user management stats
+            total_subjects = Subject.query.filter_by(is_active=True).count()
+            total_chapters = Chapter.query.filter_by(is_active=True).count()
+            total_questions = QuestionBank.query.count()
+            total_mock_tests = UGCNetMockTest.query.filter_by(is_active=True).count()
+            
+            # Attempt statistics using new models
+            total_mock_attempts = UGCNetMockAttempt.query.filter_by(is_completed=True).count()
+            recent_mock_attempts = UGCNetMockAttempt.query.filter(
+                UGCNetMockAttempt.is_completed == True,
+                UGCNetMockAttempt.completed_at >= start_date
+            ).count()
+            
+            total_practice_attempts = UGCNetPracticeAttempt.query.filter_by(is_completed=True).count()
+            recent_practice_attempts = UGCNetPracticeAttempt.query.filter(
+                UGCNetPracticeAttempt.is_completed == True,
+                UGCNetPracticeAttempt.completed_at >= start_date
+            ).count()
+            
+            # User management stats
             total_admins = User.query.filter_by(is_admin=True).count()
             active_users_all = User.query.filter_by(is_active=True, is_admin=False).count()
             inactive_users = User.query.filter_by(is_active=False, is_admin=False).count()
@@ -91,45 +132,56 @@ def get_dashboard_stats():
                 User.is_admin == False
             ).count()
             
-            print(f"Real database counts - Users: {total_users}, Subjects: {total_subjects}, Quizzes: {total_quizzes}, Questions: {total_questions}, Attempts: {total_attempts}")
+            print(f"Real database counts - Users: {total_users}, Subjects: {total_subjects}, Mock Tests: {total_mock_tests}, Questions: {total_questions}")
             print(f"User management stats - Admins: {total_admins}, Active: {active_users_all}, Inactive: {inactive_users}, New today: {new_users_today}")
         except Exception as e:
             print(f"Error getting basic counts: {e}")
             # Use zero values when there's no data or errors
             total_users = 0
+            active_users = 0
             total_subjects = 0
-            total_quizzes = 0
+            total_chapters = 0
             total_questions = 0
-            total_attempts = 0
-            active_users_today = 0
+            total_mock_tests = 0
+            total_mock_attempts = 0
+            recent_mock_attempts = 0
+            total_practice_attempts = 0
+            recent_practice_attempts = 0
             total_admins = 0
             active_users_all = 0
             inactive_users = 0
             new_users_today = 0
         
         # Performance calculations with error handling
-        average_score = 0
-        pass_rate = 0
-        average_time = 0
+        average_mock_score = 0
+        average_practice_score = 0
+        mock_pass_rate = 0
+        practice_pass_rate = 0
         
         try:
-            completed_attempts = QuizAttempt.query.filter_by(is_completed=True).all()
+            # Mock test performance
+            completed_mock_attempts = UGCNetMockAttempt.query.filter(
+                UGCNetMockAttempt.is_completed == True,
+                UGCNetMockAttempt.completed_at >= start_date
+            ).all()
             
-            if completed_attempts:
-                scores = [attempt.score for attempt in completed_attempts if attempt.score is not None]
+            if completed_mock_attempts:
+                scores = [attempt.percentage for attempt in completed_mock_attempts if attempt.percentage is not None]
                 if scores:
-                    average_score = round(sum(scores) / len(scores), 1)
-                    pass_rate = round((len([s for s in scores if s >= 70]) / len(scores)) * 100, 1)
-                
-                # Calculate average time (in minutes)
-                times = []
-                for attempt in completed_attempts:
-                    if attempt.started_at and attempt.completed_at:
-                        time_diff = attempt.completed_at - attempt.started_at
-                        times.append(time_diff.total_seconds() / 60)
-                
-                if times:
-                    average_time = round(sum(times) / len(times), 1)
+                    average_mock_score = round(sum(scores) / len(scores), 1)
+                    mock_pass_rate = round((len([s for s in scores if s >= 40]) / len(scores)) * 100, 1)  # UGC NET pass rate
+            
+            # Practice test performance
+            completed_practice_attempts = UGCNetPracticeAttempt.query.filter(
+                UGCNetPracticeAttempt.is_completed == True,
+                UGCNetPracticeAttempt.completed_at >= start_date
+            ).all()
+            
+            if completed_practice_attempts:
+                scores = [attempt.percentage for attempt in completed_practice_attempts if attempt.percentage is not None]
+                if scores:
+                    average_practice_score = round(sum(scores) / len(scores), 1)
+                    practice_pass_rate = round((len([s for s in scores if s >= 60]) / len(scores)) * 100, 1)  # Practice pass rate
         except Exception as e:
             print(f"Error calculating performance: {e}")
         
@@ -140,18 +192,32 @@ def get_dashboard_stats():
             
             for subject in subjects:
                 try:
-                    subject_attempts = db.session.query(QuizAttempt).join(Quiz).join(Chapter).filter(
-                        Chapter.subject_id == subject.id,
-                        QuizAttempt.is_completed == True
+                    # Get attempts for this subject via mock tests
+                    subject_mock_attempts = db.session.query(UGCNetMockAttempt).join(UGCNetMockTest).filter(
+                        UGCNetMockTest.subject_id == subject.id,
+                        UGCNetMockAttempt.is_completed == True,
+                        UGCNetMockAttempt.completed_at >= start_date
                     ).all()
                     
-                    if subject_attempts:
-                        subject_scores = [attempt.score for attempt in subject_attempts if attempt.score is not None]
-                        if subject_scores:
-                            avg_score = round(sum(subject_scores) / len(subject_scores), 1)
+                    # Get practice attempts for this subject
+                    subject_practice_attempts = UGCNetPracticeAttempt.query.filter(
+                        UGCNetPracticeAttempt.subject_id == subject.id,
+                        UGCNetPracticeAttempt.is_completed == True,
+                        UGCNetPracticeAttempt.completed_at >= start_date
+                    ).all()
+                    
+                    total_subject_attempts = len(subject_mock_attempts) + len(subject_practice_attempts)
+                    
+                    if total_subject_attempts > 0:
+                        all_scores = []
+                        all_scores.extend([attempt.percentage for attempt in subject_mock_attempts if attempt.percentage is not None])
+                        all_scores.extend([attempt.percentage for attempt in subject_practice_attempts if attempt.percentage is not None])
+                        
+                        if all_scores:
+                            avg_score = round(sum(all_scores) / len(all_scores), 1)
                             subject_stats.append({
                                 'subject': subject.name,
-                                'attempts': len(subject_attempts),
+                                'attempts': total_subject_attempts,
                                 'average_percentage': avg_score
                             })
                 except Exception as e:
@@ -163,17 +229,52 @@ def get_dashboard_stats():
         # Recent top performers with error handling
         top_performers = []
         try:
-            recent_attempts = QuizAttempt.query.filter_by(is_completed=True).filter(
-                QuizAttempt.score >= 80
-            ).order_by(desc(QuizAttempt.completed_at)).limit(10).all()
+            # Get recent high-scoring mock attempts
+            recent_mock_attempts = UGCNetMockAttempt.query.filter(
+                UGCNetMockAttempt.is_completed == True,
+                UGCNetMockAttempt.percentage >= 80
+            ).order_by(desc(UGCNetMockAttempt.completed_at)).limit(5).all()
             
-            for attempt in recent_attempts:
+            # Get recent high-scoring practice attempts
+            recent_practice_attempts = UGCNetPracticeAttempt.query.filter(
+                UGCNetPracticeAttempt.is_completed == True,
+                UGCNetPracticeAttempt.percentage >= 80
+            ).order_by(desc(UGCNetPracticeAttempt.completed_at)).limit(5).all()
+            
+            # Combine and sort
+            all_attempts = []
+            for attempt in recent_mock_attempts:
+                all_attempts.append({
+                    'type': 'mock',
+                    'attempt': attempt,
+                    'completed_at': attempt.completed_at
+                })
+            
+            for attempt in recent_practice_attempts:
+                all_attempts.append({
+                    'type': 'practice',
+                    'attempt': attempt,
+                    'completed_at': attempt.completed_at
+                })
+            
+            # Sort by completion time and take top 10
+            all_attempts.sort(key=lambda x: x['completed_at'], reverse=True)
+            
+            for item in all_attempts[:10]:
                 try:
+                    attempt = item['attempt']
+                    test_title = ""
+                    if item['type'] == 'mock' and attempt.mock_test:
+                        test_title = attempt.mock_test.title
+                    elif item['type'] == 'practice':
+                        test_title = attempt.title
+                    
                     top_performers.append({
                         'id': attempt.id,
                         'user_name': attempt.user.full_name if attempt.user else 'Unknown',
-                        'quiz_title': attempt.quiz.title if attempt.quiz else 'Unknown Quiz',
-                        'percentage': attempt.score,
+                        'test_title': test_title,
+                        'test_type': item['type'],
+                        'percentage': attempt.percentage,
                         'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None
                     })
                 except Exception as e:
@@ -186,8 +287,18 @@ def get_dashboard_stats():
         retention_rate = 0
         try:
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            active_users_30_days = db.session.query(User).join(QuizAttempt).filter(
-                QuizAttempt.started_at >= thirty_days_ago,
+            
+            # Users who have made attempts in the last 30 days
+            active_users_30_days = db.session.query(User).join(
+                db.or_(
+                    User.id == UGCNetMockAttempt.user_id,
+                    User.id == UGCNetPracticeAttempt.user_id
+                )
+            ).filter(
+                db.or_(
+                    UGCNetMockAttempt.started_at >= thirty_days_ago,
+                    UGCNetPracticeAttempt.started_at >= thirty_days_ago
+                ),
                 User.is_admin == False
             ).distinct().count()
             
@@ -196,17 +307,6 @@ def get_dashboard_stats():
         except Exception as e:
             print(f"Error calculating retention rate: {e}")
         
-        # Calculate recent attempts count
-        recent_attempts_count = 0
-        try:
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            recent_attempts_count = QuizAttempt.query.filter(
-                QuizAttempt.completed_at >= thirty_days_ago,
-                QuizAttempt.is_completed == True
-            ).count()
-        except Exception as e:
-            print(f"Error calculating recent attempts: {e}")
-        
         # Calculate daily trends for the last 7 days
         daily_trends = []
         try:
@@ -214,26 +314,43 @@ def get_dashboard_stats():
                 date = datetime.utcnow().date() - timedelta(days=i)
                 next_date = date + timedelta(days=1)
                 
-                # Count attempts for this day
-                day_attempts = QuizAttempt.query.filter(
-                    QuizAttempt.completed_at >= date,
-                    QuizAttempt.completed_at < next_date,
-                    QuizAttempt.is_completed == True
+                # Count mock attempts for this day
+                day_mock_attempts = UGCNetMockAttempt.query.filter(
+                    UGCNetMockAttempt.completed_at >= date,
+                    UGCNetMockAttempt.completed_at < next_date,
+                    UGCNetMockAttempt.is_completed == True
                 ).count()
                 
+                # Count practice attempts for this day
+                day_practice_attempts = UGCNetPracticeAttempt.query.filter(
+                    UGCNetPracticeAttempt.completed_at >= date,
+                    UGCNetPracticeAttempt.completed_at < next_date,
+                    UGCNetPracticeAttempt.is_completed == True
+                ).count()
+                
+                total_day_attempts = day_mock_attempts + day_practice_attempts
+                
                 # Calculate average score for this day
-                day_scores = [attempt.score for attempt in QuizAttempt.query.filter(
-                    QuizAttempt.completed_at >= date,
-                    QuizAttempt.completed_at < next_date,
-                    QuizAttempt.is_completed == True,
-                    QuizAttempt.score != None
+                day_mock_scores = [attempt.percentage for attempt in UGCNetMockAttempt.query.filter(
+                    UGCNetMockAttempt.completed_at >= date,
+                    UGCNetMockAttempt.completed_at < next_date,
+                    UGCNetMockAttempt.is_completed == True,
+                    UGCNetMockAttempt.percentage != None
                 ).all()]
                 
-                day_avg_score = round(sum(day_scores) / len(day_scores), 1) if day_scores else 0
+                day_practice_scores = [attempt.percentage for attempt in UGCNetPracticeAttempt.query.filter(
+                    UGCNetPracticeAttempt.completed_at >= date,
+                    UGCNetPracticeAttempt.completed_at < next_date,
+                    UGCNetPracticeAttempt.is_completed == True,
+                    UGCNetPracticeAttempt.percentage != None
+                ).all()]
+                
+                all_day_scores = day_mock_scores + day_practice_scores
+                day_avg_score = round(sum(all_day_scores) / len(all_day_scores), 1) if all_day_scores else 0
                 
                 daily_trends.append({
                     'date': date.strftime('%b %d'),
-                    'attempts': day_attempts,
+                    'attempts': total_day_attempts,
                     'average_score': day_avg_score
                 })
         except Exception as e:
@@ -247,19 +364,24 @@ def get_dashboard_stats():
                     'average_score': 0
                 })
         
+        # Combine total attempts for legacy compatibility
+        total_attempts = total_mock_attempts + total_practice_attempts
+        recent_attempts_count = recent_mock_attempts + recent_practice_attempts
+        combined_average_score = round((average_mock_score + average_practice_score) / 2, 1) if average_mock_score > 0 or average_practice_score > 0 else 0
+        
         stats = {
             'total_users': total_users,
             'total_subjects': total_subjects,
-            'total_quizzes': total_quizzes,
+            'total_mock_tests': total_mock_tests,
             'total_questions': total_questions,
             'total_attempts': total_attempts,
-            'active_users': active_users_today,
+            'active_users': active_users,
             'recent_attempts': recent_attempts_count,
             'today_attempts': recent_attempts_count,  # Add for compatibility
             'week_attempts': recent_attempts_count,   # Add for compatibility
-            'average_score': average_score,
-            'pass_rate': pass_rate,
-            'average_time_minutes': average_time,
+            'average_score': combined_average_score,
+            'pass_rate': round((mock_pass_rate + practice_pass_rate) / 2, 1) if mock_pass_rate > 0 or practice_pass_rate > 0 else 0,
+            'average_time_minutes': 0,  # Would need to calculate from attempt times
             'retention_rate': retention_rate,
             # User management specific stats
             'total_admins': total_admins,
@@ -269,25 +391,35 @@ def get_dashboard_stats():
             'subjects': subject_stats,
             'top_performers': top_performers,
             'daily_trends': daily_trends,
+            # UGC NET specific stats
+            'ugc_net_stats': {
+                'total_mock_tests': total_mock_tests,
+                'total_mock_attempts': total_mock_attempts,
+                'total_practice_attempts': total_practice_attempts,
+                'average_mock_score': average_mock_score,
+                'average_practice_score': average_practice_score,
+                'mock_pass_rate': mock_pass_rate,
+                'practice_pass_rate': practice_pass_rate
+            },
             # Keep nested structure for advanced components
             'stats': {
                 'total_users': total_users,
                 'total_subjects': total_subjects,
-                'total_quizzes': total_quizzes,
+                'total_mock_tests': total_mock_tests,
                 'total_questions': total_questions,
                 'total_attempts': total_attempts,
-                'active_users': active_users_today,
+                'active_users': active_users,
                 'recent_attempts': recent_attempts_count
             },
             'performance': {
-                'average_percentage': average_score,
-                'pass_rate': pass_rate,
-                'average_time_minutes': average_time,
+                'average_percentage': combined_average_score,
+                'pass_rate': round((mock_pass_rate + practice_pass_rate) / 2, 1) if mock_pass_rate > 0 or practice_pass_rate > 0 else 0,
+                'average_time_minutes': 0,
                 'retention_rate': retention_rate
             },
             'engagement': {
                 'total_registered': total_users,
-                'active_users': active_users_today
+                'active_users': active_users
             },
             # User management nested structure
             'user_management': {
@@ -300,7 +432,7 @@ def get_dashboard_stats():
         }
         
         print(f"Generated stats: {stats}")
-        print(f"Returning response with total_users: {stats['total_users']}, total_quizzes: {stats['total_quizzes']}")
+        print(f"Returning response with total_users: {stats['total_users']}, total_mock_tests: {stats['total_mock_tests']}")
         
         # Cache for 5 minutes with error handling
         try:
@@ -343,7 +475,13 @@ def create_subject():
         
         subject = Subject(
             name=data['name'],
-            description=data.get('description', '')
+            description=data.get('description', ''),
+            subject_code=data.get('subject_code', ''),
+            paper_type=data.get('paper_type', 'paper2'),
+            total_marks_paper1=data.get('total_marks_paper1', 100),
+            total_marks_paper2=data.get('total_marks_paper2', 100),
+            exam_duration_paper1=data.get('exam_duration_paper1', 60),
+            exam_duration_paper2=data.get('exam_duration_paper2', 120)
         )
         
         db.session.add(subject)
@@ -384,6 +522,20 @@ def update_subject(subject_id):
         
         if 'is_active' in data:
             subject.is_active = data['is_active']
+            
+        # UGC NET specific fields
+        if 'subject_code' in data:
+            subject.subject_code = data['subject_code']
+        if 'paper_type' in data:
+            subject.paper_type = data['paper_type']
+        if 'total_marks_paper1' in data:
+            subject.total_marks_paper1 = data['total_marks_paper1']
+        if 'total_marks_paper2' in data:
+            subject.total_marks_paper2 = data['total_marks_paper2']
+        if 'exam_duration_paper1' in data:
+            subject.exam_duration_paper1 = data['exam_duration_paper1']
+        if 'exam_duration_paper2' in data:
+            subject.exam_duration_paper2 = data['exam_duration_paper2']
         
         db.session.commit()
         
@@ -463,7 +615,12 @@ def create_chapter():
         chapter = Chapter(
             name=data['name'],
             description=data.get('description', ''),
-            subject_id=data['subject_id']
+            subject_id=data['subject_id'],
+            weightage_paper1=data.get('weightage_paper1', 0),
+            weightage_paper2=data.get('weightage_paper2', 0),
+            estimated_questions_paper1=data.get('estimated_questions_paper1', 0),
+            estimated_questions_paper2=data.get('estimated_questions_paper2', 0),
+            chapter_order=data.get('chapter_order', 0)
         )
         
         db.session.add(chapter)
@@ -478,19 +635,20 @@ def create_chapter():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-# Quiz Management
-@admin_bp.route('/quizzes', methods=['GET'])
+# Mock Test Management
+@admin_bp.route('/mock-tests', methods=['GET'])
 @admin_required
-def get_quizzes():
+def get_mock_tests():
+    """Get mock tests (legacy quiz endpoint compatibility)"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
-        chapter_id = request.args.get('chapter_id', type=int)
+        subject_id = request.args.get('subject_id', type=int)
         
-        query = Quiz.query
+        query = UGCNetMockTest.query
         
-        if chapter_id:
-            query = query.filter_by(chapter_id=chapter_id)
+        if subject_id:
+            query = query.filter_by(subject_id=subject_id)
         
         # Get paginated results
         pagination = query.paginate(
@@ -499,21 +657,18 @@ def get_quizzes():
             error_out=False
         )
         
-        quizzes_data = []
-        for quiz in pagination.items:
-            quiz_dict = quiz.to_dict()
+        tests_data = []
+        for test in pagination.items:
+            test_dict = test.to_dict()
             # Add related data for better filtering
-            if quiz.chapter:
-                quiz_dict['chapter_name'] = quiz.chapter.name
-                if quiz.chapter.subject:
-                    quiz_dict['subject_id'] = quiz.chapter.subject.id
-                    quiz_dict['subject_name'] = quiz.chapter.subject.name
-            quizzes_data.append(quiz_dict)
+            if test.subject:
+                test_dict['subject_name'] = test.subject.name
+            tests_data.append(test_dict)
         
         return jsonify({
             'success': True,
             'data': {
-                'quizzes': quizzes_data,
+                'mock_tests': tests_data,
                 'total_pages': pagination.pages,
                 'current_page': page,
                 'total_items': pagination.total,
@@ -526,87 +681,102 @@ def get_quizzes():
             'error': str(e)
         }), 500
 
-@admin_bp.route('/quizzes', methods=['POST'])
+@admin_bp.route('/mock-tests', methods=['POST'])
 @admin_required
-def create_quiz():
+def create_mock_test():
+    """Create mock test"""
     try:
         data = request.get_json()
         
-        required_fields = ['title', 'chapter_id']
+        required_fields = ['title', 'subject_id']
         if not all(field in data for field in required_fields):
             return jsonify({'error': 'Missing required fields'}), 400
         
-        # Verify chapter exists
-        chapter = Chapter.query.get(data['chapter_id'])
-        if not chapter:
-            return jsonify({'error': 'Chapter not found'}), 404
+        # Verify subject exists
+        subject = Subject.query.get(data['subject_id'])
+        if not subject:
+            return jsonify({'error': 'Subject not found'}), 404
         
-        quiz = Quiz(
+        # Get current user for created_by
+        current_user = get_current_user()
+        
+        mock_test = UGCNetMockTest(
             title=data['title'],
             description=data.get('description', ''),
-            chapter_id=data['chapter_id'],
-            time_limit=data.get('time_limit', 60),
-            is_ai_generated=data.get('is_ai_generated', False)
+            subject_id=data['subject_id'],
+            paper_type=data.get('paper_type', 'paper2'),
+            total_questions=data.get('total_questions', 100),
+            total_marks=data.get('total_marks', 200),
+            time_limit=data.get('time_limit', 180),
+            previous_year_percentage=data.get('previous_year_percentage', 70.0),
+            ai_generated_percentage=data.get('ai_generated_percentage', 30.0),
+            easy_percentage=data.get('easy_percentage', 30.0),
+            medium_percentage=data.get('medium_percentage', 50.0),
+            hard_percentage=data.get('hard_percentage', 20.0),
+            created_by=current_user.id
         )
         
-        db.session.add(quiz)
+        db.session.add(mock_test)
         db.session.commit()
         
         return jsonify({
-            'message': 'Quiz created successfully',
-            'quiz': quiz.to_dict()
+            'message': 'Mock test created successfully',
+            'quiz': mock_test.to_dict(),  # Legacy compatibility
+            'mock_test': mock_test.to_dict()
         }), 201
         
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-# Quiz Status Management
-@admin_bp.route('/quizzes/<int:quiz_id>/toggle-status', methods=['PUT'])
+# Mock Test Status Management
+@admin_bp.route('/mock-tests/<int:test_id>/toggle-status', methods=['PUT'])
 @admin_required
-def toggle_quiz_status(quiz_id):
-    """Toggle quiz active status (admin only)"""
+def toggle_mock_test_status(test_id):
+    """Toggle mock test active status (admin only)"""
     try:
-        quiz = Quiz.query.get(quiz_id)
-        if not quiz:
-            return jsonify({'error': 'Quiz not found'}), 404
+        mock_test = UGCNetMockTest.query.get(test_id)
+        if not mock_test:
+            return jsonify({'error': 'Mock test not found'}), 404
         
         # Toggle the active status
-        quiz.is_active = not quiz.is_active
+        mock_test.is_active = not mock_test.is_active
         db.session.commit()
         
-        status = 'activated' if quiz.is_active else 'deactivated'
+        status = 'activated' if mock_test.is_active else 'deactivated'
         
         return jsonify({
-            'message': f'Quiz {status} successfully',
-            'quiz': quiz.to_dict()
+            'message': f'Mock test {status} successfully',
+            'quiz': mock_test.to_dict(),  # Legacy compatibility
+            'mock_test': mock_test.to_dict()
         }), 200
         
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@admin_bp.route('/quizzes/<int:quiz_id>/status', methods=['PUT'])
+@admin_bp.route('/mock-tests/<int:test_id>/status', methods=['PUT'])
 @admin_required
-def update_quiz_status(quiz_id):
-    """Update quiz status (admin only)"""
+def update_mock_test_status(test_id):
+    """Update mock test status (admin only)"""
     try:
-        quiz = Quiz.query.get(quiz_id)
-        if not quiz:
-            return jsonify({'error': 'Quiz not found'}), 404
+        mock_test = UGCNetMockTest.query.get(test_id)
+        if not mock_test:
+            return jsonify({'error': 'Mock test not found'}), 404
         
         data = request.get_json()
         if 'is_active' not in data:
             return jsonify({'error': 'is_active field required'}), 400
         
-        quiz.is_active = data['is_active']
+        mock_test.is_active = data['is_active']
         db.session.commit()
         
-        status = 'activated' if quiz.is_active else 'deactivated'
+        status = 'activated' if mock_test.is_active else 'deactivated'
         
         return jsonify({
-            'message': f'Quiz {status} successfully',
-            'quiz': quiz.to_dict()
+            'message': f'Mock test {status} successfully',
+            'quiz': mock_test.to_dict(),  # Legacy compatibility
+            'mock_test': mock_test.to_dict()
         }), 200
         
     except Exception as e:
@@ -622,9 +792,35 @@ def get_users():
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '', type=str)
         filter_type = request.args.get('filter', 'all', type=str)
+        role_filter = request.args.get('role', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
         
-        # Build the query
-        query = User.query.filter_by(is_admin=False)
+        # Build the query - start with base query
+        if role_filter == 'admin':
+            query = User.query.filter_by(is_admin=True)
+        elif role_filter == 'user':
+            query = User.query.filter_by(is_admin=False)
+        elif filter_type == 'admin':
+            # Legacy support for single filter parameter
+            query = User.query.filter_by(is_admin=True)
+        elif filter_type == 'user':
+            # Legacy support for single filter parameter
+            query = User.query.filter_by(is_admin=False)
+        else:
+            # Default: exclude admin users unless specifically requested
+            query = User.query.filter_by(is_admin=False)
+        
+        # Apply status filter
+        if status_filter == 'active':
+            query = query.filter_by(is_active=True)
+        elif status_filter == 'inactive':
+            query = query.filter_by(is_active=False)
+        elif filter_type == 'active':
+            # Legacy support for single filter parameter
+            query = query.filter_by(is_active=True)
+        elif filter_type == 'inactive':
+            # Legacy support for single filter parameter
+            query = query.filter_by(is_active=False)
         
         # Apply search filter
         if search:
@@ -636,16 +832,6 @@ def get_users():
                 )
             )
         
-        # Apply filter
-        if filter_type == 'active':
-            query = query.filter_by(is_active=True)
-        elif filter_type == 'inactive':
-            query = query.filter_by(is_active=False)
-        elif filter_type == 'admin':
-            query = User.query.filter_by(is_admin=True)
-        elif filter_type == 'user':
-            query = query.filter_by(is_admin=False)
-        
         # Order by created_at descending
         query = query.order_by(desc(User.created_at))
         
@@ -654,8 +840,16 @@ def get_users():
             page=page, per_page=per_page, error_out=False
         )
         
+        users_data = []
+        for user in users.items:
+            user_data = user.to_dict()
+            # Add activity stats using new models
+            user_data['mock_attempts'] = UGCNetMockAttempt.query.filter_by(user_id=user.id).count()
+            user_data['practice_attempts'] = UGCNetPracticeAttempt.query.filter_by(user_id=user.id).count()
+            users_data.append(user_data)
+        
         return jsonify({
-            'users': [user.to_dict() for user in users.items],
+            'users': users_data,
             'total': users.total,
             'pages': users.pages,
             'current_page': page,
@@ -689,6 +883,21 @@ def update_user(user_id):
         if 'password' in data and data['password']:
             user.set_password(data['password'])
         
+        # Additional profile fields
+        profile_fields = ['phone', 'bio', 'gender', 'country', 'timezone', 
+                         'notification_email', 'notification_quiz_reminders', 
+                         'theme_preference', 'email_verified']
+        
+        for field in profile_fields:
+            if field in data:
+                setattr(user, field, data[field])
+        
+        if 'date_of_birth' in data and data['date_of_birth']:
+            try:
+                user.date_of_birth = datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
         user.updated_at = datetime.utcnow()
         db.session.commit()
         
@@ -721,14 +930,28 @@ def create_user():
             email=data['email'],
             is_admin=data.get('is_admin', False),
             is_active=data.get('is_active', True),
-            email_verified=True  # Admin-created users are verified by default
+            email_verified=True,  # Admin-created users are verified by default
+            phone=data.get('phone'),
+            bio=data.get('bio'),
+            gender=data.get('gender'),
+            country=data.get('country'),
+            timezone=data.get('timezone', 'UTC')
         )
         user.set_password(data['password'])
+        
+        if data.get('date_of_birth'):
+            try:
+                user.date_of_birth = datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
         
         db.session.add(user)
         db.session.commit()
         
-        return jsonify(user.to_dict()), 201
+        return jsonify({
+            'message': 'User created successfully',
+            'user': user.to_dict()
+        }), 201
         
     except Exception as e:
         db.session.rollback()
@@ -744,7 +967,7 @@ def delete_user(user_id):
         if user.is_admin:
             return jsonify({'error': 'Cannot delete admin users'}), 400
         
-        # Delete the user
+        # Delete the user (cascades will handle related data)
         db.session.delete(user)
         db.session.commit()
         
@@ -754,72 +977,7 @@ def delete_user(user_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-# Export Data
-@admin_bp.route('/export', methods=['POST'])
-@admin_required
-def export_data():
-    try:
-        data = request.get_json()
-        export_type = data.get('type', 'all')  # 'users', 'quizzes', 'attempts', 'all'
-        
-        # Import task dynamically to avoid circular imports
-        from app.tasks.export_tasks import export_admin_data
-        
-        # Run export task synchronously for now
-        result = export_admin_data(export_type)
-        
-        if result['status'] == 'success':
-            return jsonify({
-                'message': result['message'],
-                'files_created': result['files_created']
-            }), 200
-        else:
-            return jsonify({
-                'message': 'Export failed',
-                'error': result['error']
-            }), 500
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@admin_bp.route('/export/<task_id>', methods=['GET'])
-@admin_required
-def get_export_status(task_id):
-    try:
-        from app import celery_app
-        task = celery_app.AsyncResult(task_id)
-        
-        if task.state == 'PENDING':
-            response = {'state': task.state, 'status': 'Task is waiting...'}
-        elif task.state == 'PROGRESS':
-            response = {
-                'state': task.state,
-                'status': task.info.get('status', ''),
-                'current': task.info.get('current', 0),
-                'total': task.info.get('total', 1)
-            }
-        elif task.state == 'SUCCESS':
-            response = {
-                'state': task.state,
-                'download_url': task.result
-            }
-        else:  # FAILURE
-            response = {
-                'state': task.state,
-                'error': str(task.info)
-            }
-        
-        return jsonify(response), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 # Admin Profile Management
-
-def get_current_user():
-    user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
-
 @admin_bp.route('/profile', methods=['GET'])
 @admin_required
 def get_admin_profile():
@@ -909,7 +1067,6 @@ def change_admin_password():
         return jsonify({'error': str(e)}), 500
 
 # Enhanced User Management for Admins
-
 @admin_bp.route('/users/<int:user_id>/profile', methods=['PUT'])
 @admin_required
 def update_user_profile_by_admin(user_id):
@@ -965,60 +1122,81 @@ def update_user_profile_by_admin(user_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@admin_bp.route('/users/create', methods=['POST'])
+# Export Data
+@admin_bp.route('/export', methods=['POST'])
 @admin_required
-def create_user_by_admin():
-    """Create a new user (admin only)"""
+def export_data():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
+        export_type = data.get('type', 'all')  # 'users', 'mock_tests', 'attempts', 'all'
         
-        required_fields = ['email', 'password', 'full_name']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'error': f'{field} is required'}), 400
+        # Import task dynamically to avoid circular imports
+        try:
+            from app.tasks.export_tasks import export_admin_data
+            # Run export task synchronously for now
+            result = export_admin_data(export_type)
+        except ImportError:
+            # Fallback if export tasks don't exist
+            result = {
+                'status': 'success',
+                'message': 'Export functionality not implemented yet',
+                'files_created': []
+            }
         
-        # Check if email already exists
-        existing_user = User.query.filter_by(email=data['email']).first()
-        if existing_user:
-            return jsonify({'error': 'Email already exists'}), 400
-        
-        # Create new user
-        user = User(
-            email=data['email'],
-            full_name=data['full_name'],
-            is_admin=data.get('is_admin', False),
-            is_active=data.get('is_active', True),
-            phone=data.get('phone'),
-            bio=data.get('bio'),
-            gender=data.get('gender'),
-            country=data.get('country'),
-            timezone=data.get('timezone', 'UTC'),
-            email_verified=data.get('email_verified', False)
-        )
-        user.set_password(data['password'])
-        
-        if data.get('date_of_birth'):
-            try:
-                user.date_of_birth = datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date()
-            except ValueError:
-                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'User created successfully',
-            'user': user.to_dict()
-        }), 201
+        if result['status'] == 'success':
+            return jsonify({
+                'message': result['message'],
+                'files_created': result.get('files_created', [])
+            }), 200
+        else:
+            return jsonify({
+                'message': 'Export failed',
+                'error': result.get('error', 'Unknown error')
+            }), 500
         
     except Exception as e:
-        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/export/<task_id>', methods=['GET'])
+@admin_required
+def get_export_status(task_id):
+    try:
+        try:
+            from app import celery_app
+            task = celery_app.AsyncResult(task_id)
+            
+            if task.state == 'PENDING':
+                response = {'state': task.state, 'status': 'Task is waiting...'}
+            elif task.state == 'PROGRESS':
+                response = {
+                    'state': task.state,
+                    'status': task.info.get('status', ''),
+                    'current': task.info.get('current', 0),
+                    'total': task.info.get('total', 1)
+                }
+            elif task.state == 'SUCCESS':
+                response = {
+                    'state': task.state,
+                    'download_url': task.result
+                }
+            else:  # FAILURE
+                response = {
+                    'state': task.state,
+                    'error': str(task.info)
+                }
+        except ImportError:
+            # Fallback if celery is not available
+            response = {
+                'state': 'SUCCESS',
+                'message': 'Export tasks not implemented'
+            }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 # System Settings Management
-
 @admin_bp.route('/settings', methods=['GET'])
 @admin_required
 def get_system_settings():
@@ -1026,16 +1204,19 @@ def get_system_settings():
     try:
         # This could be extended to include actual system settings from a settings table
         settings = {
-            'app_name': 'PrepCheck',
-            'version': '1.0.0',
+            'app_name': 'PrepCheck UGC NET',
+            'version': '2.0.0',
             'max_file_size': '5MB',
             'allowed_extensions': ['png', 'jpg', 'jpeg', 'gif', 'webp'],
             'maintenance_mode': False,
             'registration_enabled': True,
             'email_verification_required': False,
-            'max_quiz_time': 120,  # minutes
-            'default_questions_per_quiz': 10,
-            'password_min_length': 6
+            'max_mock_test_time': 180,  # minutes
+            'max_practice_test_time': 30,  # minutes
+            'default_questions_per_test': 20,
+            'password_min_length': 6,
+            'ugc_net_pass_percentage': 40.0,
+            'practice_pass_percentage': 60.0
         }
         
         return jsonify({'settings': settings}), 200
@@ -1047,16 +1228,18 @@ def get_system_settings():
 @admin_required
 def download_export_file(filename):
     """Download exported files"""
-    from app.utils.file_utils import safe_send_file, get_export_directory
-    
-    export_dir = get_export_directory()
-    return safe_send_file(export_dir, filename)
+    try:
+        from app.utils.file_utils import safe_send_file, get_export_directory
+        export_dir = get_export_directory()
+        return safe_send_file(export_dir, filename)
+    except ImportError:
+        return jsonify({'error': 'File utilities not available'}), 500
 
-
+# User Analytics for Admin
 @admin_bp.route('/user/<int:user_id>/analytics', methods=['GET'])
 @admin_required
 def get_user_analytics(user_id):
-    """Get analytics for any user (admin only)"""
+    """Get analytics for any user (admin only) - Updated for UGC NET models"""
     try:
         # Verify user exists
         user = User.query.get(user_id)
@@ -1066,132 +1249,160 @@ def get_user_analytics(user_id):
         # Get query parameters
         days = request.args.get('days', 30, type=int)
         subject_id = request.args.get('subject_id', type=int)
-        chapter_id = request.args.get('chapter_id', type=int)
         
         # Calculate date range
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=days)
         
-        # Build base query for quiz attempts
-        attempts_query = QuizAttempt.query.filter(
-            QuizAttempt.user_id == user_id,
-            QuizAttempt.is_completed == True,
-            QuizAttempt.completed_at >= start_date,
-            QuizAttempt.completed_at <= end_date
+        # Build base query for mock attempts
+        mock_attempts_query = UGCNetMockAttempt.query.filter(
+            UGCNetMockAttempt.user_id == user_id,
+            UGCNetMockAttempt.is_completed == True,
+            UGCNetMockAttempt.completed_at >= start_date,
+            UGCNetMockAttempt.completed_at <= end_date
         )
         
-        # Add filters if provided
-        if subject_id or chapter_id:
-            attempts_query = attempts_query.join(Quiz).join(Chapter)
-            if subject_id:
-                attempts_query = attempts_query.filter(Chapter.subject_id == subject_id)
-            if chapter_id:
-                attempts_query = attempts_query.filter(Quiz.chapter_id == chapter_id)
+        # Build base query for practice attempts
+        practice_attempts_query = UGCNetPracticeAttempt.query.filter(
+            UGCNetPracticeAttempt.user_id == user_id,
+            UGCNetPracticeAttempt.is_completed == True,
+            UGCNetPracticeAttempt.completed_at >= start_date,
+            UGCNetPracticeAttempt.completed_at <= end_date
+        )
         
-        attempts = attempts_query.order_by(QuizAttempt.completed_at.desc()).all()
+        # Add subject filter if provided
+        if subject_id:
+            mock_attempts_query = mock_attempts_query.join(UGCNetMockTest).filter(UGCNetMockTest.subject_id == subject_id)
+            practice_attempts_query = practice_attempts_query.filter(UGCNetPracticeAttempt.subject_id == subject_id)
+        
+        mock_attempts = mock_attempts_query.order_by(UGCNetMockAttempt.completed_at.desc()).all()
+        practice_attempts = practice_attempts_query.order_by(UGCNetPracticeAttempt.completed_at.desc()).all()
         
         # Calculate basic stats
-        total_attempts = len(attempts)
-        total_score = sum(attempt.score for attempt in attempts)
-        total_possible = sum(attempt.total_marks for attempt in attempts)
-        average_score = (total_score / total_possible * 100) if total_possible > 0 else 0
+        total_mock_attempts = len(mock_attempts)
+        total_practice_attempts = len(practice_attempts)
+        total_attempts = total_mock_attempts + total_practice_attempts
+        
+        # Calculate averages
+        mock_scores = [attempt.percentage for attempt in mock_attempts if attempt.percentage is not None]
+        practice_scores = [attempt.percentage for attempt in practice_attempts if attempt.percentage is not None]
+        
+        average_mock_score = sum(mock_scores) / len(mock_scores) if mock_scores else 0
+        average_practice_score = sum(practice_scores) / len(practice_scores) if practice_scores else 0
+        average_overall_score = (average_mock_score + average_practice_score) / 2 if (mock_scores or practice_scores) else 0
         
         # Calculate trends (compare to previous period)
         prev_start = start_date - timedelta(days=days)
-        prev_attempts_query = QuizAttempt.query.filter(
-            QuizAttempt.user_id == user_id,
-            QuizAttempt.is_completed == True,
-            QuizAttempt.completed_at >= prev_start,
-            QuizAttempt.completed_at < start_date
-        )
+        prev_mock_attempts = UGCNetMockAttempt.query.filter(
+            UGCNetMockAttempt.user_id == user_id,
+            UGCNetMockAttempt.is_completed == True,
+            UGCNetMockAttempt.completed_at >= prev_start,
+            UGCNetMockAttempt.completed_at < start_date
+        ).all()
         
-        if subject_id or chapter_id:
-            prev_attempts_query = prev_attempts_query.join(Quiz).join(Chapter)
-            if subject_id:
-                prev_attempts_query = prev_attempts_query.filter(Chapter.subject_id == subject_id)
-            if chapter_id:
-                prev_attempts_query = prev_attempts_query.filter(Quiz.chapter_id == chapter_id)
+        prev_practice_attempts = UGCNetPracticeAttempt.query.filter(
+            UGCNetPracticeAttempt.user_id == user_id,
+            UGCNetPracticeAttempt.is_completed == True,
+            UGCNetPracticeAttempt.completed_at >= prev_start,
+            UGCNetPracticeAttempt.completed_at < start_date
+        ).all()
         
-        prev_attempts = prev_attempts_query.all()
-        prev_total_score = sum(attempt.score for attempt in prev_attempts)
-        prev_total_possible = sum(attempt.total_marks for attempt in prev_attempts)
-        prev_average_score = (prev_total_score / prev_total_possible * 100) if prev_total_possible > 0 else 0
+        prev_mock_scores = [attempt.percentage for attempt in prev_mock_attempts if attempt.percentage is not None]
+        prev_practice_scores = [attempt.percentage for attempt in prev_practice_attempts if attempt.percentage is not None]
+        prev_average_score = (sum(prev_mock_scores + prev_practice_scores) / len(prev_mock_scores + prev_practice_scores)) if (prev_mock_scores or prev_practice_scores) else 0
         
-        score_trend = average_score - prev_average_score
+        score_trend = average_overall_score - prev_average_score
         
         # Get recent performance by day
         daily_performance = {}
-        for attempt in attempts:
-            day_key = attempt.completed_at.strftime('%Y-%m-%d')
+        all_attempts = []
+        
+        # Combine all attempts with type info
+        for attempt in mock_attempts:
+            all_attempts.append({
+                'type': 'mock',
+                'attempt': attempt,
+                'date': attempt.completed_at,
+                'percentage': attempt.percentage
+            })
+        
+        for attempt in practice_attempts:
+            all_attempts.append({
+                'type': 'practice',
+                'attempt': attempt,
+                'date': attempt.completed_at,
+                'percentage': attempt.percentage
+            })
+        
+        for item in all_attempts:
+            day_key = item['date'].strftime('%Y-%m-%d')
             if day_key not in daily_performance:
-                daily_performance[day_key] = {'attempts': 0, 'score': 0, 'possible': 0}
+                daily_performance[day_key] = {'attempts': 0, 'scores': []}
             daily_performance[day_key]['attempts'] += 1
-            daily_performance[day_key]['score'] += attempt.score
-            daily_performance[day_key]['possible'] += attempt.total_marks
+            if item['percentage'] is not None:
+                daily_performance[day_key]['scores'].append(item['percentage'])
         
         # Convert to list and calculate percentages
         performance_data = []
         for day, data in sorted(daily_performance.items()):
-            percentage = (data['score'] / data['possible'] * 100) if data['possible'] > 0 else 0
+            percentage = sum(data['scores']) / len(data['scores']) if data['scores'] else 0
             performance_data.append({
                 'date': day,
                 'attempts': data['attempts'],
                 'percentage': round(percentage, 2)
             })
         
-        # Get subject/chapter breakdown
+        # Get subject breakdown
         subject_performance = {}
-        for attempt in attempts:
-            if attempt.quiz and attempt.quiz.chapter and attempt.quiz.chapter.subject:
-                subject_name = attempt.quiz.chapter.subject.name
-                chapter_name = attempt.quiz.chapter.name
+        
+        # Process mock attempts
+        for attempt in mock_attempts:
+            if attempt.mock_test and attempt.mock_test.subject:
+                subject_name = attempt.mock_test.subject.name
                 
                 if subject_name not in subject_performance:
                     subject_performance[subject_name] = {
-                        'attempts': 0, 
-                        'score': 0, 
-                        'possible': 0,
-                        'chapters': {}
+                        'mock_attempts': 0, 
+                        'practice_attempts': 0,
+                        'mock_scores': [],
+                        'practice_scores': []
                     }
                 
-                subject_performance[subject_name]['attempts'] += 1
-                subject_performance[subject_name]['score'] += attempt.score
-                subject_performance[subject_name]['possible'] += attempt.total_marks
+                subject_performance[subject_name]['mock_attempts'] += 1
+                if attempt.percentage is not None:
+                    subject_performance[subject_name]['mock_scores'].append(attempt.percentage)
+        
+        # Process practice attempts
+        for attempt in practice_attempts:
+            if attempt.subject:
+                subject_name = attempt.subject.name
                 
-                if chapter_name not in subject_performance[subject_name]['chapters']:
-                    subject_performance[subject_name]['chapters'][chapter_name] = {
-                        'attempts': 0, 'score': 0, 'possible': 0
+                if subject_name not in subject_performance:
+                    subject_performance[subject_name] = {
+                        'mock_attempts': 0, 
+                        'practice_attempts': 0,
+                        'mock_scores': [],
+                        'practice_scores': []
                     }
                 
-                subject_performance[subject_name]['chapters'][chapter_name]['attempts'] += 1
-                subject_performance[subject_name]['chapters'][chapter_name]['score'] += attempt.score
-                subject_performance[subject_name]['chapters'][chapter_name]['possible'] += attempt.total_marks
+                subject_performance[subject_name]['practice_attempts'] += 1
+                if attempt.percentage is not None:
+                    subject_performance[subject_name]['practice_scores'].append(attempt.percentage)
         
         # Convert to list with percentages
         subjects_data = []
         for subject_name, data in subject_performance.items():
-            percentage = (data['score'] / data['possible'] * 100) if data['possible'] > 0 else 0
-            
-            chapters_data = []
-            for chapter_name, chapter_data in data['chapters'].items():
-                chapter_percentage = (chapter_data['score'] / chapter_data['possible'] * 100) if chapter_data['possible'] > 0 else 0
-                chapters_data.append({
-                    'name': chapter_name,
-                    'attempts': chapter_data['attempts'],
-                    'percentage': round(chapter_percentage, 2)
-                })
+            all_subject_scores = data['mock_scores'] + data['practice_scores']
+            total_subject_attempts = data['mock_attempts'] + data['practice_attempts']
+            percentage = sum(all_subject_scores) / len(all_subject_scores) if all_subject_scores else 0
             
             subjects_data.append({
                 'name': subject_name,
-                'attempts': data['attempts'],
-                'percentage': round(percentage, 2),
-                'chapters': chapters_data
+                'attempts': total_subject_attempts,
+                'mock_attempts': data['mock_attempts'],
+                'practice_attempts': data['practice_attempts'],
+                'percentage': round(percentage, 2)
             })
-        
-        # Get question bank analytics for this user using QuestionBankService
-        from app.services.question_bank_service import QuestionBankService
-        question_bank_service = QuestionBankService()
-        question_analytics = question_bank_service.get_user_question_analytics(user_id, days=days)
         
         return jsonify({
             'user': {
@@ -1201,16 +1412,18 @@ def get_user_analytics(user_id):
             },
             'summary': {
                 'total_attempts': total_attempts,
-                'average_score': round(average_score, 2),
+                'total_mock_attempts': total_mock_attempts,
+                'total_practice_attempts': total_practice_attempts,
+                'average_score': round(average_overall_score, 2),
+                'average_mock_score': round(average_mock_score, 2),
+                'average_practice_score': round(average_practice_score, 2),
                 'score_trend': round(score_trend, 2),
                 'period_days': days
             },
             'daily_performance': performance_data,
             'subject_performance': subjects_data,
-            'question_analytics': question_analytics,
             'filters': {
                 'subject_id': subject_id,
-                'chapter_id': chapter_id,
                 'days': days
             }
         }), 200

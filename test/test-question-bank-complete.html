@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Bank Complete Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #cce8ff; color: #004085; border: 1px solid #abd7ff; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
+        .endpoint-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+        }
+        .endpoint-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .test-results {
+            margin-top: 10px;
+        }
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Question Bank Complete Test Suite</h1>
+        <p>Testing all question bank functionality including analytics, management, and backend integration.</p>
+        
+        <div class="endpoint-section">
+            <h3>🔐 Authentication Status</h3>
+            <div id="auth-status">
+                <div class="warning">Not authenticated</div>
+            </div>
+            <button onclick="authenticate()">Login as Admin</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Question Bank Statistics</h2>
+        <div id="stats-loading" style="display: none;">
+            <div class="spinner"></div>Loading statistics...
+        </div>
+        <div class="stats-grid" id="stats-grid" style="display: none;">
+            <!-- Stats will be populated here -->
+        </div>
+        <button onclick="loadStats()">Load Statistics</button>
+    </div>
+
+    <div class="container">
+        <h2>🔍 Question Bank Search & Management</h2>
+        <div class="endpoint-section">
+            <h3>Search Questions</h3>
+            <div>
+                <label>Topic: <input type="text" id="search-topic" placeholder="e.g., Mathematics"></label>
+                <label>Difficulty: 
+                    <select id="search-difficulty">
+                        <option value="">All</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </label>
+                <label>Verified Only: <input type="checkbox" id="search-verified" checked></label>
+                <button onclick="searchQuestions()">Search</button>
+            </div>
+            <div id="search-results" class="test-results"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📈 Analytics Testing</h2>
+        <div class="endpoint-section">
+            <h3>Analytics Endpoints</h3>
+            <button onclick="testAnalyticsEndpoints()">Test All Analytics</button>
+            <div id="analytics-results" class="test-results"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🎯 Question Creation & Management</h2>
+        <div class="endpoint-section">
+            <h3>Create Sample Question</h3>
+            <button onclick="createSampleQuestion()">Create Sample Question</button>
+            <div id="creation-results" class="test-results"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🚀 Frontend Integration Test</h2>
+        <div class="endpoint-section">
+            <h3>Admin UI Components</h3>
+            <p>Testing Vue.js components integration with backend APIs.</p>
+            <button onclick="openAdminUI()">Open Admin UI in New Tab</button>
+            <div id="frontend-results" class="test-results"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        const API_BASE = 'http://localhost:8000/api';
+
+        async function authenticate() {
+            const authStatus = document.getElementById('auth-status');
+            authStatus.innerHTML = '<div class="info"><div class="spinner"></div>Authenticating...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@prepcheck.com',
+                        password: 'admin123'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('token', authToken);
+                    authStatus.innerHTML = `
+                        <div class="success">
+                            ✅ Authenticated as ${data.user.full_name} (${data.user.email})
+                            <br>Admin: ${data.user.is_admin ? 'Yes' : 'No'}
+                        </div>
+                    `;
+                } else {
+                    const error = await response.json();
+                    authStatus.innerHTML = `<div class="error">❌ Authentication failed: ${error.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                authStatus.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadStats() {
+            if (!authToken) {
+                alert('Please authenticate first');
+                return;
+            }
+
+            const loadingDiv = document.getElementById('stats-loading');
+            const statsGrid = document.getElementById('stats-grid');
+            
+            loadingDiv.style.display = 'block';
+            statsGrid.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/question-bank/stats`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    statsGrid.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_questions}</div>
+                            <div class="stat-label">Total Questions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.verified_questions}</div>
+                            <div class="stat-label">Verified Questions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.verification_rate}%</div>
+                            <div class="stat-label">Verification Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.difficulty_breakdown.length}</div>
+                            <div class="stat-label">Difficulty Levels</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.top_topics.length}</div>
+                            <div class="stat-label">Topics Available</div>
+                        </div>
+                    `;
+                    statsGrid.style.display = 'grid';
+                } else {
+                    const error = await response.json();
+                    statsGrid.innerHTML = `<div class="error">Failed to load stats: ${error.error || 'Unknown error'}</div>`;
+                    statsGrid.style.display = 'block';
+                }
+            } catch (error) {
+                statsGrid.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
+                statsGrid.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        async function searchQuestions() {
+            if (!authToken) {
+                alert('Please authenticate first');
+                return;
+            }
+
+            const topic = document.getElementById('search-topic').value;
+            const difficulty = document.getElementById('search-difficulty').value;
+            const verifiedOnly = document.getElementById('search-verified').checked;
+            const resultsDiv = document.getElementById('search-results');
+
+            resultsDiv.innerHTML = '<div class="info"><div class="spinner"></div>Searching...</div>';
+
+            try {
+                const params = new URLSearchParams({
+                    verified_only: verifiedOnly,
+                    limit: 10
+                });
+                if (topic) params.append('topic', topic);
+                if (difficulty) params.append('difficulty', difficulty);
+
+                const response = await fetch(`${API_BASE}/admin/question-bank/search?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `
+                        <div class="success">✅ Search completed</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    const error = await response.json();
+                    resultsDiv.innerHTML = `<div class="error">❌ Search failed: ${error.error || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function testAnalyticsEndpoints() {
+            if (!authToken) {
+                alert('Please authenticate first');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('analytics-results');
+            resultsDiv.innerHTML = '<div class="info"><div class="spinner"></div>Testing analytics endpoints...</div>';
+
+            const endpoints = [
+                { name: 'Basic Stats', url: '/admin/question-bank/stats' },
+                { name: 'Detailed Analytics', url: '/admin/question-bank/analytics' },
+                { name: 'Usage Trends', url: '/admin/question-bank/analytics/trends' },
+                { name: 'Recommendations', url: '/admin/question-bank/analytics/recommendations' }
+            ];
+
+            let results = [];
+
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(`${API_BASE}${endpoint.url}`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        results.push(`
+                            <div class="success">
+                                ✅ ${endpoint.name}: ${response.status}
+                                <details>
+                                    <summary>Response data</summary>
+                                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                                </details>
+                            </div>
+                        `);
+                    } else {
+                        const error = await response.text();
+                        results.push(`<div class="error">❌ ${endpoint.name}: ${response.status} - ${error}</div>`);
+                    }
+                } catch (error) {
+                    results.push(`<div class="error">❌ ${endpoint.name}: Network error - ${error.message}</div>`);
+                }
+            }
+
+            resultsDiv.innerHTML = results.join('');
+        }
+
+        async function createSampleQuestion() {
+            if (!authToken) {
+                alert('Please authenticate first');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('creation-results');
+            resultsDiv.innerHTML = '<div class="info"><div class="spinner"></div>Creating sample question...</div>';
+
+            const sampleQuestion = {
+                question_text: "What is the capital of France?",
+                option_a: "London",
+                option_b: "Berlin",
+                option_c: "Paris",
+                option_d: "Madrid",
+                correct_option: "C",
+                explanation: "Paris is the capital and most populous city of France.",
+                marks: 1,
+                topic: "Geography",
+                difficulty: "easy",
+                tags: ["geography", "capitals", "europe"]
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/question-bank/questions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(sampleQuestion)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `
+                        <div class="success">✅ Question created successfully</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    const error = await response.json();
+                    resultsDiv.innerHTML = `<div class="error">❌ Creation failed: ${error.error || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        function openAdminUI() {
+            const adminUrl = 'http://localhost/#/admin/question-bank';
+            window.open(adminUrl, '_blank');
+            
+            document.getElementById('frontend-results').innerHTML = `
+                <div class="info">
+                    🚀 Admin UI opened in new tab: <a href="${adminUrl}" target="_blank">${adminUrl}</a>
+                    <br>Navigate to Question Bank Management to test the Vue.js components.
+                </div>
+            `;
+        }
+
+        // Auto-authenticate on page load if token exists
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                authToken = token;
+                document.getElementById('auth-status').innerHTML = `
+                    <div class="info">Using saved token (click Login to refresh)</div>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

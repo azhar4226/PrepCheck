@@ -12,13 +12,13 @@
             <button class="btn btn-outline-primary" @click="refreshData">
               <i class="bi bi-arrow-clockwise me-1"></i>Refresh
             </button>
-            <button class="btn btn-success" @click="startNewQuiz">
-              <i class="bi bi-play-circle me-1"></i>Start New Quiz
+            <button class="btn btn-success" @click="startNewMockTest">
+              <i class="bi bi-play-circle me-1"></i>Start UGC NET Mock Test
             </button>
           </template>
           <!-- Admin buttons -->
           <button v-if="user?.is_admin" class="btn btn-success" @click="navigateToAIQuiz">
-            <i class="bi bi-robot me-1"></i>AI Quiz Generator
+            <i class="bi bi-robot me-1"></i>AI Questions Generator
           </button>
         </template>
       </PageHeader>
@@ -39,16 +39,6 @@
           
           <!-- User-specific tabs -->
           <template v-if="!user?.is_admin">
-            <li class="nav-item" role="presentation">
-              <button 
-                class="nav-link" 
-                :class="{ active: activeTab === 'history' }"
-                @click="setActiveTab('history')"
-                type="button"
-              >
-                <i class="bi bi-clock-history me-1"></i>Quiz History
-              </button>
-            </li>
             <li class="nav-item" role="presentation">
               <button 
                 class="nav-link" 
@@ -126,11 +116,6 @@
             <AdminOverview v-else />
           </div>
 
-          <!-- History Tab (Users only) -->
-          <div v-show="activeTab === 'history' && !user?.is_admin" class="tab-pane fade show active">
-            <UserHistory />
-          </div>
-
           <!-- Analytics Tab -->
           <div v-show="activeTab === 'analytics'" class="tab-pane fade show active">
             <UserAnalytics v-if="!user?.is_admin" />
@@ -194,8 +179,7 @@ import { useRouter, useRoute } from 'vue-router'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import UserOverview from '@/components/dashboard/UserOverview.vue'
 import AdminOverview from '@/components/dashboard/AdminOverview.vue'
-import UserHistory from '@/components/dashboard/UserHistory.vue'
-import UserAnalytics from '@/components/dashboard/UserAnalytics.vue'
+import UserAnalytics from '@/components/features/UserAnalytics.vue'
 
 // Import real admin components from views/admin
 import AdminAnalytics from '@/views/admin/Analytics.vue'
@@ -210,7 +194,6 @@ export default {
     PageHeader,
     UserOverview,
     AdminOverview,
-    UserHistory,
     UserAnalytics,
     AdminAnalytics,
     SubjectManagement,
@@ -262,9 +245,9 @@ export default {
       }, 1000)
     }
 
-    // Start new quiz for users
-    const startNewQuiz = () => {
-      router.push('/quiz/start')
+    // Start new UGC NET mock test for users
+    const startNewMockTest = () => {
+      router.push('/ugc-net')
     }
 
     // Navigate to AI Quiz Generator
@@ -531,7 +514,7 @@ export default {
       loading,
       setActiveTab,
       refreshData,
-      startNewQuiz,
+      startNewMockTest,
       navigateToAIQuiz,
       exportData,
       // Helper functions (optional to expose)
