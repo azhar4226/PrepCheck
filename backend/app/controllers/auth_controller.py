@@ -20,10 +20,19 @@ def register():
         if User.query.filter_by(email=data['email']).first():
             return jsonify({'error': 'Email already registered'}), 400
         
+        # Validate subject_id if provided
+        subject_id = data.get('subject_id')
+        if subject_id:
+            from app.models.models import Subject
+            subject = Subject.query.get(subject_id)
+            if not subject or not subject.is_active:
+                return jsonify({'error': 'Invalid subject selected'}), 400
+        
         # Create new user
         user = User(
             email=data['email'],
             full_name=data['full_name'],
+            subject_id=subject_id,
             is_admin=False
         )
         user.set_password(data['password'])

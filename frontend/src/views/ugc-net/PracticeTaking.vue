@@ -170,8 +170,11 @@
                       v-else
                       class="btn btn-success"
                       @click="showSubmitModal"
+                      :disabled="practiceTest?.status === 'completed' || practiceTest?.is_completed || submitting"
                     >
-                      <i class="fas fa-check"></i> Submit Test
+                      <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
+                      <i v-if="!submitting" class="fas fa-check"></i> 
+                      {{ submitting ? 'Submitting...' : (practiceTest?.status === 'completed' || practiceTest?.is_completed) ? 'Test Completed' : 'Submit Test' }}
                     </button>
                   </div>
                 </div>
@@ -320,7 +323,17 @@ export default {
           questions.value = result.data.attempt.questions || []
           userAnswers.value = result.data.attempt.answers || {}
           
-          // Initialize timer
+          // Check if test is already completed
+          if (practiceTest.value.status === 'completed' || practiceTest.value.is_completed) {
+            console.log('Practice test already completed, redirecting to results...')
+            router.push({
+              name: 'PracticeResults',
+              params: { attemptId: attemptId.value }
+            })
+            return
+          }
+          
+          // Initialize timer only for in-progress tests
           if (practiceTest.value.time_limit && practiceTest.value.status === 'in_progress') {
             const startTime = new Date(practiceTest.value.start_time)
             const now = new Date()
@@ -406,6 +419,22 @@ export default {
     
     const submitTest = async (autoSubmit = false) => {
       try {
+        // Prevent double submission
+        if (submitting.value) {
+          console.log('Submission already in progress, ignoring...')
+          return
+        }
+        
+        // Check if test is already completed
+        if (practiceTest.value.status === 'completed' || practiceTest.value.is_completed) {
+          console.log('Test already completed, redirecting to results...')
+          router.push({
+            name: 'PracticeResults',
+            params: { attemptId: attemptId.value }
+          })
+          return
+        }
+        
         submitting.value = true
         
         const result = await ugcNetService.submitPracticeTest(attemptId.value, userAnswers.value)
@@ -423,11 +452,32 @@ export default {
             params: { attemptId: attemptId.value }
           })
         } else {
-          alert('Failed to submit test: ' + result.error)
+          console.error('Submission failed:', result.error)
+          
+          // Handle specific error cases
+          if (result.error.includes('already submitted')) {
+            alert('This practice test has already been submitted. Redirecting to results...')
+            router.push({
+              name: 'PracticeResults',
+              params: { attemptId: attemptId.value }
+            })
+          } else {
+            alert('Failed to submit test: ' + result.error)
+          }
         }
       } catch (err) {
         console.error('Error submitting test:', err)
-        alert('Failed to submit test')
+        
+        // Check if it's a network error or server error
+        if (err.response?.status === 400 && err.response?.data?.error?.includes('already submitted')) {
+          alert('This practice test has already been submitted. Redirecting to results...')
+          router.push({
+            name: 'PracticeResults',
+            params: { attemptId: attemptId.value }
+          })
+        } else {
+          alert('Failed to submit test. Please check your connection and try again.')
+        }
       } finally {
         submitting.value = false
       }

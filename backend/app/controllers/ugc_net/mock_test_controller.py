@@ -405,7 +405,9 @@ def submit_mock_test_attempt(test_id, attempt_id):
         
         # Update attempt
         attempt.status = 'completed'
+        attempt.is_completed = True  # Also update the boolean field for consistency
         attempt.end_time = datetime.utcnow()
+        attempt.completed_at = datetime.utcnow()  # Update completed_at timestamp as well
         attempt.answers_data = json.dumps(answers)
         attempt.score = obtained_marks
         attempt.correct_answers = correct_answers
@@ -507,4 +509,36 @@ def get_test_attempts(test_id):
         }), 200
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@ugc_net_mock_bp.route('/mock-tests/attempts/<int:attempt_id>', methods=['DELETE'])
+@jwt_required()
+def delete_mock_test_attempt(attempt_id):
+    """Delete a specific mock test attempt"""
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Find the attempt
+        attempt = UGCNetMockAttempt.query.filter_by(
+            id=attempt_id,
+            user_id=user.id
+        ).first()
+        
+        if not attempt:
+            return jsonify({'error': 'Mock test attempt not found'}), 404
+        
+        # Delete the attempt
+        db.session.delete(attempt)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Mock test attempt deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500

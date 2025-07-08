@@ -37,6 +37,10 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     
+    # User's registered subject for UGC NET preparation
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)
+    registered_subject = db.relationship('Subject', backref='registered_users', lazy=True)
+    
     # Relationships - Updated to use UGC NET models only
     ugc_net_mock_attempts = db.relationship('UGCNetMockAttempt', backref='attempt_user', lazy=True, cascade='all, delete-orphan')
     ugc_net_practice_attempts = db.relationship('UGCNetPracticeAttempt', backref='attempt_user', lazy=True, cascade='all, delete-orphan')
@@ -67,7 +71,9 @@ class User(db.Model):
             'email_verified': self.email_verified,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'last_login': self.last_login.isoformat() if self.last_login else None
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'subject_id': self.subject_id,
+            'registered_subject': self.registered_subject.to_dict() if self.registered_subject else None
         }
         
         if include_sensitive:

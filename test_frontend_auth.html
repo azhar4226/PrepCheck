@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>PrepCheck Authentication Test</h1>
+    
+    <div id="status"></div>
+    
+    <button onclick="checkToken()">Check Current Token</button>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="testStatistics()">Test Statistics API</button>
+    <button onclick="testMockTests()">Test Mock Tests API</button>
+    <button onclick="clearToken()">Clear Token</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8000';
+        
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function checkToken() {
+            const token = localStorage.getItem('prepcheck_token');
+            if (token) {
+                addResult(`✅ Token exists: ${token.substring(0, 50)}...`, 'success');
+                
+                // Try to decode and check expiry
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const exp = new Date(payload.exp * 1000);
+                    const now = new Date();
+                    addResult(`Token expires: ${exp.toLocaleString()} (${exp > now ? 'Valid' : 'Expired'})`, exp > now ? 'success' : 'error');
+                } catch (e) {
+                    addResult(`⚠️ Could not decode token: ${e.message}`, 'error');
+                }
+            } else {
+                addResult('❌ No token found in localStorage', 'error');
+            }
+        }
+        
+        async function testLogin() {
+            addResult('🔍 Testing login...', 'info');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'student1@test.com',
+                        password: 'Student123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('✅ Login successful!', 'success');
+                    addResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                    
+                    // Store the token
+                    if (data.access_token) {
+                        localStorage.setItem('prepcheck_token', data.access_token);
+                        addResult('✅ Token stored in localStorage', 'success');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ Login failed: ${response.status} - ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testStatistics() {
+            const token = localStorage.getItem('prepcheck_token');
+            if (!token) {
+                addResult('❌ No token available. Please login first.', 'error');
+                return;
+            }
+            
+            addResult('🔍 Testing statistics API...', 'info');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/ugc-net/statistics`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('✅ Statistics API successful!', 'success');
+                    addResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ Statistics API failed: ${response.status} - ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Statistics API error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMockTests() {
+            const token = localStorage.getItem('prepcheck_token');
+            if (!token) {
+                addResult('❌ No token available. Please login first.', 'error');
+                return;
+            }
+            
+            addResult('🔍 Testing mock tests API...', 'info');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/ugc-net/mock-tests`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('✅ Mock tests API successful!', 'success');
+                    addResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ Mock tests API failed: ${response.status} - ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Mock tests API error: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearToken() {
+            localStorage.removeItem('prepcheck_token');
+            addResult('🗑️ Token cleared from localStorage', 'info');
+        }
+        
+        // Check token status on page load
+        window.onload = function() {
+            addResult('🔍 Page loaded. Checking authentication status...', 'info');
+            checkToken();
+        };
+    </script>
+</body>
+</html>

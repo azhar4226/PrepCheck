@@ -79,41 +79,72 @@
     <div class="row">
       <!-- Left Column - Subjects & Tests -->
       <div class="col-lg-8">
-        <!-- Subjects Section -->
+        <!-- User's Subject and Chapters Section -->
         <div class="card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="bi bi-book me-2"></i>Available Subjects
+              <i class="bi bi-book me-2"></i>Your Preparation Subject
             </h5>
-            <span class="badge bg-primary">{{ subjects.length }} subjects</span>
+            <span v-if="userSubject" class="badge bg-primary">{{ userSubject.subject_code }}</span>
           </div>
           <div class="card-body">
             <div v-if="loading.subjects" class="text-center py-4">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading subjects...</span>
+                <span class="visually-hidden">Loading your subject...</span>
               </div>
             </div>
-            <div v-else-if="subjects.length === 0" class="text-center py-4 text-muted">
-              <i class="bi bi-inbox display-4 d-block mb-3"></i>
-              <p>No subjects available yet.</p>
+            <div v-else-if="!userSubject" class="text-center py-4 text-muted">
+              <i class="bi bi-book display-4 d-block mb-3"></i>
+              <p>No subject selected for preparation.</p>
+              <p class="small">Please contact admin to set your preparation subject.</p>
             </div>
-            <div v-else class="row">
-              <div v-for="subject in subjects" :key="subject.id" class="col-md-6 mb-3">
-                <div class="card h-100 border-0 bg-light">
-                  <div class="card-body">
-                    <h6 class="card-title">{{ subject.name }}</h6>
-                    <p class="card-text small text-muted">{{ subject.description }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <small class="text-primary">
-                        <i class="bi bi-bookmark-fill me-1"></i>
-                        Code: {{ subject.subject_code }}
-                      </small>
+            <div v-else>
+              <!-- Subject Information -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <div class="card bg-light">
+                    <div class="card-body">
+                      <h6 class="card-title text-primary">{{ userSubject.name }}</h6>
+                      <p class="card-text">{{ userSubject.description }}</p>
                       <button 
-                        @click="viewSubjectChapters(subject)" 
-                        class="btn btn-sm btn-outline-primary"
+                        @click="viewSubjectChapters(userSubject)" 
+                        class="btn btn-primary btn-sm"
+                        :disabled="loading.chapters"
                       >
-                        <i class="bi bi-eye me-1"></i>View
+                        <i class="bi bi-list me-1"></i>
+                        {{ loading.chapters ? 'Loading...' : 'View Chapters' }}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chapters for User's Subject -->
+              <div v-if="chapters.length > 0" class="row">
+                <div class="col-12">
+                  <h6 class="mb-3">
+                    <i class="bi bi-journal-text me-2"></i>Chapter-wise Topics
+                  </h6>
+                  <div class="row">
+                    <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-3">
+                      <div class="card h-100 border-0 bg-light">
+                        <div class="card-body">
+                          <h6 class="card-title">{{ chapter.name }}</h6>
+                          <p class="card-text small text-muted">{{ chapter.description }}</p>
+                          <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-success">
+                              <i class="bi bi-question-circle me-1"></i>
+                              {{ chapter.question_count || 0 }} questions
+                            </small>
+                            <button 
+                              @click="generateTestForSubject(userSubject, chapter)" 
+                              class="btn btn-sm btn-outline-success"
+                            >
+                              <i class="bi bi-play me-1"></i>Practice
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -388,13 +419,16 @@
 <script>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 import api from '@/services/api'
+import ugcNetService from '@/services/ugcNetService'
 import { Modal } from 'bootstrap'
 
 export default {
   name: 'UGCNetDashboard',
   setup() {
     const router = useRouter()
+    const { user } = useAuth()
     
     // Reactive data
     const subjects = ref([])
@@ -425,6 +459,14 @@ export default {
       chapters: false,
       mockTests: false,
       startTest: null
+    })
+
+    // Computed user's registered subject
+    const userSubject = computed(() => {
+      if (user.value && user.value.subject_id && subjects.value.length > 0) {
+        return subjects.value.find(subject => subject.id === user.value.subject_id)
+      }
+      return null
     })
 
     // Computed user stats
@@ -473,6 +515,14 @@ export default {
         if (result.success && result.data) {
           // API returns data directly, not wrapped in .data
           subjects.value = result.data.subjects || []
+          
+          // Auto-load chapters for user's registered subject
+          if (user.value && user.value.subject_id) {
+            const userSub = subjects.value.find(subject => subject.id === user.value.subject_id)
+            if (userSub) {
+              await viewSubjectChapters(userSub)
+            }
+          }
         } else {
           console.error('Failed to load subjects:', result.error)
           subjects.value = []
@@ -712,11 +762,13 @@ export default {
     })
 
     return {
+      user,
       subjects,
       chapters,
       mockTests,
       stats,
       selectedSubject,
+      userSubject,
       loading,
       userStats,
       loadSubjects,

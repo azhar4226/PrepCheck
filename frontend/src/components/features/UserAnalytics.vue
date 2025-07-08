@@ -11,6 +11,10 @@
           <option value="30">Last 30 days</option>
           <option value="90">Last 90 days</option>
         </select>
+        <button class="btn btn-outline-success btn-sm" @click="exportToPDF" :disabled="loading || !analytics">
+          <i class="bi bi-file-earmark-pdf me-1"></i>
+          Export PDF
+        </button>
         <button class="btn btn-outline-primary btn-sm" @click="refreshAnalytics" :disabled="loading">
           <i class="bi bi-arrow-clockwise me-1" :class="{ 'spin': loading }"></i>
           {{ loading ? 'Loading...' : 'Refresh' }}
@@ -376,6 +380,72 @@ export default {
     
     async refreshAnalytics() {
       await this.loadAnalytics()
+    },
+
+    async exportToPDF() {
+      if (!this.analytics) {
+        alert('No data available to export')
+        return
+      }
+
+      try {
+        // Show loading state
+        const originalText = event.target.innerHTML
+        event.target.innerHTML = '<i class="bi bi-download me-1"></i>Exporting...'
+        event.target.disabled = true
+
+        // Call the export service
+        const response = await ugcNetService.exportAnalytics({
+          days: this.filters.days,
+          includeTimeline: true,
+          includeCharts: true
+        })
+
+        if (response.success) {
+          // Create and download the PDF
+          const blob = new Blob([response.data], { type: 'application/pdf' })
+          const url = window.URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `PrepCheck_Analytics_${this.filters.days}days_${new Date().toISOString().split('T')[0]}.pdf`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+          
+          // Show success message
+          this.showMessage('Analytics exported successfully!', 'success')
+        } else {
+          throw new Error(response.error || 'Failed to export analytics')
+        }
+      } catch (error) {
+        console.error('Error exporting PDF:', error)
+        this.showMessage('Failed to export analytics. Please try again.', 'error')
+      } finally {
+        // Restore button state
+        event.target.innerHTML = originalText
+        event.target.disabled = false
+      }
+    },
+
+    showMessage(message, type) {
+      // Create a temporary alert
+      const alertDiv = document.createElement('div')
+      alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`
+      alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;'
+      alertDiv.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `
+      document.body.appendChild(alertDiv)
+
+      // Auto remove after 5 seconds
+      setTimeout(() => {
+        if (alertDiv.parentNode) {
+          alertDiv.parentNode.removeChild(alertDiv)
+        }
+      }, 5000)
     },
 
     createDailyChart() {

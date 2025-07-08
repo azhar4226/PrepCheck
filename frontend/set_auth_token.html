@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Set Auth Token</title>
+</head>
+<body>
+    <h1>Set Authentication Token</h1>
+    <p>This will set the authentication token in localStorage for testing.</p>
+    <button onclick="setToken()">Set Token</button>
+    <button onclick="checkToken()">Check Token</button>
+    <button onclick="clearToken()">Clear Token</button>
+    <div id="status"></div>
+
+    <script>
+        function setToken() {
+            // Set the student token we got from the API
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1MjAxMTkwOSwianRpIjoiYjYxMjkyODUtMGJmYy00Nzc3LWFkNjAtOGNiZjdiMzk5ODQxIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjIiLCJuYmYiOjE3NTIwMTE5MDksImNzcmYiOiJmZTE5ZGFhOS1lNTNmLTRkYTctOWNmOS05Y2Y5MmJiYjI3NTUiLCJleHAiOjE3NTIwOTgzMDl9.lMw3ZOgyGCzuUArSIDeNKjTutL2B0Zn879_ahxXstog';
+            const user = {
+                "bio": null,
+                "country": null,
+                "created_at": "2025-06-18T14:15:15.848720",
+                "date_of_birth": null,
+                "email": "student1@test.com",
+                "email_verified": false,
+                "full_name": "Student1",
+                "gender": null,
+                "id": 2,
+                "is_active": true,
+                "is_admin": false,
+                "last_login": "2025-07-08T21:58:29.897154",
+                "notification_email": true,
+                "notification_quiz_reminders": true,
+                "phone": null,
+                "profile_picture_url": null,
+                "registered_subject": {
+                    "chapters_count": 9,
+                    "created_at": "2025-06-18T13:39:21.999697",
+                    "description": "UGC NET Computer Science and Applications",
+                    "exam_duration_paper1": 60,
+                    "exam_duration_paper2": 120,
+                    "id": 1,
+                    "is_active": true,
+                    "name": "Computer Science and Applications",
+                    "paper_type": "paper2",
+                    "subject_code": "87",
+                    "total_marks_paper1": 100,
+                    "total_marks_paper2": 100
+                },
+                "subject_id": 1,
+                "theme_preference": "light",
+                "timezone": "UTC",
+                "updated_at": "2025-07-08T21:58:29.900940"
+            };
+            
+            localStorage.setItem('prepcheck_token', token);
+            localStorage.setItem('prepcheck_user', JSON.stringify(user));
+            document.getElementById('status').innerHTML = '<p style="color: green;">Token and user data set successfully!</p>';
+        }
+
+        function checkToken() {
+            const token = localStorage.getItem('prepcheck_token');
+            const user = localStorage.getItem('prepcheck_user');
+            if (token) {
+                document.getElementById('status').innerHTML = '<p style="color: blue;">Token exists: ' + token.substring(0, 50) + '...</p><p>User: ' + (user ? 'Set' : 'Not set') + '</p>';
+            } else {
+                document.getElementById('status').innerHTML = '<p style="color: red;">No token found</p>';
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem('prepcheck_token');
+            localStorage.removeItem('prepcheck_user');
+            document.getElementById('status').innerHTML = '<p style="color: orange;">Token and user data cleared</p>';
+        }
+
+        // Auto-check token on load
+        window.onload = checkToken;
+    </script>
+</body>
+</html>

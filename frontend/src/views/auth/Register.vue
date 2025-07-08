@@ -118,6 +118,29 @@
               <div v-if="errors.confirm_password" class="invalid-feedback">{{ errors.confirm_password }}</div>
             </div>
 
+            <div class="mb-3">
+              <label for="subject" class="form-label">Subject for Preparation</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-book"></i></span>
+                <select
+                  class="form-select"
+                  id="subject"
+                  v-model="form.subject_id"
+                  :class="{ 'is-invalid': errors.subject_id }"
+                  required
+                >
+                  <option value="">Select your preparation subject</option>
+                  <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                    {{ subject.name }}
+                  </option>
+                </select>
+              </div>
+              <div v-if="errors.subject_id" class="invalid-feedback">{{ errors.subject_id }}</div>
+              <div class="form-text">
+                Choose the subject you want to prepare for. This will personalize your dashboard.
+              </div>
+            </div>
+
             <div class="mb-3 form-check">
               <input 
                 type="checkbox" 
@@ -189,9 +212,10 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import authService from '@/services/authService'
+import ugcNetService from '@/services/ugcNetService'
 import { validateEmail, validatePassword } from '@/services/utils'
 
 export default {
@@ -204,9 +228,11 @@ export default {
       email: '',
       password: '',
       confirm_password: '',
+      subject_id: '',
       agree_terms: false
     })
     
+    const subjects = ref([])
     const errors = ref({})
     const loading = ref(false)
     const message = ref('')
@@ -225,6 +251,19 @@ export default {
         ? 'bi bi-exclamation-triangle-fill' 
         : 'bi bi-check-circle-fill'
     })
+
+    const loadSubjects = async () => {
+      try {
+        const response = await ugcNetService.getSubjects()
+        if (response.success) {
+          subjects.value = response.data.subjects || response.data || []
+        } else {
+          console.error('Failed to load subjects:', response.error)
+        }
+      } catch (error) {
+        console.error('Error loading subjects:', error)
+      }
+    }
     
     const validateForm = () => {
       errors.value = {}
@@ -256,6 +295,11 @@ export default {
       } else if (form.value.password !== form.value.confirm_password) {
         errors.value.confirm_password = 'Passwords do not match'
       }
+
+      // Subject validation
+      if (!form.value.subject_id) {
+        errors.value.subject_id = 'Please select a subject for preparation'
+      }
       
       // Terms agreement validation
       if (!form.value.agree_terms) {
@@ -277,7 +321,8 @@ export default {
         const response = await authService.register({
           full_name: form.value.full_name.trim(),
           email: form.value.email.toLowerCase().trim(),
-          password: form.value.password
+          password: form.value.password,
+          subject_id: form.value.subject_id
         })
         
         message.value = 'Account created successfully! Please sign in.'
@@ -306,9 +351,14 @@ export default {
         loading.value = false
       }
     }
+
+    onMounted(() => {
+      loadSubjects()
+    })
     
     return {
       form,
+      subjects,
       errors,
       loading,
       message,

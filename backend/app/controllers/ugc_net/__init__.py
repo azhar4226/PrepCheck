@@ -40,7 +40,7 @@ def create_combined_blueprint():
     # Import all route functions and register them with the combined blueprint
     from .subject_controller import (
         get_ugc_net_subjects, get_subject_chapters, get_ugc_net_statistics,
-        create_subject, create_chapter
+        create_subject, create_chapter, get_user_registered_subject, export_user_analytics
     )
     from .question_controller import add_question, bulk_import_questions
     from .mock_test_controller import (
@@ -60,6 +60,8 @@ def create_combined_blueprint():
     combined_bp.add_url_rule('/statistics', 'get_ugc_net_statistics', get_ugc_net_statistics, methods=['GET'])
     combined_bp.add_url_rule('/admin/subjects', 'create_subject', create_subject, methods=['POST'])
     combined_bp.add_url_rule('/admin/subjects/<int:subject_id>/chapters', 'create_chapter', create_chapter, methods=['POST'])
+    combined_bp.add_url_rule('/user/subject', 'get_user_registered_subject', get_user_registered_subject, methods=['GET'])
+    combined_bp.add_url_rule('/analytics/export', 'export_user_analytics', export_user_analytics, methods=['POST'])
     
     # Question routes
     combined_bp.add_url_rule('/question-bank/add', 'add_question', add_question, methods=['POST'])

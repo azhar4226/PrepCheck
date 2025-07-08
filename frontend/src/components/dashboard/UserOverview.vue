@@ -3,7 +3,6 @@
     <!-- Welcome Section -->
     <WelcomeCard
       :title="`Welcome back, ${user?.full_name}!`"
-      subtitle="Ready to continue your UGC NET preparation? Here's your progress overview."
       icon="bi bi-sun"
       icon-class="text-warning"
     />
@@ -48,54 +47,73 @@
       </div>
     </div>
 
-    <!-- Recent Activity & Recommendations -->
+    <!-- Recommendations Section -->
     <div class="row">
       <div class="col-md-8">
-        <ActivityCard
-          title="Recent Test Activity"
-          icon="bi bi-clock-history"
-          :items="recentActivity"
-          empty-message="No recent test attempts"
-          empty-icon="bi bi-list-check"
-        >
-          <template #empty-action>
-            <button class="btn btn-primary" @click="startMockTest">
-              Start Your First UGC NET Mock Test
-            </button>
-          </template>
-          
-          <template #item="{ item }">
-            <h6 class="mb-1">{{ item.title }}</h6>
-            <p class="mb-1 text-muted">{{ item.subtitle }}</p>
-            <small class="text-muted">{{ formatDate(item.timestamp) }}</small>
-          </template>
-        </ActivityCard>
-      </div>
-
-      <div class="col-md-4">
         <div class="card">
           <div class="card-header">
             <h5 class="mb-0">
               <i class="bi bi-lightbulb me-2"></i>
-              Recommendations
+              AI-Powered Recommendations
             </h5>
           </div>
           <div class="card-body">
             <div class="mb-3">
-              <h6 class="text-primary">Improve Your Skills</h6>
-              <p class="small text-muted mb-2">
-                Based on your recent performance, we recommend focusing on:
+              <h6 class="text-primary">Recommended Study Areas</h6>
+              <p class="text-muted mb-2">
+                Based on your preparation subject and overall performance trends, focus on these areas:
               </p>
-              <div class="d-flex flex-wrap gap-1">
+              <div class="d-flex flex-wrap gap-2">
                 <span v-for="subject in userRecommendedSubjects" :key="subject" 
-                      class="badge bg-light text-dark">
+                      class="badge bg-primary">
                   {{ subject }}
                 </span>
               </div>
             </div>
             
             <div class="mb-3">
-              <h6 class="text-success">Study Goal</h6>
+              <h6 class="text-success">Next Steps</h6>
+              <div class="list-group list-group-flush">
+                <div class="list-group-item border-0 px-0">
+                  <i class="bi bi-check-circle text-success me-2"></i>
+                  Start with a mock test to assess your current level
+                </div>
+                <div class="list-group-item border-0 px-0">
+                  <i class="bi bi-check-circle text-success me-2"></i>
+                  Focus on chapter-wise practice for weak areas
+                </div>
+                <div class="list-group-item border-0 px-0">
+                  <i class="bi bi-check-circle text-success me-2"></i>
+                  Review your performance analytics regularly
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary" @click="startMockTest">
+                <i class="bi bi-play-circle me-1"></i>
+                Start Mock Test
+              </button>
+              <button class="btn btn-outline-primary" @click="goToTestGenerator">
+                <i class="bi bi-gear me-1"></i>
+                Practice Questions
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="bi bi-target me-2"></i>
+              Study Goals
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <h6 class="text-success">Weekly Progress</h6>
               <div class="progress mb-2" style="height: 8px;">
                 <div class="progress-bar bg-success" 
                      :style="{ width: userStudyProgress + '%' }">
@@ -131,14 +149,12 @@ import { useAuth } from '@/composables/useAuth'
 import { useDashboard } from '@/composables/useDashboard'
 import WelcomeCard from '@/components/ui/WelcomeCard.vue'
 import StatsGrid from '@/components/ui/StatsGrid.vue'
-import ActivityCard from '@/components/ui/ActivityCard.vue'
 
 export default {
   name: 'UserOverview',
   components: {
     WelcomeCard,
-    StatsGrid,
-    ActivityCard
+    StatsGrid
   },
   setup() {
     const router = useRouter()
@@ -146,7 +162,6 @@ export default {
     const {
       loading,
       dashboardStats,
-      recentActivity,
       userRecommendedSubjects,
       userStudyProgress,
       refreshDashboard
@@ -178,33 +193,16 @@ export default {
       }
     }
 
-    const formatDate = (dateString) => {
-      if (!dateString) return ''
-      const date = new Date(dateString)
-      const now = new Date()
-      const diffMs = now - date
-      const diffMinutes = Math.floor(diffMs / (1000 * 60))
-      const diffHours = Math.floor(diffMinutes / 60)
-      const diffDays = Math.floor(diffHours / 24)
-
-      if (diffMinutes < 60) return `${diffMinutes}m ago`
-      if (diffHours < 24) return `${diffHours}h ago`
-      if (diffDays < 7) return `${diffDays}d ago`
-      return date.toLocaleDateString()
-    }
-
     return {
       user,
       loading,
       dashboardStats,
-      recentActivity,
       userRecommendedSubjects,
       userStudyProgress,
       startMockTest,
       goToUGCNet,
       goToTestGenerator,
       handleStatClick,
-      formatDate,
       refreshDashboard
     }
   }
@@ -225,6 +223,8 @@ export default {
   border: none;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   transition: transform 0.2s ease;
+  border-radius: 8px;
+
 }
 
 .card:hover {

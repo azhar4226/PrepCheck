@@ -217,8 +217,14 @@
                 <button @click="reviewUnanswered" class="btn btn-outline-danger btn-sm">
                   <i class="bi bi-question-circle me-1"></i>Review Unanswered
                 </button>
-                <button @click="showSubmitModal" class="btn btn-success">
-                  <i class="bi bi-check-circle me-1"></i>Submit Test
+                <button 
+                  @click="showSubmitModal" 
+                  class="btn btn-success"
+                  :disabled="attempt?.status === 'completed' || attempt?.is_completed || submitting"
+                >
+                  <span v-if="submitting" class="spinner-border spinner-border-sm me-1"></span>
+                  <i v-if="!submitting" class="bi bi-check-circle me-1"></i>
+                  {{ submitting ? 'Submitting...' : (attempt?.status === 'completed' || attempt?.is_completed) ? 'Test Completed' : 'Submit Test' }}
                 </button>
               </div>
             </div>
@@ -402,11 +408,48 @@ export default {
         }
         
         console.log('🔍 TestTaking: Starting/resuming attempt...')
-        // Start or resume attempt
-        const attemptResult = await Promise.race([
-          api.ugcNet.startAttempt(testId),
-          timeoutPromise
-        ])
+        // Start or resume attempt based on whether attemptId is provided
+        let attemptResult
+        if (attemptId) {
+          // Resume existing attempt - get attempt details
+          console.log('🔄 TestTaking: Resuming existing attempt:', attemptId)
+          try {
+            const response = await api.ugcNet.getUserAttempts(testId)
+            if (response.success && response.data && response.data.attempts) {
+              const existingAttempt = response.data.attempts.find(a => a.id.toString() === attemptId.toString())
+              if (existingAttempt && (existingAttempt.status === 'in_progress' || !existingAttempt.is_completed)) {
+                console.log('✅ TestTaking: Found existing incomplete attempt:', existingAttempt)
+                // For resuming, we need to get the questions for this attempt
+                // Since the getUserAttempts doesn't include questions, we need to start the attempt
+                // which should return the existing attempt with questions
+                attemptResult = await Promise.race([
+                  api.ugcNet.startAttempt(testId),
+                  timeoutPromise
+                ])
+              } else {
+                console.log('⚠️ TestTaking: Attempt is completed or not found, redirecting to results')
+                router.push(`/ugc-net/test/${testId}/attempt/${attemptId}/results`)
+                return
+              }
+            } else {
+              throw new Error('Failed to get attempt details')
+            }
+          } catch (error) {
+            console.error('❌ TestTaking: Failed to get attempt details for resume:', error)
+            alert('Failed to resume test. Starting a new attempt...')
+            attemptResult = await Promise.race([
+              api.ugcNet.startAttempt(testId),
+              timeoutPromise
+            ])
+          }
+        } else {
+          // Start new attempt
+          console.log('🆕 TestTaking: Starting new attempt')
+          attemptResult = await Promise.race([
+            api.ugcNet.startAttempt(testId),
+            timeoutPromise
+          ])
+        }
         console.log('🔍 TestTaking: Attempt result:', attemptResult)
         if (attemptResult.success) {
           attempt.value = attemptResult.data.attempt
@@ -414,7 +457,7 @@ export default {
           console.log('🔍 TestTaking: Questions loaded:', questions.value.length)
           
           // If the attempt is already completed, redirect to results
-          if (attempt.value.status === 'completed') {
+          if (attempt.value.status === 'completed' || attempt.value.is_completed) {
             console.log('🔍 TestTaking: Attempt already completed, redirecting to results...')
             router.push(`/ugc-net/test/${route.params.testId}/attempt/${route.params.attemptId}/results`)
             return
@@ -584,14 +627,27 @@ export default {
     }
 
     const submitTest = async (autoSubmit = false) => {
-      if (!autoSubmit) {
-        const modal = Modal.getInstance(document.getElementById('submitModal'))
-        if (modal) modal.hide()
-      }
-      
-      submitting.value = true
-      
       try {
+        // Prevent double submission
+        if (submitting.value) {
+          console.log('Submission already in progress, ignoring...')
+          return
+        }
+        
+        // Check if test is already completed
+        if (attempt.value?.status === 'completed' || attempt.value?.is_completed) {
+          console.log('Test already completed, redirecting to results...')
+          router.push(`/ugc-net/test/${route.params.testId}/attempt/${route.params.attemptId}/results`)
+          return
+        }
+      
+        if (!autoSubmit) {
+          const modal = Modal.getInstance(document.getElementById('submitModal'))
+          if (modal) modal.hide()
+        }
+        
+        submitting.value = true
+        
         const testId = route.params.testId
         const attemptId = route.params.attemptId
         
@@ -619,14 +675,27 @@ export default {
         const result = await api.ugcNet.submitAttempt(testId, attemptId, answers.value)
         
         console.log('📤 Submit result:', result)
+        console.log('📤 Submit result success:', result.success)
+        console.log('📤 Submit result data:', result.data)
+        console.log('📤 Submit result error:', result.error)
         
         if (result.success) {
-          // Redirect to results - include both testId and attemptId
-          router.push(`/ugc-net/results/${testId}/${attemptId}`)
+          console.log('✅ Submission successful, redirecting to results...')
+          // Redirect to results - use the correct route format
+          const resultsUrl = `/ugc-net/test/${testId}/attempt/${attemptId}/results`
+          console.log('🔗 Redirecting to:', resultsUrl)
+          router.push(resultsUrl)
         } else {
-          console.error('Submit failed:', result.error)
-          alert('Failed to submit test: ' + (result.error || 'Unknown error'))
-          submitting.value = false
+          console.error('❌ Submit failed:', result.error)
+          
+          // Handle specific error cases
+          if (result.error && result.error.includes('already submitted')) {
+            alert('This test has already been submitted. Redirecting to results...')
+            router.push(`/ugc-net/test/${route.params.testId}/attempt/${route.params.attemptId}/results`)
+          } else {
+            alert('Failed to submit test: ' + (result.error || 'Unknown error'))
+            submitting.value = false
+          }
         }
       } catch (error) {
         console.error('Failed to submit test:', error)
@@ -635,8 +704,15 @@ export default {
           response: error.response?.data,
           stack: error.stack
         })
-        alert('Failed to submit test: ' + (error.message || 'Unknown error'))
-        submitting.value = false
+        
+        // Check if it's a network error or server error
+        if (error.response?.status === 400 && error.response?.data?.error?.includes('already submitted')) {
+          alert('This test has already been submitted. Redirecting to results...')
+          router.push(`/ugc-net/test/${route.params.testId}/attempt/${route.params.attemptId}/results`)
+        } else {
+          alert('Failed to submit test: ' + (error.message || 'Unknown error'))
+          submitting.value = false
+        }
       }
     }
 

@@ -2,10 +2,10 @@
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import desc, func
 from app import db
-from app.models import User, Subject, Chapter, QuestionBank, UGCNetPracticeAttempt, UGCNetMockAttempt
+from app.models import User, Subject, Chapter, QuestionBank, UGCNetPracticeAttempt, UGCNetMockAttempt, UGCNetMockTest, UGCNetMockTest
 from app.utils.ugc_net_seed_data import get_subject_weightage_info
 import json
 
@@ -165,19 +165,19 @@ def get_ugc_net_statistics():
         recent_practice_attempts = UGCNetPracticeAttempt.query.filter_by(
             user_id=current_user.id
         ).filter(
-            UGCNetPracticeAttempt.score != None
+            UGCNetPracticeAttempt.percentage != None
         ).order_by(desc(UGCNetPracticeAttempt.created_at)).limit(5).all()
         
         # User's recent mock scores
         recent_mock_attempts = UGCNetMockAttempt.query.filter_by(
             user_id=current_user.id
         ).filter(
-            UGCNetMockAttempt.score != None
+            UGCNetMockAttempt.percentage != None
         ).order_by(desc(UGCNetMockAttempt.created_at)).limit(5).all()
         
         # Calculate average scores
-        practice_scores = [attempt.score for attempt in recent_practice_attempts]
-        mock_scores = [attempt.score for attempt in recent_mock_attempts]
+        practice_scores = [attempt.percentage for attempt in recent_practice_attempts]
+        mock_scores = [attempt.percentage for attempt in recent_mock_attempts]
         all_scores = practice_scores + mock_scores
         
         avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
@@ -378,3 +378,235 @@ def get_question_verification_status():
         
     except Exception as e:
         return jsonify({'error': f'Failed to get verification status: {str(e)}'}), 500
+
+
+@ugc_net_subject_bp.route('/analytics/export', methods=['POST'])
+@jwt_required()
+def export_user_analytics():
+    """Export user's UGC NET analytics with timeline support"""
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        data = request.get_json()
+        timeline = data.get('timeline', 'all')  # 'all', 'last_30_days', 'last_3_months', 'last_6_months'
+        
+        # Calculate date range based on timeline
+        end_date = datetime.utcnow()
+        if timeline == 'last_30_days':
+            start_date = end_date - timedelta(days=30)
+        elif timeline == 'last_3_months':
+            start_date = end_date - timedelta(days=90)
+        elif timeline == 'last_6_months':
+            start_date = end_date - timedelta(days=180)
+        else:
+            start_date = None  # All time
+        
+        # Get user's test history
+        mock_attempts_query = UGCNetMockAttempt.query.filter_by(user_id=user.id)
+        practice_attempts_query = UGCNetPracticeAttempt.query.filter_by(user_id=user.id)
+        
+        if start_date:
+            mock_attempts_query = mock_attempts_query.filter(UGCNetMockAttempt.created_at >= start_date)
+            practice_attempts_query = practice_attempts_query.filter(UGCNetPracticeAttempt.created_at >= start_date)
+        
+        mock_attempts = mock_attempts_query.order_by(desc(UGCNetMockAttempt.created_at)).all()
+        practice_attempts = practice_attempts_query.order_by(desc(UGCNetPracticeAttempt.created_at)).all()
+        
+        # Prepare analytics data
+        analytics_data = {
+            'user_info': {
+                'name': user.full_name,
+                'email': user.email,
+                'registered_subject': user.registered_subject.name if user.registered_subject else 'Not specified',
+                'registration_date': user.created_at.isoformat(),
+                'total_login_days': 'N/A'  # Would need tracking for accurate count
+            },
+            'export_info': {
+                'generated_at': datetime.utcnow().isoformat(),
+                'timeline': timeline,
+                'date_range': {
+                    'start': start_date.isoformat() if start_date else 'All time',
+                    'end': end_date.isoformat()
+                }
+            },
+            'summary_statistics': {
+                'total_mock_attempts': len(mock_attempts),
+                'total_practice_attempts': len(practice_attempts),
+                'completed_mock_attempts': len([a for a in mock_attempts if a.is_completed]),
+                'completed_practice_attempts': len([a for a in practice_attempts if a.is_completed]),
+            },
+            'performance_metrics': {},
+            'mock_test_history': [],
+            'practice_test_history': []
+        }
+        
+        # Calculate performance metrics
+        completed_mock = [a for a in mock_attempts if a.is_completed and a.percentage is not None]
+        completed_practice = [a for a in practice_attempts if a.is_completed and a.percentage is not None]
+        
+        if completed_mock:
+            mock_scores = [a.percentage for a in completed_mock]
+            analytics_data['performance_metrics']['mock_tests'] = {
+                'average_score': round(sum(mock_scores) / len(mock_scores), 2),
+                'best_score': max(mock_scores),
+                'worst_score': min(mock_scores),
+                'pass_rate': round((len([s for s in mock_scores if s >= 40]) / len(mock_scores)) * 100, 2)
+            }
+        
+        if completed_practice:
+            practice_scores = [a.percentage for a in completed_practice]
+            analytics_data['performance_metrics']['practice_tests'] = {
+                'average_score': round(sum(practice_scores) / len(practice_scores), 2),
+                'best_score': max(practice_scores),
+                'worst_score': min(practice_scores),
+                'pass_rate': round((len([s for s in practice_scores if s >= 60]) / len(practice_scores)) * 100, 2)
+            }
+        
+        # Add detailed test history
+        for attempt in mock_attempts:
+            analytics_data['mock_test_history'].append({
+                'test_name': attempt.test.title if attempt.test else 'Unknown Test',
+                'date_taken': attempt.created_at.isoformat(),
+                'completed': attempt.is_completed,
+                'score_percentage': attempt.percentage,
+                'time_taken_minutes': attempt.time_taken,
+                'total_questions': attempt.total_questions,
+                'correct_answers': attempt.correct_answers,
+                'status': 'Completed' if attempt.is_completed else 'Incomplete'
+            })
+        
+        for attempt in practice_attempts:
+            analytics_data['practice_test_history'].append({
+                'chapter_name': attempt.chapter.name if attempt.chapter else 'Unknown Chapter',
+                'subject_name': attempt.chapter.subject.name if attempt.chapter and attempt.chapter.subject else 'Unknown Subject',
+                'date_taken': attempt.created_at.isoformat(),
+                'completed': attempt.is_completed,
+                'score_percentage': attempt.percentage,
+                'time_taken_minutes': attempt.time_taken,
+                'total_questions': attempt.total_questions,
+                'correct_answers': attempt.correct_answers,
+                'status': 'Completed' if attempt.is_completed else 'Incomplete'
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': analytics_data,
+            'message': 'Analytics data exported successfully'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to export analytics: {str(e)}'
+        }), 500
+
+
+@ugc_net_subject_bp.route('/user/subject', methods=['GET'])
+@jwt_required()
+def get_user_registered_subject():
+    """Get the user's registered subject with chapters and study materials"""
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        if not user.subject_id or not user.registered_subject:
+            return jsonify({
+                'error': 'No subject registered',
+                'message': 'Please update your profile to select a subject for UGC NET preparation'
+            }), 404
+        
+        subject = user.registered_subject
+        subject_data = subject.to_dict()
+        
+        # Get chapters for the subject
+        chapters = Chapter.query.filter_by(subject_id=subject.id).order_by(Chapter.name).all()
+        subject_data['chapters'] = [chapter.to_dict() for chapter in chapters]
+        
+        # Get user's performance for this subject
+        mock_attempts = UGCNetMockAttempt.query.join(UGCNetMockTest).filter(
+            UGCNetMockAttempt.user_id == user.id,
+            UGCNetMockTest.subject_id == subject.id
+        ).all()
+        
+        practice_attempts = UGCNetPracticeAttempt.query.join(Chapter).filter(
+            UGCNetPracticeAttempt.user_id == user.id,
+            Chapter.subject_id == subject.id
+        ).all()
+        
+        # Calculate subject-specific performance
+        completed_mock = [a for a in mock_attempts if a.is_completed and a.percentage is not None]
+        completed_practice = [a for a in practice_attempts if a.is_completed and a.percentage is not None]
+        
+        performance_data = {
+            'total_mock_attempts': len(mock_attempts),
+            'total_practice_attempts': len(practice_attempts),
+            'completed_mock_attempts': len(completed_mock),
+            'completed_practice_attempts': len(completed_practice),
+            'average_mock_score': 0,
+            'average_practice_score': 0,
+            'best_score': 0,
+            'recent_activity': []
+        }
+        
+        if completed_mock:
+            mock_scores = [a.percentage for a in completed_mock]
+            performance_data['average_mock_score'] = round(sum(mock_scores) / len(mock_scores), 1)
+            performance_data['best_score'] = max(performance_data['best_score'], max(mock_scores))
+        
+        if completed_practice:
+            practice_scores = [a.percentage for a in completed_practice]
+            performance_data['average_practice_score'] = round(sum(practice_scores) / len(practice_scores), 1)
+            performance_data['best_score'] = max(performance_data['best_score'], max(practice_scores))
+        
+        # Get recent activity (last 5 attempts)
+        all_attempts = []
+        for attempt in mock_attempts:
+            all_attempts.append({
+                'type': 'mock',
+                'name': attempt.test.title if attempt.test else 'Unknown Test',
+                'date': attempt.created_at,
+                'score': attempt.percentage,
+                'completed': attempt.is_completed
+            })
+        
+        for attempt in practice_attempts:
+            all_attempts.append({
+                'type': 'practice',
+                'name': attempt.chapter.name if attempt.chapter else 'Unknown Chapter',
+                'date': attempt.created_at,
+                'score': attempt.percentage,
+                'completed': attempt.is_completed
+            })
+        
+        # Sort by date and take last 5
+        all_attempts.sort(key=lambda x: x['date'], reverse=True)
+        performance_data['recent_activity'] = all_attempts[:5]
+        
+        # Recommended study materials
+        study_materials = {
+            'syllabus': f'UGC NET {subject.name} Syllabus',
+            'previous_papers': f'Previous Year Papers - {subject.name}',
+            'reference_books': [
+                f'{subject.name} - Comprehensive Guide',
+                f'UGC NET {subject.name} - Practice Sets',
+                f'{subject.name} - Solved Papers Collection'
+            ],
+            'online_resources': [
+                f'{subject.name} Video Lectures',
+                f'Interactive {subject.name} Tests',
+                f'{subject.name} Study Notes'
+            ]
+        }
+        
+        return jsonify({
+            'subject': subject_data,
+            'performance': performance_data,
+            'study_materials': study_materials,
+            'message': f'Showing content for {subject.name}'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch user subject: {str(e)}'}), 500

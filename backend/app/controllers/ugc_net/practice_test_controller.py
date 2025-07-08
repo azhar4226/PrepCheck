@@ -242,6 +242,7 @@ def submit_practice_test(attempt_id):
         
         # Update attempt with results
         attempt.status = 'completed'
+        attempt.is_completed = True  # Also update the boolean field for consistency
         attempt.completed_at = datetime.utcnow()
         attempt.score = score
         attempt.total_marks = total_marks
@@ -500,59 +501,71 @@ def get_practice_test(attempt_id):
 
 @ugc_net_practice_bp.route('/practice-tests/attempts/<int:attempt_id>/debug', methods=['GET'])
 @jwt_required()
-def debug_practice_test(attempt_id):
-    """Debug endpoint to check practice test data structure"""
+def debug_practice_test_attempt(attempt_id):
+    """Debug endpoint to inspect practice test attempt data"""
     try:
         user = get_current_user()
         if not user:
             return jsonify({'error': 'Authentication required'}), 401
         
-        # Get practice attempt
         attempt = UGCNetPracticeAttempt.query.filter_by(
             id=attempt_id,
             user_id=user.id
         ).first()
         
         if not attempt:
-            return jsonify({'error': 'Practice test not found'}), 404
+            return jsonify({'error': 'Practice test attempt not found'}), 404
         
-        # Get raw questions data
-        questions_data = attempt.get_questions_data()
-        
+        # Get raw data for debugging
         debug_info = {
             'attempt_id': attempt.id,
             'status': attempt.status,
+            'questions_data_exists': bool(attempt.questions_data),
+            'questions_data_length': len(attempt.questions_data) if attempt.questions_data else 0,
+            'answers_data_exists': bool(attempt.answers_data),
+            'created_at': attempt.created_at.isoformat() + 'Z' if attempt.created_at else None,
+            'is_completed': attempt.is_completed,
             'total_questions': attempt.total_questions,
-            'questions_data_length': len(questions_data) if questions_data else 0,
-            'questions_data_sample': questions_data[:2] if questions_data else [],
-            'raw_questions_data': attempt.questions_data[:500] if attempt.questions_data else None,
-            'subject_id': attempt.subject_id,
-            'selected_chapters': attempt.get_selected_chapters(),
-            'created_at': attempt.created_at.isoformat() if attempt.created_at else None
+            'score': attempt.score,
+            'percentage': attempt.percentage
         }
-        
-        # Check if questions exist in database
-        if questions_data:
-            question_ids = [q.get('id') for q in questions_data if q.get('id')]
-            actual_questions = QuestionBank.query.filter(QuestionBank.id.in_(question_ids)).all()
-            debug_info['database_questions_found'] = len(actual_questions)
-            debug_info['missing_questions'] = len(question_ids) - len(actual_questions)
-            
-            if actual_questions:
-                sample_question = actual_questions[0]
-                debug_info['sample_db_question'] = {
-                    'id': sample_question.id,
-                    'question_text': sample_question.question_text[:100] + '...',
-                    'has_options': bool(sample_question.option_a and sample_question.option_b),
-                    'is_verified': sample_question.is_verified,
-                    'chapter_id': sample_question.chapter_id
-                }
         
         return jsonify({
             'debug_info': debug_info,
-            'message': 'Debug information for practice test'
+            'attempt': attempt.to_dict(include_questions=True, include_answers=True)
         }), 200
         
     except Exception as e:
-        print(f"ERROR in debug_practice_test: {str(e)}")
         return jsonify({'error': f'Debug failed: {str(e)}'}), 500
+
+
+@ugc_net_practice_bp.route('/practice-tests/attempts/<int:attempt_id>', methods=['DELETE'])
+@jwt_required()
+def delete_practice_test_attempt(attempt_id):
+    """Delete a specific practice test attempt"""
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Find the attempt
+        attempt = UGCNetPracticeAttempt.query.filter_by(
+            id=attempt_id,
+            user_id=user.id
+        ).first()
+        
+        if not attempt:
+            return jsonify({'error': 'Practice test attempt not found'}), 404
+        
+        # Delete the attempt
+        db.session.delete(attempt)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Practice test attempt deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

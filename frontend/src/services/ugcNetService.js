@@ -423,24 +423,6 @@ class UGCNetService {
     }
   }
 
-  async getPracticeHistory(params = {}) {
-    try {
-      console.log('🔍 UGCNetService: Getting practice history')
-      const response = await apiClient.get(`${this.baseUrl}/practice-tests/history`, { params })
-      console.log('✅ UGCNetService: getPracticeHistory response:', response)
-      return {
-        success: true,
-        data: response
-      }
-    } catch (error) {
-      console.error('❌ UGCNetService: getPracticeHistory error:', error)
-      return {
-        success: false,
-        error: error.response?.data?.error || error.message || 'Failed to get practice history'
-      }
-    }
-  }
-
   async getPracticeResults(attemptId) {
     try {
       console.log('🔍 UGCNetService: Getting practice results:', attemptId)
@@ -455,6 +437,30 @@ class UGCNetService {
       return {
         success: false,
         error: error.response?.data?.error || error.message || 'Failed to get practice results'
+      }
+    }
+  }
+
+  // ============================================================================
+  // Analytics and Export Methods
+  // ============================================================================
+
+  async exportAnalytics(options = {}) {
+    try {
+      console.log('🔍 UGCNetService: Calling exportAnalytics API with options:', options)
+      const response = await apiClient.post(`${this.baseUrl}/analytics/export`, options, {
+        responseType: 'blob' // Important for PDF download
+      })
+      console.log('✅ UGCNetService: exportAnalytics response received')
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: exportAnalytics error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to export analytics'
       }
     }
   }
@@ -486,6 +492,65 @@ class UGCNetService {
     if (percentage >= 40) return { status: 'qualified', class: 'success' }
     if (percentage >= 35) return { status: 'borderline', class: 'warning' }
     return { status: 'not_qualified', class: 'danger' }
+  }
+
+  // ============================================================================
+  // History and Statistics
+  // ============================================================================
+
+  async getPracticeHistory() {
+    try {
+      console.log('🔍 UGCNetService: Getting practice history...')
+      const response = await apiClient.get(`${this.baseUrl}/practice-tests`)
+      console.log('✅ UGCNetService: getPracticeHistory response:', response)
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: getPracticeHistory error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to get practice history'
+      }
+    }
+  }
+
+  // Delete operations
+  async deleteMockTestAttempt(attemptId) {
+    try {
+      console.log('🗑️ UGCNetService: Deleting mock test attempt:', attemptId)
+      const response = await apiClient.delete(`${this.baseUrl}/mock-tests/attempts/${attemptId}`)
+      console.log('✅ UGCNetService: deleteMockTestAttempt response:', response)
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: deleteMockTestAttempt error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to delete mock test attempt'
+      }
+    }
+  }
+
+  async deletePracticeTestAttempt(attemptId) {
+    try {
+      console.log('🗑️ UGCNetService: Deleting practice test attempt:', attemptId)
+      const response = await apiClient.delete(`${this.baseUrl}/practice-tests/attempts/${attemptId}`)
+      console.log('✅ UGCNetService: deletePracticeTestAttempt response:', response)
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: deletePracticeTestAttempt error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to delete practice test attempt'
+      }
+    }
   }
 }
 

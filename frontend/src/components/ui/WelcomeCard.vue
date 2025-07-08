@@ -42,6 +42,9 @@ defineSlots()
 
 <style scoped>
 .welcome-section {
-  margin-bottom: var(--spacing-4);
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  background-color: var(--bg-color);
+
 }
 </style>

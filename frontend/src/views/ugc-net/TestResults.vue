@@ -1,12 +1,14 @@
 <template>
   <!-- Debug Info (can be removed in production) -->
-  <div class="debug-info bg-light p-2 mb-3 small" v-if="false">
+  <div class="debug-info bg-light p-2 mb-3 small" v-if="true">
     <strong>Debug Info:</strong><br>
     Loading: {{ loading }}<br>
     Error: {{ error }}<br>
     Results: {{ results ? 'EXISTS' : 'NULL' }}<br>
     Route Params: {{ JSON.stringify($route.params) }}<br>
-    Show Main Content: {{ !loading && !error && results ? 'YES' : 'NO' }}
+    Show Main Content: {{ !loading && !error && results ? 'YES' : 'NO' }}<br>
+    Mock Test: {{ mockTest ? mockTest.title : 'NULL' }}<br>
+    User Token: {{ userToken ? 'EXISTS' : 'NULL' }}
   </div>
 
   <!-- Main Content -->
@@ -519,6 +521,13 @@ export default {
     const error = ref(null)
     
     // Computed properties
+    const userToken = computed(() => {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return localStorage.getItem('prepcheck_token')
+      }
+      return null
+    })
+    
     const recommendations = computed(() => {
       if (!results.value) return []
       
@@ -577,6 +586,15 @@ export default {
         console.log('🔍 TestResults: Loading user attempts for testId:', testId)
         const attemptsResult = await api.ugcNet.getUserAttempts(testId)
         console.log('🔍 TestResults: User attempts response:', attemptsResult)
+        
+        // Debug: Log the actual error details
+        if (!attemptsResult.success) {
+          console.error('❌ TestResults: User attempts failed:', {
+            error: attemptsResult.error,
+            status: attemptsResult.status,
+            response: attemptsResult.response
+          })
+        }
         
         // Store user attempts in mockTest for attempt number calculation
         if (attemptsResult.success && attemptsResult.data.attempts) {
@@ -654,6 +672,11 @@ export default {
           console.log('✅ TestResults: Results loaded successfully')
         } else {
           console.error('❌ TestResults: Failed to load results:', resultsResponse.error)
+          console.error('❌ TestResults: Results API error details:', {
+            error: resultsResponse.error,
+            status: resultsResponse.status,
+            response: resultsResponse.response
+          })
           error.value = 'Failed to load results: ' + resultsResponse.error
         }
       } catch (error) {
@@ -960,6 +983,7 @@ export default {
       showMetadata,
       loading,
       error,
+      userToken,
       recommendations,
       testId: props.testId || route.params.testId,
       attemptId: props.attemptId || route.params.attemptId,
