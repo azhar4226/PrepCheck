@@ -3,9 +3,10 @@ import App from './App.vue'
 import router from './router'
 import axios from 'axios'
 
-// Import Bootstrap CSS
+// Import Bootstrap CSS and Icons
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import 'bootstrap-icons/font/bootstrap-icons.css'  // Explicitly import Bootstrap Icons
 
 // Import global styles
 import '@/assets/styles/global.css'
@@ -37,19 +38,6 @@ const app = createApp(App)
 
 // Make axios available globally
 app.config.globalProperties.$http = axios
-
-// Register service worker to block tracking requests
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-                console.log('🔧 Service worker registered successfully:', registration.scope);
-            })
-            .catch((error) => {
-                console.log('❌ Service worker registration failed:', error);
-            });
-    });
-}
 
 app.use(router)
 app.mount('#app')

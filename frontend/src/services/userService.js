@@ -19,7 +19,7 @@ class UserService {
   }
 
   async getHistory(page = 1, perPage = 20) {
-    return await apiClient.get(`/api/user/history?page=${page}&per_page=${perPage}`)
+    return await apiClient.get(`/api/user/attempts/history?page=${page}&per_page=${perPage}`)
   }
 
   async getProgress() {

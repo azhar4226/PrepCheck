@@ -274,6 +274,7 @@ export function useAuth() {
     refreshUser,
     hasPermission,
     hasRole,
+    initializeAuth,
     
     // API instance
     api

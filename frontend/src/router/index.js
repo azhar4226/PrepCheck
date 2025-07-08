@@ -164,29 +164,55 @@ const routes = [
     path: '/ugc-net/tests',
     redirect: '/ugc-net'
   },
+  // User Routes - Consistent naming pattern
   {
-    path: '/history',
-    name: 'History',
+    path: '/user/history',
+    name: 'UserHistory',
     component: () => import('@/views/user/History.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/profile',
-    name: 'Profile',
+    path: '/user/practice-tests',
+    redirect: '/ugc-net/practice/setup'
+  },
+  {
+    path: '/user/profile',
+    name: 'UserProfile',
     component: () => import('@/views/user/ProfileSettings.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/notifications',
-    name: 'Notifications',
+    path: '/user/notifications',
+    name: 'UserNotifications',
     component: () => import('@/views/user/Notifications.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/analytics',
+    path: '/user/analytics',
     name: 'UserAnalytics',
     component: () => import('@/views/user/Analytics.vue'),
     meta: { requiresAuth: true }
+  },
+  // Legacy user routes - redirects for backward compatibility
+  {
+    path: '/history',
+    redirect: '/user/history'
+  },
+  {
+    path: '/practice-tests',
+    redirect: '/ugc-net/practice/setup'
+  },
+  {
+    path: '/profile',
+    redirect: '/user/profile'
+  },
+  {
+    path: '/notifications',
+    redirect: '/user/notifications'
+  },
+  {
+    path: '/analytics',
+    redirect: '/user/analytics'
   },
   // Admin Routes
   {

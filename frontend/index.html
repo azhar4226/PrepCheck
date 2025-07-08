@@ -5,70 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PrepCheck - Exam Preparation Platform</title>
     <meta name="description" content="PrepCheck - Your comprehensive exam preparation platform with AI-powered quizzes">
-    
-    <!-- Content Security Policy to block external tracking -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
-        style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-        font-src 'self' https://cdn.jsdelivr.net;
-        img-src 'self' data: blob: http: https:;
-        connect-src 'self' http://localhost:8000 http://localhost:5000 http://localhost:3000 http://localhost:3001 http://localhost:3002 http://localhost:3003;
-        frame-src 'none';
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-    ">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#007bff">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-status-bar-style" content="default">
-    <meta name="mobile-web-app-title" content="PrepCheck">
-    
-    <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' fill='%23007bff'/><text x='90' y='120' font-size='90' text-anchor='middle' fill='white'>📚</text></svg>">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Add any original scripts/styles here as needed -->
 </head>
 <body>
     <div id="app"></div>
-    
-    <!-- Block tracking requests script -->
-    <script>
-        // Override fetch to block tracking domains
-        const originalFetch = window.fetch;
-        window.fetch = function(...args) {
-            const url = args[0];
-            const urlString = typeof url === 'string' ? url : url.url;
-            
-            if (urlString && urlString.includes('launchdarkly.com')) {
-                console.log('🚫 Blocked LaunchDarkly request:', urlString);
-                return Promise.resolve(new Response('', { status: 204 }));
-            }
-            
-            return originalFetch.apply(this, args);
-        };
-        
-        // Override XMLHttpRequest for older requests
-        const originalXHROpen = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(method, url, ...args) {
-            if (url && url.includes('launchdarkly.com')) {
-                console.log('🚫 Blocked LaunchDarkly XHR request:', url);
-                // Create a dummy request that does nothing
-                return originalXHROpen.call(this, method, 'data:text/plain,', ...args);
-            }
-            return originalXHROpen.call(this, method, url, ...args);
-        };
-        
-        console.log('🛡️ Tracking protection initialized');
-    </script>
-    
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>

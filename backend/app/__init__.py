@@ -56,11 +56,12 @@ def create_app(config_name=None):
     jwt.init_app(app)
     
     # Configure CORS properly
-    CORS(app, 
-         origins=['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173'], 
-         allow_headers=['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-         supports_credentials=True)
+    cors = CORS(app, 
+         resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "http://127.0.0.1:5173"]}},
+         allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         supports_credentials=True,
+         expose_headers=["Content-Type", "Authorization", "Content-Length", "X-Total-Count"])
     
     mail.init_app(app)
     

@@ -45,12 +45,9 @@
             </li>
             
             <li v-if="!user?.is_admin" class="nav-item">
-            </li>
-            
-            <li v-if="!user?.is_admin" class="nav-item">
               <router-link class="nav-link" to="/history" exact>
-                <i class="bi bi-clock-history me-1"></i>
-                History
+                <i class="bi bi-journal-check me-1"></i>
+                Tests
               </router-link>
             </li>
             
@@ -209,13 +206,26 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+/* 8a. Add spacing between nav items */
+.navbar .nav-item {
+  margin-left: 0.5rem;
+}
+
+.navbar .nav-item:first-child {
+  margin-left: 0;
+}
+
 /* 9. Consistent hover styling for all nav links */
 .navbar .nav-link:hover {
   color: white !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-
+/* 10. Active state for current route */
+.navbar .nav-link.router-link-active {
+  color: white !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
 
 /* 11. Consistent icon sizing for nav links */
 .navbar .nav-link i {

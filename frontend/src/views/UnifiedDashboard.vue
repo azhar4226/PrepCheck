@@ -1,30 +1,9 @@
 <template>
   <div class="container-fluid">
     <div class="unified-dashboard">
-      <!-- Dashboard Header -->
-      <PageHeader
-        :title="user?.is_admin ? 'Admin Dashboard' : 'Dashboard'"
-        icon="bi bi-speedometer2"
-      >
-        <template #actions>
-          <!-- User buttons -->
-          <template v-if="!user?.is_admin">
-            <button class="btn btn-outline-primary" @click="refreshData">
-              <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-            </button>
-            <button class="btn btn-success" @click="startNewMockTest">
-              <i class="bi bi-play-circle me-1"></i>Start UGC NET Mock Test
-            </button>
-          </template>
-          <!-- Admin buttons -->
-          <button v-if="user?.is_admin" class="btn btn-success" @click="navigateToAIQuestions">
-            <i class="bi bi-robot me-1"></i>AI Questions Generator
-          </button>
-        </template>
-      </PageHeader>
         
       <!-- Tab Navigation -->
-      <div class="dashboard-tabs mb-4">
+      <div class="dashboard-tabs mb-0">
         <ul class="nav nav-tabs" role="tablist">
           <li class="nav-item" role="presentation">
             <button 
@@ -109,40 +88,45 @@
 
       <!-- Dynamic Content Area -->
       <div class="dashboard-content">
-        <div class="tab-content">
-          <!-- Overview Tab -->
-          <div v-show="activeTab === 'overview'" class="tab-pane fade show active">
-            <UserOverview v-if="!user?.is_admin" />
-            <AdminOverview v-else />
+        <!-- Add top margin to ensure content is visible below fixed header -->
+        <div class="tab-content mt-2">
+          <!-- Overview Tab - Only one tab should have 'active' class -->
+          <div v-if="activeTab === 'overview'" class="tab-pane fade show active">
+            <div class="tab-content-wrapper">
+              <UserOverview v-if="!user?.is_admin" />
+              <AdminOverview v-else />
+            </div>
           </div>
 
           <!-- Analytics Tab -->
-          <div v-show="activeTab === 'analytics'" class="tab-pane fade show active">
-            <UserAnalytics v-if="!user?.is_admin" />
-            <AdminAnalytics v-else />
+          <div v-else-if="activeTab === 'analytics'" class="tab-pane fade show active">
+            <div class="tab-content-wrapper">
+              <UserAnalytics v-if="!user?.is_admin" />
+              <AdminAnalytics v-else />
+            </div>
           </div>
 
           <!-- Admin-only tabs -->
           <template v-if="user?.is_admin">
-            <div v-show="activeTab === 'subjects'" class="tab-pane fade show active">
+            <div v-if="activeTab === 'subjects'" class="tab-pane fade show active">
               <div class="tab-content-wrapper">
                 <SubjectManagement />
               </div>
             </div>
 
-            <div v-show="activeTab === 'mock_tests'" class="tab-pane fade show active">
+            <div v-else-if="activeTab === 'mock_tests'" class="tab-pane fade show active">
               <div class="tab-content-wrapper">
                 <UGCNetManagement />
               </div>
             </div>
 
-            <div v-show="activeTab === 'users'" class="tab-pane fade show active">
+            <div v-else-if="activeTab === 'users'" class="tab-pane fade show active">
               <div class="tab-content-wrapper">
                 <UserManagement />
               </div>
             </div>
 
-            <div v-show="activeTab === 'questions'" class="tab-pane fade show active">
+            <div v-else-if="activeTab === 'questions'" class="tab-pane fade show active">
               <div class="tab-content-wrapper">
                 <QuestionManagement />
               </div>
@@ -224,13 +208,16 @@ export default {
 
     // Set active tab and update URL
     const setActiveTab = (tab) => {
+      console.log(`Setting active tab to: ${tab}`)
       activeTab.value = tab
       
       // Update URL with current tab (optional, for bookmarkability)
       router.replace({ 
         name: 'Dashboard', 
         query: { ...route.query, tab } 
-      }).catch(() => {}) // Ignore navigation errors
+      }).catch((err) => {
+        console.error('Tab navigation error:', err)
+      }) // Log navigation errors for debugging
     }
 
     // Refresh data for current tab
@@ -505,7 +492,14 @@ export default {
     }, { deep: true })
 
     onMounted(() => {
+      console.log('UnifiedDashboard mounted, initializing tab')
+      console.log('Current user:', user.value)
       initializeTab()
+      
+      // Check if user is properly loaded
+      if (!user.value) {
+        console.warn('User not loaded in UnifiedDashboard, authentication might be incomplete')
+      }
     })
 
     return {
@@ -527,17 +521,17 @@ export default {
 
 <style scoped>
 .unified-dashboard {
-  padding: 2rem 1rem;
-  max-width: 1400px;
+  /* padding: 1rem 1rem; */
+  max-width: 1500px;
   margin: 0 auto;
 }
 
 .dashboard-header {
   background: white;
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1rem;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .nav-tabs {
@@ -551,6 +545,7 @@ export default {
   color: #6c757d;
   font-weight: 500;
   padding: 0.75rem 1.5rem;
+  margin-right: 0.5rem;
   transition: all 0.3s ease;
 }
 
@@ -576,7 +571,7 @@ export default {
 }
 
 .tab-content-wrapper {
-  padding: 1rem 0;
+  padding: 0.5rem 0;
 }
 
 /* Override admin component styles for tab embedding */

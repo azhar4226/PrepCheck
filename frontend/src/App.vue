@@ -26,6 +26,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import LoadingOverlay from '@/components/ui/LoadingOverlay.vue'
 import { useAppState } from '@/composables/useAppState.js'
+import { useAuth } from '@/composables/useAuth.js'
 
 export default {
   name: 'App',
@@ -36,10 +37,18 @@ export default {
   },
   setup() {
     const { isLoading, loadingMessage } = useAppState()
+    const auth = useAuth()
     
-    // Global initialization if needed
+    // Initialize authentication on app mount
     onMounted(() => {
-      // Any global app initialization
+      try {
+        // Safe initialization with error handling
+        console.log('Initializing auth...')
+        auth.initializeAuth()
+        console.log('Auth initialized successfully')
+      } catch (error) {
+        console.error('Failed to initialize auth:', error)
+      }
     })
     
     return {

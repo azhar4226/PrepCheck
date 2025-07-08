@@ -2,14 +2,15 @@ import axios from 'axios'
 
 class ApiClient {
   constructor() {
-    // Use relative path in production (when served by nginx with proxy)
-    // Use localhost:8000 in development
-    this.baseURL = import.meta.env.VITE_API_URL || (
-      import.meta.env.DEV ? 'http://localhost:8000' : ''
-    )
+    // Use proxy through Vite server in development
+    // This will route through the proxy setup in vite.config.js
+    // In production, use relative path or the configured API URL
+    this.baseURL = import.meta.env.VITE_API_URL || ''
+    
     this.http = axios.create({
       baseURL: this.baseURL,
-      timeout: 30000 // 30 second timeout
+      timeout: 30000, // 30 second timeout
+      withCredentials: true // Include credentials for CORS
       // Don't set default Content-Type - let axios handle it based on data type
     })
 
@@ -35,14 +36,33 @@ class ApiClient {
     this.http.interceptors.response.use(
       (response) => response,
       (error) => {
-        console.error('🚨 API Client Error:', {
+        // Enhanced error handling with CORS debugging info
+        const errorInfo = {
           message: error.message,
           status: error.response?.status,
           statusText: error.response?.statusText,
           data: error.response?.data,
           url: error.config?.url,
-          method: error.config?.method
-        })
+          method: error.config?.method,
+          // Add CORS debug info
+          isCORS: error.message === 'Network Error' || 
+                  error.code === 'ERR_NETWORK' ||
+                  error.response?.status === 0,
+          baseURL: this.baseURL
+        };
+        
+        // Log error but prevent LaunchDarkly errors from cluttering console
+        if (!errorInfo.url?.includes('launchdarkly')) {
+          console.error('🚨 API Client Error:', errorInfo);
+          
+          // Add additional debug info for CORS errors
+          if (errorInfo.isCORS) {
+            console.warn('🔍 Possible CORS issue detected. Check:');
+            console.warn('- Backend CORS configuration (http://localhost:8000)');
+            console.warn('- Vite proxy settings in vite.config.js');
+            console.warn('- Browser console Network tab for preflight errors');
+          }
+        }
         
         if (error.response?.status === 401) {
           console.warn('🔐 Unauthorized - redirecting to login')

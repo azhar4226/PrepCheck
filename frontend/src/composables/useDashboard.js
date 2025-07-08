@@ -278,7 +278,7 @@ export function useDashboard() {
     error,
     userStats,
     adminStats,
-    userRecentQuizzes,
+    userRecentTests, // Renamed from userRecentQuizzes to match the ref
     adminRecentActivity,
     userRecommendedSubjects,
     userStudyProgress,
