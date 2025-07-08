@@ -11,7 +11,15 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+if config.config_file_name:
+    fileConfig(config.config_file_name)
+else:
+    # Fallback logging configuration if no config file is found
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)-5.5s [%(name)s] %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
 logger = logging.getLogger('alembic.env')
 
 
