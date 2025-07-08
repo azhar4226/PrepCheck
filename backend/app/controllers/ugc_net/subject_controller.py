@@ -161,27 +161,36 @@ def get_ugc_net_statistics():
         user_mock_attempts = UGCNetMockAttempt.query.filter_by(user_id=current_user.id).count()
         total_user_attempts = user_practice_attempts + user_mock_attempts
         
-        # User's recent practice scores
-        recent_practice_attempts = UGCNetPracticeAttempt.query.filter_by(
-            user_id=current_user.id
+        # Get all completed attempts for the user
+        completed_practice_attempts = UGCNetPracticeAttempt.query.filter_by(
+            user_id=current_user.id, is_completed=True
         ).filter(
             UGCNetPracticeAttempt.percentage != None
-        ).order_by(desc(UGCNetPracticeAttempt.created_at)).limit(5).all()
+        ).all()
         
-        # User's recent mock scores
-        recent_mock_attempts = UGCNetMockAttempt.query.filter_by(
-            user_id=current_user.id
+        completed_mock_attempts = UGCNetMockAttempt.query.filter_by(
+            user_id=current_user.id, is_completed=True
         ).filter(
             UGCNetMockAttempt.percentage != None
-        ).order_by(desc(UGCNetMockAttempt.created_at)).limit(5).all()
+        ).all()
         
-        # Calculate average scores
-        practice_scores = [attempt.percentage for attempt in recent_practice_attempts]
-        mock_scores = [attempt.percentage for attempt in recent_mock_attempts]
+        # Calculate comprehensive statistics
+        practice_scores = [attempt.percentage for attempt in completed_practice_attempts if attempt.percentage is not None]
+        mock_scores = [attempt.percentage for attempt in completed_mock_attempts if attempt.percentage is not None]
         all_scores = practice_scores + mock_scores
         
+        # Calculate averages and best scores
         avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
         best_score = max(all_scores) if all_scores else 0
+        
+        # Calculate qualified attempts (>=40%)
+        qualified_practice = len([score for score in practice_scores if score >= 40])
+        qualified_mock = len([score for score in mock_scores if score >= 40])
+        total_qualified = qualified_practice + qualified_mock
+        
+        # Calculate qualification rate
+        completed_attempts = len(all_scores)
+        qualification_rate = (total_qualified / completed_attempts * 100) if completed_attempts > 0 else 0
 
         return jsonify({
             'overview': {
@@ -192,10 +201,13 @@ def get_ugc_net_statistics():
             },
             'user_stats': {
                 'total_attempts': total_user_attempts,
+                'completed_attempts': completed_attempts,
                 'practice_attempts': user_practice_attempts,
                 'mock_attempts': user_mock_attempts,
                 'average_score': round(avg_score, 1),
-                'best_score': round(best_score, 1)
+                'best_score': round(best_score, 1),
+                'qualified_attempts': total_qualified,
+                'qualification_rate': round(qualification_rate, 1)
             },
             'subject_distribution': subject_distribution,
             'chapter_distribution': chapter_distribution,

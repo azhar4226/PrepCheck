@@ -33,10 +33,10 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body text-center">
             <div class="text-primary mb-2">
-              <i class="bi bi-journal-text" style="font-size: 2rem;"></i>
+              <i class="bi bi-clipboard-check" style="font-size: 2rem;"></i>
             </div>
-            <h5 class="card-title">{{ stats.overview?.total_subjects || 0 }}</h5>
-            <p class="text-muted mb-0">Available Subjects</p>
+            <h5 class="card-title">{{ userStats.totalAttempts || 0 }}</h5>
+            <p class="text-muted mb-0">Total Tests Taken</p>
           </div>
         </div>
       </div>
@@ -44,10 +44,10 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body text-center">
             <div class="text-success mb-2">
-              <i class="bi bi-question-circle" style="font-size: 2rem;"></i>
+              <i class="bi bi-trophy" style="font-size: 2rem;"></i>
             </div>
-            <h5 class="card-title">{{ stats.overview?.total_questions || 0 }}</h5>
-            <p class="text-muted mb-0">Practice Questions</p>
+            <h5 class="card-title">{{ userStats.bestScore || 0 }}%</h5>
+            <p class="text-muted mb-0">Best Score</p>
           </div>
         </div>
       </div>
@@ -55,10 +55,10 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body text-center">
             <div class="text-warning mb-2">
-              <i class="bi bi-clipboard-check" style="font-size: 2rem;"></i>
+              <i class="bi bi-bullseye" style="font-size: 2rem;"></i>
             </div>
-            <h5 class="card-title">{{ mockTests.length }}</h5>
-            <p class="text-muted mb-0">Mock Tests</p>
+            <h5 class="card-title">{{ userStats.averageScore || 0 }}%</h5>
+            <p class="text-muted mb-0">Average Score</p>
           </div>
         </div>
       </div>
@@ -66,10 +66,10 @@
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body text-center">
             <div class="text-info mb-2">
-              <i class="bi bi-trophy" style="font-size: 2rem;"></i>
+              <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
             </div>
-            <h5 class="card-title">{{ userStats.bestScore || 0 }}%</h5>
-            <p class="text-muted mb-0">Best Score</p>
+            <h5 class="card-title">{{ userStats.qualifiedTests || 0 }}</h5>
+            <p class="text-muted mb-0">Qualified Tests (≥40%)</p>
           </div>
         </div>
       </div>
@@ -305,47 +305,48 @@
               <div class="mb-3">
                 <div class="d-flex justify-content-between">
                   <span>Best Score</span>
-                  <span class="fw-bold text-success">{{ userStats.bestScore }}%</span>
+                  <span class="fw-bold" :class="userStats.bestScore >= 40 ? 'text-success' : 'text-warning'">{{ userStats.bestScore }}%</span>
                 </div>
                 <div class="progress mt-1" style="height: 8px;">
-                  <div class="progress-bar bg-success" 
+                  <div class="progress-bar" 
+                       :class="userStats.bestScore >= 40 ? 'bg-success' : 'bg-warning'"
                        :style="{ width: userStats.bestScore + '%' }"></div>
                 </div>
               </div>
               <div class="mb-3">
                 <div class="d-flex justify-content-between">
                   <span>Average Score</span>
-                  <span class="fw-bold text-primary">{{ userStats.averageScore }}%</span>
+                  <span class="fw-bold" :class="userStats.averageScore >= 40 ? 'text-success' : 'text-primary'">{{ userStats.averageScore }}%</span>
                 </div>
                 <div class="progress mt-1" style="height: 8px;">
                   <div class="progress-bar" 
+                       :class="userStats.averageScore >= 40 ? 'bg-success' : 'bg-primary'"
                        :style="{ width: userStats.averageScore + '%' }"></div>
                 </div>
               </div>
+              <div class="mb-3">
+                <div class="d-flex justify-content-between">
+                  <span>Qualification Rate</span>
+                  <span class="fw-bold text-info">{{ qualificationRate }}%</span>
+                </div>
+                <div class="progress mt-1" style="height: 8px;">
+                  <div class="progress-bar bg-info" 
+                       :style="{ width: qualificationRate + '%' }"></div>
+                </div>
+                <small class="text-muted">{{ userStats.qualifiedTests }} out of {{ userStats.totalAttempts }} tests qualified</small>
+              </div>
               <hr>
               <div class="row text-center">
-                <div class="col">
-                  <div class="text-primary">
-                    <h6>{{ userStats.totalAttempts }}</h6>
-                    <small class="text-muted">Total Tests</small>
-                  </div>
-                </div>
-                <div class="col">
+                <div class="col-6">
                   <div class="text-info">
                     <h6>{{ userStats.practiceAttempts || 0 }}</h6>
-                    <small class="text-muted">Practice</small>
+                    <small class="text-muted">Practice Tests</small>
                   </div>
                 </div>
-                <div class="col">
+                <div class="col-6">
                   <div class="text-warning">
                     <h6>{{ userStats.mockAttempts || 0 }}</h6>
                     <small class="text-muted">Mock Tests</small>
-                  </div>
-                </div>
-                <div class="col">
-                  <div class="text-success">
-                    <h6>{{ userStats.qualifiedTests || 0 }}</h6>
-                    <small class="text-muted">Qualified</small>
                   </div>
                 </div>
               </div>
@@ -473,13 +474,16 @@ export default {
     const userStats = computed(() => {
       // If we have user_stats from the statistics API, use that
       if (stats.value && stats.value.user_stats) {
+        // Calculate qualified tests from actual user statistics
+        const qualifiedTests = Math.round((stats.value.user_stats.total_attempts || 0) * (stats.value.user_stats.qualification_rate || 0) / 100)
+        
         return {
           totalAttempts: stats.value.user_stats.total_attempts || 0,
-          bestScore: stats.value.user_stats.best_score || 0,
-          averageScore: stats.value.user_stats.average_score || 0,
+          bestScore: Math.round(stats.value.user_stats.best_score || 0),
+          averageScore: Math.round(stats.value.user_stats.average_score || 0),
           practiceAttempts: stats.value.user_stats.practice_attempts || 0,
           mockAttempts: stats.value.user_stats.mock_attempts || 0,
-          qualifiedTests: mockTests.value.filter(test => test.best_score >= 40).length
+          qualifiedTests: stats.value.user_stats.qualified_attempts || qualifiedTests || 0
         }
       }
       
@@ -505,6 +509,12 @@ export default {
         mockAttempts: attempts,
         qualifiedTests: scores.filter(score => score >= 40).length
       }
+    })
+
+    // Computed qualification rate
+    const qualificationRate = computed(() => {
+      if (userStats.value.totalAttempts === 0) return 0
+      return Math.round((userStats.value.qualifiedTests / userStats.value.totalAttempts) * 100)
     })
 
     // Methods
@@ -771,6 +781,7 @@ export default {
       userSubject,
       loading,
       userStats,
+      qualificationRate,
       loadSubjects,
       loadMockTests,
       viewSubjectChapters,
