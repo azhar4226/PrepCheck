@@ -5,13 +5,13 @@
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
           <div>
-            <h2 class="mb-1">📋 Quiz Management</h2>
-            <p class="text-muted mb-0">Manage and organize quizzes across all subjects</p>
+            <h2 class="mb-1">📋 Mock Test Management</h2>
+            <p class="text-muted mb-0">Manage and organize UGC NET mock tests across all subjects</p>
           </div>
           <div class="d-flex gap-2">
             <button 
               class="btn btn-outline-primary"
-              @click="loadQuizzes"
+              @click="loadMockTests"
             >
               <i class="bi bi-arrow-clockwise me-1"></i>
               Refresh
@@ -21,7 +21,7 @@
               @click="showCreateModal = true"
             >
               <i class="bi bi-plus-circle me-1"></i>
-              Create Quiz
+              Create Mock Test
             </button>
           </div>
         </div>
@@ -63,7 +63,7 @@
                   v-model="filters.search" 
                   type="text" 
                   class="form-control" 
-                  placeholder="Search quizzes..."
+                  placeholder="Search mock tests..."
                 >
               </div>
             </div>
@@ -75,7 +75,7 @@
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
-          <p class="mt-2 text-muted">Loading quizzes...</p>
+          <p class="mt-2 text-muted">Loading mock tests...</p>
         </div>
 
         <!-- Error State -->
@@ -84,7 +84,7 @@
           {{ error }}
         </div>
 
-        <!-- Quizzes Table -->
+        <!-- Mock Tests Table -->
         <div v-else class="card shadow-sm">
           <div class="card-body">
             <div class="table-responsive">
@@ -94,7 +94,7 @@
                     <th>ID</th>
                     <th>Title</th>
                     <th>Subject</th>
-                    <th>Chapter</th>
+                    <th>Paper Type</th>
                     <th>Questions</th>
                     <th>Difficulty</th>
                     <th>Status</th>
@@ -104,72 +104,72 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="quiz in filteredQuizzes" :key="quiz.id">
-                    <td>{{ quiz.id }}</td>
+                  <tr v-for="mockTest in filteredMockTests" :key="mockTest.id">
+                    <td>{{ mockTest.id }}</td>
                     <td>
-                      <div class="fw-bold">{{ quiz.title }}</div>
-                      <small class="text-muted">{{ quiz.description?.substring(0, 50) }}...</small>
+                      <div class="fw-bold">{{ mockTest.title }}</div>
+                      <small class="text-muted">{{ mockTest.description?.substring(0, 50) }}...</small>
                     </td>
                     <td>
-                      <span class="badge bg-info">{{ quiz.subject?.name }}</span>
+                      <span class="badge bg-info">{{ mockTest.subject?.name }}</span>
                     </td>
-                    <td>{{ quiz.chapter?.name }}</td>
+                    <td>{{ mockTest.paper_type || 'Paper 2' }}</td>
                     <td>
-                      <span class="badge bg-secondary">{{ quiz.questions_count || 0 }}</span>
+                      <span class="badge bg-secondary">{{ mockTest.total_questions || 0 }}</span>
                     </td>
                     <td>
                       <span 
                         class="badge"
                         :class="{
-                          'bg-success': quiz.difficulty === 'easy',
-                          'bg-warning': quiz.difficulty === 'medium',
-                          'bg-danger': quiz.difficulty === 'hard'
+                          'bg-success': mockTest.difficulty === 'easy',
+                          'bg-warning': mockTest.difficulty === 'medium',
+                          'bg-danger': mockTest.difficulty === 'hard'
                         }"
                       >
-                        {{ quiz.difficulty }}
+                        {{ mockTest.difficulty }}
                       </span>
                     </td>
                     <td>
                       <span 
                         class="badge"
                         :class="{
-                          'bg-success': quiz.status === 'active',
-                          'bg-secondary': quiz.status === 'inactive',
-                          'bg-warning': quiz.status === 'draft'
+                          'bg-success': mockTest.status === 'active',
+                          'bg-secondary': mockTest.status === 'inactive',
+                          'bg-warning': mockTest.status === 'draft'
                         }"
                       >
-                        {{ quiz.status }}
+                        {{ mockTest.status }}
                       </span>
                     </td>
-                    <td>{{ quiz.attempts_count || 0 }}</td>
-                    <td>{{ formatDate(quiz.created_at) }}</td>
+                    <td>{{ mockTest.attempts_count || 0 }}</td>
+                    <td>{{ formatDate(mockTest.created_at) }}</td>
                     <td>
                       <div class="btn-group btn-group-sm">
                         <button 
                           class="btn btn-outline-primary"
-                          @click="editQuiz(quiz)"
-                          title="Edit Quiz"
+                          @click="editMockTest(mockTest)"
+                          title="Edit Mock Test"
                         >
                           <i class="bi bi-pencil"></i>
                         </button>
                         <button 
                           class="btn btn-outline-info"
-                          @click="viewQuestions(quiz)"
-                          title="Manage Questions"
+                          @click="viewQuestions(mockTest)"
+                          title="Generate Questions"
                         >
                           <i class="bi bi-list"></i>
                         </button>
                         <button 
                           class="btn btn-outline-success"
-                          @click="duplicateQuiz(quiz)"
-                          title="Duplicate Quiz"
+                          @click="duplicateMockTest(mockTest)"
+                          title="Duplicate Mock Test"
                         >
                           <i class="bi bi-copy"></i>
                         </button>
                         <button 
                           class="btn btn-outline-danger"
-                          @click="confirmDelete(quiz)"
-                          title="Delete Quiz"
+                          @click="confirmDelete(mockTest)"
+                          title="Delete Mock Test"
                         >
                           <i class="bi bi-trash"></i>
                         </button>
@@ -179,9 +179,9 @@
                 </tbody>
               </table>
               
-              <div v-if="filteredQuizzes.length === 0" class="text-center py-4">
+              <div v-if="filteredMockTests.length === 0" class="text-center py-4">
                 <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
-                <p class="text-muted mt-2">No quizzes found matching your criteria</p>
+                <p class="text-muted mt-2">No mock tests found matching your criteria</p>
               </div>
             </div>
           </div>
@@ -209,7 +209,7 @@
       </div>
     </div>
 
-    <!-- Create/Edit Quiz Modal -->
+    <!-- Create/Edit Mock Test Modal -->
     <div 
       class="modal fade" 
       :class="{ show: showCreateModal || showEditModal }" 
@@ -220,7 +220,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">
-              {{ editingQuiz ? 'Edit Quiz' : 'Create New Quiz' }}
+              {{ editingMockTest ? 'Edit Mock Test' : 'Create New Mock Test' }}
             </h5>
             <button 
               type="button" 
@@ -229,12 +229,12 @@
             ></button>
           </div>
           <div class="modal-body">
-            <form @submit.prevent="saveQuiz">
+            <form @submit.prevent="saveMockTest">
               <div class="row g-3">
                 <div class="col-12">
-                  <label class="form-label">Quiz Title</label>
+                  <label class="form-label">Mock Test Title</label>
                   <input 
-                    v-model="quizForm.title" 
+                    v-model="mockTestForm.title" 
                     type="text" 
                     class="form-control" 
                     required
@@ -244,7 +244,7 @@
                 <div class="col-12">
                   <label class="form-label">Description</label>
                   <textarea 
-                    v-model="quizForm.description" 
+                    v-model="mockTestForm.description" 
                     class="form-control" 
                     rows="3"
                   ></textarea>
@@ -252,7 +252,7 @@
                 
                 <div class="col-md-6">
                   <label class="form-label">Subject</label>
-                  <select v-model="quizForm.subject_id" class="form-select" required>
+                  <select v-model="mockTestForm.subject_id" class="form-select" required>
                     <option value="">Select Subject</option>
                     <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                       {{ subject.name }}
@@ -262,7 +262,7 @@
                 
                 <div class="col-md-6">
                   <label class="form-label">Chapter</label>
-                  <select v-model="quizForm.chapter_id" class="form-select">
+                  <select v-model="mockTestForm.chapter_id" class="form-select">
                     <option value="">Select Chapter</option>
                     <option 
                       v-for="chapter in availableChapters" 
@@ -276,7 +276,7 @@
                 
                 <div class="col-md-6">
                   <label class="form-label">Difficulty</label>
-                  <select v-model="quizForm.difficulty" class="form-select" required>
+                  <select v-model="mockTestForm.difficulty" class="form-select" required>
                     <option value="">Select Difficulty</option>
                     <option value="easy">Easy</option>
                     <option value="medium">Medium</option>
@@ -286,7 +286,7 @@
                 
                 <div class="col-md-6">
                   <label class="form-label">Status</label>
-                  <select v-model="quizForm.status" class="form-select" required>
+                  <select v-model="mockTestForm.status" class="form-select" required>
                     <option value="draft">Draft</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -296,7 +296,7 @@
                 <div class="col-md-6">
                   <label class="form-label">Time Limit (minutes)</label>
                   <input 
-                    v-model="quizForm.time_limit" 
+                    v-model="mockTestForm.time_limit" 
                     type="number" 
                     class="form-control" 
                     min="1"
@@ -306,7 +306,7 @@
                 <div class="col-md-6">
                   <label class="form-label">Passing Score (%)</label>
                   <input 
-                    v-model="quizForm.passing_score" 
+                    v-model="mockTestForm.passing_score" 
                     type="number" 
                     class="form-control" 
                     min="0" 
@@ -323,11 +323,11 @@
             <button 
               type="button" 
               class="btn btn-primary" 
-              @click="saveQuiz"
+              @click="saveMockTest"
               :disabled="saving"
             >
               <span v-if="saving" class="spinner-border spinner-border-sm me-2"></span>
-              {{ editingQuiz ? 'Update Quiz' : 'Create Quiz' }}
+              {{ editingMockTest ? 'Update Mock Test' : 'Create Mock Test' }}
             </button>
           </div>
         </div>
@@ -349,7 +349,7 @@ import { useAuth } from '@/composables/useAuth'
 import adminService from '@/services/adminService'
 
 export default {
-  name: 'QuizManagement',
+  name: 'MockTestManagement',
   setup() {
     const { api } = useAuth()
     
@@ -357,7 +357,7 @@ export default {
     const loading = ref(false)
     const saving = ref(false)
     const error = ref('')
-    const quizzes = ref([])
+    const mockTests = ref([])
     const subjects = ref([])
     const chapters = ref([])
     const currentPage = ref(1)
@@ -367,10 +367,10 @@ export default {
     // Modal states
     const showCreateModal = ref(false)
     const showEditModal = ref(false)
-    const editingQuiz = ref(null)
+    const editingMockTest = ref(null)
     
     // Form data
-    const quizForm = ref({
+    const mockTestForm = ref({
       title: '',
       description: '',
       subject_id: '',
@@ -390,32 +390,32 @@ export default {
     })
     
     // Computed properties
-    const filteredQuizzes = computed(() => {
-      let filtered = quizzes.value
+    const filteredMockTests = computed(() => {
+      let filtered = mockTests.value
       
       if (filters.value.subject) {
-        filtered = filtered.filter(quiz => 
-          quiz.subject_id === parseInt(filters.value.subject)
+        filtered = filtered.filter(mockTest => 
+          mockTest.subject_id === parseInt(filters.value.subject)
         )
       }
       
       if (filters.value.difficulty) {
-        filtered = filtered.filter(quiz => 
-          quiz.difficulty === filters.value.difficulty
+        filtered = filtered.filter(mockTest => 
+          mockTest.difficulty === filters.value.difficulty
         )
       }
       
       if (filters.value.status) {
-        filtered = filtered.filter(quiz => 
-          quiz.status === filters.value.status
+        filtered = filtered.filter(mockTest => 
+          mockTest.status === filters.value.status
         )
       }
       
       if (filters.value.search) {
         const search = filters.value.search.toLowerCase()
-        filtered = filtered.filter(quiz => 
-          quiz.title.toLowerCase().includes(search) ||
-          quiz.description?.toLowerCase().includes(search)
+        filtered = filtered.filter(mockTest => 
+          mockTest.title.toLowerCase().includes(search) ||
+          mockTest.description?.toLowerCase().includes(search)
         )
       }
       
@@ -423,7 +423,7 @@ export default {
     })
     
     const availableChapters = computed(() => {
-      if (!quizForm.value.subject_id) return []
+      if (!mockTestForm.value.subject_id) return []
       return chapters.value || []
     })
     
@@ -440,20 +440,20 @@ export default {
     })
     
     // Methods
-    const loadQuizzes = async () => {
+    const loadMockTests = async () => {
       try {
         loading.value = true
         error.value = ''
         
-        const response = await adminService.getQuizzes()
+        const response = await adminService.getMockTests()
         
         if (response) {
-          quizzes.value = response.quizzes || []
+          mockTests.value = response.mockTests || []
           totalPages.value = Math.ceil((response.total || 0) / itemsPerPage.value)
         }
       } catch (err) {
-        error.value = err.response?.data?.message || 'Failed to load quizzes'
-        console.error('Error loading quizzes:', err)
+        error.value = err.response?.data?.message || 'Failed to load mock tests'
+        console.error('Error loading mock tests:', err)
       } finally {
         loading.value = false
       }
@@ -482,84 +482,84 @@ export default {
       }
     }
     
-    const editQuiz = (quiz) => {
-      editingQuiz.value = quiz
-      quizForm.value = {
-        title: quiz.title,
-        description: quiz.description || '',
-        subject_id: quiz.subject_id,
-        chapter_id: quiz.chapter_id,
-        difficulty: quiz.difficulty,
-        status: quiz.status,
-        time_limit: quiz.time_limit,
-        passing_score: quiz.passing_score
+    const editMockTest = (mockTest) => {
+      editingMockTest.value = mockTest
+      mockTestForm.value = {
+        title: mockTest.title,
+        description: mockTest.description || '',
+        subject_id: mockTest.subject_id,
+        chapter_id: mockTest.chapter_id,
+        difficulty: mockTest.difficulty,
+        status: mockTest.status,
+        time_limit: mockTest.time_limit,
+        passing_score: mockTest.passing_score
       }
       showEditModal.value = true
     }
     
-    const saveQuiz = async () => {
+    const saveMockTest = async () => {
       try {
         saving.value = true
         
-        if (editingQuiz.value) {
-          // Update existing quiz
-          await adminService.updateQuiz(editingQuiz.value.id, quizForm.value)
-          alert('Quiz updated successfully!')
+        if (editingMockTest.value) {
+          // Update existing mock test
+          await adminService.updateMockTest(editingMockTest.value.id, mockTestForm.value)
+          alert('Mock test updated successfully!')
         } else {
-          // Create new quiz
-          await adminService.createQuiz(quizForm.value)
-          alert('Quiz created successfully!')
+          // Create new mock test
+          await adminService.createMockTest(mockTestForm.value)
+          alert('Mock test created successfully!')
         }
         
         closeModal()
-        loadQuizzes()
+        loadMockTests()
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to save quiz')
-        console.error('Error saving quiz:', err)
+        alert(err.response?.data?.message || 'Failed to save mock test')
+        console.error('Error saving mock test:', err)
       } finally {
         saving.value = false
       }
     }
     
-    const duplicateQuiz = async (quiz) => {
-      if (!confirm(`Are you sure you want to duplicate "${quiz.title}"?`)) return
+    const duplicateMockTest = async (mockTest) => {
+      if (!confirm(`Are you sure you want to duplicate "${mockTest.title}"?`)) return
       
       try {
-        const response = await apiClient.post(`/api/admin/quizzes/${quiz.id}/duplicate`)
+        const response = await apiClient.post(`/api/admin/mock-tests/${mockTest.id}/duplicate`)
         if (response.data.success) {
-          loadQuizzes()
-          alert('Quiz duplicated successfully!')
+          loadMockTests()
+          alert('Mock test duplicated successfully!')
         }
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to duplicate quiz')
-        console.error('Error duplicating quiz:', err)
+        alert(err.response?.data?.message || 'Failed to duplicate mock test')
+        console.error('Error duplicating mock test:', err)
       }
     }
     
-    const confirmDelete = async (quiz) => {
-      if (!confirm(`Are you sure you want to delete "${quiz.title}"? This action cannot be undone.`)) return
+    const confirmDelete = async (mockTest) => {
+      if (!confirm(`Are you sure you want to delete "${mockTest.title}"? This action cannot be undone.`)) return
       
       try {
-        await adminService.deleteQuiz(quiz.id)
-        loadQuizzes()
-        alert('Quiz deleted successfully!')
+        await adminService.deleteMockTest(mockTest.id)
+        loadMockTests()
+        alert('Mock test deleted successfully!')
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to delete quiz')
-        console.error('Error deleting quiz:', err)
+        alert(err.response?.data?.message || 'Failed to delete mock test')
+        console.error('Error deleting mock test:', err)
       }
     }
     
-    const viewQuestions = (quiz) => {
-      // Navigate to questions management for this quiz
+    const viewQuestions = (mockTest) => {
+      // Navigate to questions management for this mock test
       // This would typically use router.push()
-      alert(`Navigate to questions management for quiz: ${quiz.title}`)
+      alert(`Navigate to questions management for mock test: ${mockTest.title}`)
     }
     
     const closeModal = () => {
       showCreateModal.value = false
       showEditModal.value = false
-      editingQuiz.value = null
-      quizForm.value = {
+      editingMockTest.value = null
+      mockTestForm.value = {
         title: '',
         description: '',
         subject_id: '',
@@ -574,7 +574,7 @@ export default {
     const changePage = (page) => {
       if (page >= 1 && page <= totalPages.value) {
         currentPage.value = page
-        loadQuizzes()
+        loadMockTests()
       }
     }
     
@@ -584,8 +584,8 @@ export default {
     }
     
     // Watch for subject changes to clear chapter selection and load chapters
-    watch(() => quizForm.value.subject_id, (newSubjectId) => {
-      quizForm.value.chapter_id = ''
+    watch(() => mockTestForm.value.subject_id, (newSubjectId) => {
+      mockTestForm.value.chapter_id = ''
       if (newSubjectId) {
         loadChapters(newSubjectId)
       } else {
@@ -595,7 +595,7 @@ export default {
     
     // Lifecycle
     onMounted(() => {
-      loadQuizzes()
+      loadMockTests()
       loadSubjects()
     })
     
@@ -604,29 +604,29 @@ export default {
       loading,
       saving,
       error,
-      quizzes,
+      mockTests,
       subjects,
       chapters,
       currentPage,
       totalPages,
       showCreateModal,
       showEditModal,
-      editingQuiz,
-      quizForm,
+      editingMockTest,
+      mockTestForm,
       filters,
       
       // Computed
-      filteredQuizzes,
+      filteredMockTests,
       availableChapters,
       visiblePages,
       
       // Methods
-      loadQuizzes,
+      loadMockTests,
       loadSubjects,
       loadChapters,
-      editQuiz,
-      saveQuiz,
-      duplicateQuiz,
+      editMockTest,
+      saveMockTest,
+      duplicateMockTest,
       confirmDelete,
       viewQuestions,
       closeModal,

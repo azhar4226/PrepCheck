@@ -499,7 +499,7 @@ export default {
       aiGenerating.value = true
       
       try {
-        const response = await aiService.generateQuiz({
+        const response = await aiService.generateQuestions({
           chapter_id: aiGenerationForm.chapterId || 1, // Default chapter
           topic: aiGenerationForm.topic,
           difficulty: aiGenerationForm.difficulty,
@@ -507,7 +507,7 @@ export default {
           context: aiGenerationForm.context
         })
         
-        const questions = response.quiz.questions.map(q => ({
+        const questions = response.questions.map(q => ({
           question_text: q.question,
           option_a: q.options.A,
           option_b: q.options.B,

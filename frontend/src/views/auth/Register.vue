@@ -166,7 +166,7 @@
             <div class="row text-center small">
               <div class="col-6 mb-2">
                 <i class="bi bi-check-circle-fill text-success me-1"></i>
-                Unlimited Quizzes
+                Unlimited Mock Tests
               </div>
               <div class="col-6 mb-2">
                 <i class="bi bi-check-circle-fill text-success me-1"></i>

@@ -87,9 +87,9 @@
           </div>
           <div class="card-body">
             <div class="d-grid gap-2">
-              <button class="btn btn-outline-primary btn-sm" @click="navigateToAIQuiz">
+              <button class="btn btn-outline-primary btn-sm" @click="navigateToAIQuestions">
                 <i class="bi bi-robot me-1"></i>
-                AI Quiz Generator
+                AI Question Generator
               </button>
               <button class="btn btn-outline-success btn-sm" @click="exportData">
                 <i class="bi bi-download me-1"></i>
@@ -147,14 +147,14 @@ export default {
         case 'users':
           router.push({ name: 'Dashboard', query: { tab: 'users' } })
           break
-        case 'quizzes':
-          router.push({ name: 'Dashboard', query: { tab: 'quizzes' } })
+        case 'mock_tests':
+          router.push({ name: 'Dashboard', query: { tab: 'mock_tests' } })
           break
         case 'attempts':
           router.push({ name: 'Dashboard', query: { tab: 'analytics' } })
           break
-        case 'subjects':
-          router.push({ name: 'Dashboard', query: { tab: 'subjects' } })
+        case 'questions':
+          router.push({ name: 'Dashboard', query: { tab: 'questions' } })
           break
         default:
           console.log('Stat clicked:', stat)
@@ -172,8 +172,8 @@ export default {
       return 'bg-danger'
     }
 
-    const navigateToAIQuiz = () => {
-      router.push('/admin/ai-quiz')
+    const navigateToAIQuestions = () => {
+      router.push('/admin/ai-questions')
     }
 
     const exportData = () => {
@@ -209,7 +209,7 @@ export default {
       systemStatus,
       handleStatClick,
       getStatusBadgeClass,
-      navigateToAIQuiz,
+      navigateToAIQuestions,
       exportData,
       systemMaintenance,
       formatDate,

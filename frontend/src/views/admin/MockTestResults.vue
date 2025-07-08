@@ -1,7 +1,7 @@
 <template>
-  <div class="quiz-results-page">
+  <div class="mock-test-results-page">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2><i class="bi bi-bar-chart me-2"></i>Quiz Results & Reports</h2>
+      <h2><i class="bi bi-bar-chart me-2"></i>Mock Test Results & Reports</h2>
       <div class="btn-group">
         <button class="btn btn-outline-primary" @click="exportResults">
           <i class="bi bi-download me-1"></i>Export Results
@@ -57,11 +57,11 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-3">
-            <label class="form-label">Quiz</label>
-            <select v-model="filters.quiz_id" class="form-select" @change="loadResults">
-              <option value="">All Quizzes</option>
-              <option v-for="quiz in quizzes" :key="quiz.id" :value="quiz.id">
-                {{ quiz.title }}
+            <label class="form-label">Mock Test</label>
+            <select v-model="filters.test_id" class="form-select" @change="loadResults">
+              <option value="">All Tests</option>
+              <option v-for="test in tests" :key="test.id" :value="test.id">
+                {{ test.title }}
               </option>
             </select>
           </div>
@@ -118,7 +118,7 @@
               <thead class="table-light">
                 <tr>
                   <th>User</th>
-                  <th>Quiz</th>
+                  <th>Test</th>
                   <th>Score</th>
                   <th>Percentage</th>
                   <th>Time Taken</th>
@@ -146,8 +146,8 @@
                   </td>
                   <td>
                     <div>
-                      <div class="fw-medium">{{ attempt.quiz.title }}</div>
-                      <small class="text-muted">{{ attempt.quiz.subject_name }}</small>
+                      <div class="fw-medium">{{ attempt.test.title }}</div>
+                      <small class="text-muted">{{ attempt.test.subject_name }}</small>
                     </div>
                   </td>
                   <td>
@@ -216,7 +216,7 @@
             
             <div v-if="attempts.length === 0" class="text-center py-4">
               <i class="bi bi-clipboard-data text-muted" style="font-size: 3rem;"></i>
-              <p class="text-muted mt-2">No quiz attempts found matching your criteria</p>
+              <p class="text-muted mt-2">No test attempts found matching your criteria</p>
             </div>
           </div>
 
@@ -261,7 +261,7 @@ import apiClient from '@/services/apiClient'
 import AttemptDetailsModal from '@/components/modals/AttemptDetailsModal.vue'
 
 export default {
-  name: 'QuizResults',
+  name: 'MockTestResults',
   components: {
     AttemptDetailsModal
   },
@@ -271,7 +271,7 @@ export default {
     const loading = ref(false)
     const error = ref('')
     const attempts = ref([])
-    const quizzes = ref([])
+    const tests = ref([])
     const users = ref([])
     const summary = ref({})
     
@@ -286,7 +286,7 @@ export default {
     
     // Filters
     const filters = reactive({
-      quiz_id: '',
+      test_id: '',
       user_id: '',
       date_range: '',
       status: ''
@@ -304,7 +304,7 @@ export default {
           ...filters
         }
         
-        const response = await apiClient.get('/admin/quiz-attempts', { params })
+        const response = await apiClient.get('/admin/test-attempts', { params })
         
         attempts.value = response.attempts || []
         totalPages.value = response.total_pages || 1
@@ -318,12 +318,12 @@ export default {
       }
     }
     
-    const loadQuizzes = async () => {
+    const loadTests = async () => {
       try {
-        const response = await adminService.getQuizzes()
-        quizzes.value = response.quizzes || []
+        const response = await adminService.getMockTests()
+        tests.value = response.tests || []
       } catch (err) {
-        console.error('Error loading quizzes:', err)
+        console.error('Error loading tests:', err)
       }
     }
     
@@ -344,13 +344,13 @@ export default {
     
     const downloadReport = async (attempt) => {
       try {
-        const response = await apiClient.downloadFile(`/admin/quiz-attempts/${attempt.id}/report`)
+        const response = await apiClient.downloadFile(`/admin/test-attempts/${attempt.id}/report`)
         
         // Create download link
         const url = window.URL.createObjectURL(new Blob([response.data]))
         const link = document.createElement('a')
         link.href = url
-        link.setAttribute('download', `quiz-report-${attempt.id}.pdf`)
+        link.setAttribute('download', `test-report-${attempt.id}.pdf`)
         document.body.appendChild(link)
         link.click()
         link.remove()
@@ -363,9 +363,9 @@ export default {
     }
     
     const resetAttempt = async (attempt) => {
-      if (confirm('Are you sure you want to reset this attempt? This will allow the user to retake the quiz.')) {
+      if (confirm('Are you sure you want to reset this attempt? This will allow the user to retake the test.')) {
         try {
-          await apiClient.post(`/admin/quiz-attempts/${attempt.id}/reset`)
+          await apiClient.post(`/admin/test-attempts/${attempt.id}/reset`)
           await loadResults()
           alert('Attempt reset successfully!')
         } catch (err) {
@@ -377,13 +377,13 @@ export default {
     
     const exportResults = async () => {
       try {
-        const response = await apiClient.post('/admin/export/quiz-results', filters)
+        const response = await apiClient.post('/admin/export/test-results', filters)
         
         // Create download link
         const url = window.URL.createObjectURL(new Blob([response.data]))
         const link = document.createElement('a')
         link.href = url
-        link.setAttribute('download', 'quiz-results.csv')
+        link.setAttribute('download', 'test-results.csv')
         document.body.appendChild(link)
         link.click()
         link.remove()
@@ -437,7 +437,7 @@ export default {
     onMounted(async () => {
       await Promise.all([
         loadResults(),
-        loadQuizzes(),
+        loadTests(),
         loadUsers()
       ])
     })
@@ -447,7 +447,7 @@ export default {
       loading,
       error,
       attempts,
-      quizzes,
+      tests,
       users,
       summary,
       currentPage,
@@ -474,7 +474,7 @@ export default {
 </script>
 
 <style scoped>
-.quiz-results-page {
+.mock-test-results-page {
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;

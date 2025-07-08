@@ -397,7 +397,7 @@ export default {
           labels: data.map(d => new Date(d.date).toLocaleDateString()),
           datasets: [
             {
-              label: 'Quiz Attempts',
+              label: 'Test Attempts',
               data: data.map(d => d.attempts),
               borderColor: '#007bff',
               backgroundColor: 'rgba(0, 123, 255, 0.1)',
@@ -445,7 +445,7 @@ export default {
               position: 'left',
               title: {
                 display: true,
-                text: 'Quiz Attempts'
+                text: 'Test Attempts'
               },
               beginAtZero: true
             },

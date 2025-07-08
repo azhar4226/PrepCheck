@@ -7,8 +7,8 @@
         <button class="btn btn-outline-primary" @click="refreshData">
           <i class="fas fa-refresh me-2"></i>Refresh
         </button>
-        <button class="btn btn-success" @click="$router.push('/admin/ai-quiz')">
-          <i class="fas fa-magic me-2"></i>AI Quiz Generator
+        <button class="btn btn-success" @click="$router.push('/admin/ai-questions')">
+          <i class="fas fa-magic me-2"></i>AI Question Generator
         </button>
       </div>
     </div>
@@ -46,11 +46,11 @@
             <div class="card-body">
               <div class="d-flex justify-content-between">
                 <div>
-                  <h5 class="card-title">Total Quizzes</h5>
-                  <h3 class="mb-0">{{ stats.total_quizzes }}</h3>
+                  <h5 class="card-title">Mock Tests</h5>
+                  <h3 class="mb-0">{{ stats.total_mock_tests || 0 }}</h3>
                 </div>
                 <div class="align-self-center">
-                  <i class="fas fa-question-circle fa-2x opacity-75"></i>
+                  <i class="fas fa-clipboard-check fa-2x opacity-75"></i>
                 </div>
               </div>
             </div>
@@ -62,8 +62,8 @@
             <div class="card-body">
               <div class="d-flex justify-content-between">
                 <div>
-                  <h5 class="card-title">Quiz Attempts</h5>
-                  <h3 class="mb-0">{{ stats.total_attempts }}</h3>
+                  <h5 class="card-title">Test Attempts</h5>
+                  <h3 class="mb-0">{{ stats.total_attempts || 0 }}</h3>
                 </div>
                 <div class="align-self-center">
                   <i class="fas fa-chart-line fa-2x opacity-75"></i>
@@ -105,8 +105,8 @@
                   </button>
                 </div>
                 <div class="col-md-3 mb-2">
-                  <button class="btn btn-outline-success w-100" @click="$router.push('/admin/quizzes')">
-                    <i class="fas fa-question-circle me-2"></i>Manage Quizzes
+                  <button class="btn btn-outline-success w-100" @click="$router.push('/admin/ugc-net')">
+                    <i class="fas fa-clipboard-check me-2"></i>Manage Mock Tests
                   </button>
                 </div>
                 <div class="col-md-3 mb-2">
@@ -130,19 +130,19 @@
         <div class="col-md-8">
           <div class="card">
             <div class="card-header">
-              <h5 class="mb-0">Recent Quiz Attempts</h5>
+              <h5 class="mb-0">Recent Test Attempts</h5>
             </div>
             <div class="card-body">
               <div v-if="recentAttempts.length === 0" class="text-center text-muted py-3">
                 <i class="fas fa-chart-line fa-3x mb-3 opacity-50"></i>
-                <p>No recent quiz attempts</p>
+                <p>No recent test attempts</p>
               </div>
               <div v-else class="table-responsive">
                 <table class="table table-hover">
                   <thead>
                     <tr>
                       <th>User</th>
-                      <th>Quiz</th>
+                      <th>Test</th>
                       <th>Score</th>
                       <th>Date</th>
                     </tr>
@@ -150,7 +150,7 @@
                   <tbody>
                     <tr v-for="attempt in recentAttempts" :key="attempt.id">
                       <td>{{ attempt.user_name || 'Unknown User' }}</td>
-                      <td>{{ attempt.quiz_title }}</td>
+                      <td>{{ attempt.test_title || attempt.mock_test_title || 'Unknown Test' }}</td>
                       <td>
                         <span class="badge" :class="getScoreBadgeClass(attempt.percentage)">
                           {{ attempt.score }}/{{ attempt.total_marks }} ({{ attempt.percentage }}%)
@@ -240,9 +240,10 @@ export default {
     const error = ref('')
     const stats = ref({
       total_users: 0,
-      total_quizzes: 0,
+      total_mock_tests: 0,
       total_attempts: 0,
       total_subjects: 0,
+      total_questions: 0,
       today_attempts: 0,
       week_attempts: 0,
       average_score: 0

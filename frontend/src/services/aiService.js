@@ -1,13 +1,13 @@
 import apiClient from './apiClient'
 
 class AIService {
-  // Quiz Generation
-  async generateQuiz(quizData) {
-    return await apiClient.post('/api/ai/generate-quiz', quizData)
+  // Question Generation (UGC NET focused)
+  async generateQuestions(questionData) {
+    return await apiClient.post('/api/ai/generate-questions', questionData)
   }
 
-  async getQuizSuggestions(subject, difficultyLevels = ['easy', 'medium', 'hard'], numSuggestions = 10) {
-    return await apiClient.post('/api/ai/quiz-suggestions', {
+  async getQuestionSuggestions(subject, difficultyLevels = ['easy', 'medium', 'hard'], numSuggestions = 10) {
+    return await apiClient.post('/api/ai/question-suggestions', {
       subject,
       difficulty_levels: difficultyLevels,
       num_suggestions: numSuggestions
@@ -15,16 +15,16 @@ class AIService {
   }
 
   // Answer Verification
-  async verifyAnswers(quizId) {
-    return await apiClient.post('/api/ai/verify-answers', { quiz_id: quizId })
+  async verifyAnswers(mockTestId) {
+    return await apiClient.post('/api/ai/verify-answers', { mock_test_id: mockTestId })
   }
 
   async getVerificationStatus(taskId) {
     return await apiClient.get(`/api/ai/verification-status/${taskId}`)
   }
 
-  async getQuizVerificationSummary(quizId) {
-    return await apiClient.get(`/api/ai/quiz-verification-summary/${quizId}`)
+  async getMockTestVerificationSummary(mockTestId) {
+    return await apiClient.get(`/api/ai/mock-test-verification-summary/${mockTestId}`)
   }
 
   async retryVerification(data) {
@@ -48,8 +48,8 @@ class AIService {
   }
 
   // Publishing
-  async publishQuiz(quizId, updates = {}) {
-    return await apiClient.post('/api/ai/publish-quiz', { quiz_id: quizId, ...updates })
+  async publishMockTest(mockTestId, updates = {}) {
+    return await apiClient.post('/api/ai/publish-mock-test', { mock_test_id: mockTestId, ...updates })
   }
 }
 

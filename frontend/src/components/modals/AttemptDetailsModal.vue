@@ -8,8 +8,8 @@
     <div v-if="attempt">
       <div class="row">
         <div class="col-md-6">
-          <h6>Quiz Information</h6>
-          <p><strong>Quiz:</strong> {{ attempt.quiz_title }}</p>
+          <h6>Test Information</h6>
+          <p><strong>Test:</strong> {{ attempt.test_title || attempt.title }}</p>
           <p><strong>User:</strong> {{ attempt.user_name }}</p>
           <p><strong>Started:</strong> {{ formatDate(attempt.created_at) }}</p>
           <p><strong>Completed:</strong> {{ formatDate(attempt.completed_at) }}</p>

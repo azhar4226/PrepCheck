@@ -81,13 +81,13 @@
   overflow: hidden;
 }
 
-.quiz-card {
+.test-card {
   transition: transform var(--transition-medium), box-shadow var(--transition-medium);
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-lg);
 }
 
-.quiz-card:hover {
+.test-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }

@@ -8,7 +8,7 @@
             <h1 class="h2 text-primary">
               <i class="bi bi-graph-up me-2"></i>My Analytics
             </h1>
-            <p class="text-muted mb-0">Detailed insights into your quiz performance and learning progress</p>
+            <p class="text-muted mb-0">Detailed insights into your test performance and learning progress</p>
           </div>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" @click="refreshAnalytics">

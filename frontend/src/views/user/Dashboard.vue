@@ -13,10 +13,9 @@
           <div class="d-flex gap-2">
             <button class="btn btn-outline-primary" @click="refreshDashboard">
               <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-            </button>
-            <router-link to="/quizzes" class="btn btn-primary">
-              <i class="bi bi-play-circle me-1"></i>Take Quiz
-            </router-link>
+            </button>              <router-link to="/ugc-net" class="btn btn-primary">
+                <i class="bi bi-play-circle me-1"></i>Take Test
+              </router-link>
           </div>
         </div>
       </div>
@@ -117,9 +116,9 @@
             
             <div v-else-if="recentActivity.length === 0" class="text-center py-4 text-muted">
               <i class="bi bi-inbox display-4 mb-3"></i>
-              <p>No recent activity. Start taking quizzes to see your progress!</p>
-              <router-link to="/quizzes" class="btn btn-primary">
-                Browse Quizzes
+              <p>No recent activity. Start taking tests to see your progress!</p>
+              <router-link to="/ugc-net" class="btn btn-primary">
+                Browse Mock Tests
               </router-link>
             </div>
             
@@ -131,9 +130,9 @@
               >
                 <div class="d-flex justify-content-between align-items-start">
                   <div class="flex-grow-1">
-                    <h6 class="mb-1">{{ activity.quiz_title }}</h6>
+                    <h6 class="mb-1">{{ activity.test_title || activity.title }}</h6>
                     <p class="mb-1 text-muted small">
-                      {{ activity.subject_name }} • {{ activity.chapter_name }}
+                      {{ activity.subject_name }} • {{ activity.paper_type || activity.chapter_name }}
                     </p>
                     <small class="text-muted">
                       {{ formatDate(activity.completed_at) }}
@@ -168,8 +167,11 @@
           </div>
           <div class="card-body">
             <div class="d-grid gap-2">
-              <router-link to="/quizzes" class="btn btn-primary">
-                <i class="bi bi-play-circle me-2"></i>Take New Quiz
+              <router-link to="/ugc-net" class="btn btn-primary">
+                <i class="bi bi-play-circle me-2"></i>Take Mock Test
+              </router-link>
+              <router-link to="/ugc-net/practice" class="btn btn-outline-primary">
+                <i class="bi bi-pencil-square me-2"></i>Practice Test
               </router-link>
               <router-link to="/history" class="btn btn-outline-secondary">
                 <i class="bi bi-clock-history me-2"></i>View History
@@ -197,7 +199,7 @@
             
             <div v-else-if="progressData.length === 0" class="text-center py-4 text-muted">
               <i class="bi bi-graph-up display-4 mb-3"></i>
-              <p class="small">Take more quizzes to see your progress chart</p>
+              <p class="small">Take more tests to see your progress chart</p>
             </div>
             
             <canvas v-else ref="progressChart" width="400" height="200"></canvas>

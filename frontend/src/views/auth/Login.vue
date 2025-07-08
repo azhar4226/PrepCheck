@@ -6,7 +6,7 @@
         <div class="text-center">
           <i class="bi bi-book display-1 mb-4"></i>
           <h1 class="display-4 fw-bold mb-3">Welcome to PrepCheck</h1>
-          <p class="lead mb-4">Your comprehensive exam preparation platform with AI-powered quizzes</p>
+          <p class="lead mb-4">Your comprehensive exam preparation platform with AI-powered mock tests</p>
           <div class="row text-center">
             <div class="col-4">
               <i class="bi bi-lightning display-6"></i>

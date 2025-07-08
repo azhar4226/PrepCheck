@@ -10,8 +10,8 @@ class AnalyticsService {
     return await apiClient.get(`/api/analytics/user/${userId}`)
   }
 
-  async getQuizAnalytics(quizId) {
-    return await apiClient.get(`/api/analytics/quiz/${quizId}`)
+  async getMockTestAnalytics(mockTestId) {
+    return await apiClient.get(`/api/analytics/mock-test/${mockTestId}`)
   }
 }
 

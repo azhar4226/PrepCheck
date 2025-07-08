@@ -113,8 +113,8 @@
           </div>
           
           <div class="analytics-item">
-            <span class="analytics-label">Times Used in Quizzes:</span>
-            <span class="analytics-value">{{ analytics.quiz_usage_count }}</span>
+            <span class="analytics-label">Times Used in Tests:</span>
+            <span class="analytics-value">{{ analytics.test_usage_count }}</span>
           </div>
           
           <div class="analytics-item">
@@ -208,7 +208,7 @@ export default {
         analytics.value = {
           success_rate: Math.floor(Math.random() * 40) + 60, // 60-100%
           average_time: Math.floor(Math.random() * 60) + 30, // 30-90 seconds
-          quiz_usage_count: props.question.usage_count,
+          test_usage_count: props.question.usage_count,
           total_attempts: Math.floor(Math.random() * 100) + 20,
           common_wrong_answers: [
             { option: 'B', percentage: 25 },

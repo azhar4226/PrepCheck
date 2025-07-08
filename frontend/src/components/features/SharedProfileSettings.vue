@@ -203,11 +203,11 @@
                     <input 
                       class="form-check-input" 
                       type="checkbox" 
-                      id="quizReminders" 
-                      v-model="profile.notification_quiz_reminders"
+                      id="testReminders" 
+                      v-model="profile.notification_test_reminders"
                     >
-                    <label class="form-check-label" for="quizReminders">
-                      Quiz Reminders
+                    <label class="form-check-label" for="testReminders">
+                      Test Reminders
                     </label>
                   </div>
                 </div>
@@ -322,7 +322,7 @@ export default {
       country: '',
       timezone: 'UTC',
       notification_email: true,
-      notification_quiz_reminders: true,
+      notification_test_reminders: true,
       theme_preference: 'light',
       profile_picture_url: ''
     })

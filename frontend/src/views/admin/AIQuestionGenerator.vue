@@ -5,8 +5,8 @@
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
           <div>
-            <h2 class="mb-1">🤖 AI Quiz Generator</h2>
-            <p class="text-muted mb-0">Generate intelligent quizzes using AI technology</p>
+            <h2 class="mb-1">🤖 AI Question Generator</h2>
+            <p class="text-muted mb-0">Generate intelligent questions for UGC NET tests using AI technology</p>
           </div>
           <div class="badge bg-primary">
             {{ aiStatus }}
@@ -20,11 +20,11 @@
               <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
                   <i class="bi bi-gear me-2"></i>
-                  Quiz Configuration
+                  Question Configuration
                 </h5>
               </div>
               <div class="card-body">
-                <form @submit.prevent="generateQuiz">
+                <form @submit.prevent="generateQuestions">
                   <!-- Subject Selection -->
                   <div class="mb-3">
                     <label class="form-label fw-bold">Subject</label>
@@ -61,7 +61,7 @@
 
                   <!-- Topic -->
                   <div class="mb-3">
-                    <label class="form-label fw-bold">Quiz Topic</label>
+                    <label class="form-label fw-bold">Question Topic</label>
                     <input 
                       v-model="form.topic" 
                       type="text" 
@@ -187,11 +187,11 @@
                   >
                     <span v-if="generating">
                       <span class="spinner-border spinner-border-sm me-2"></span>
-                      Generating Quiz...
+                      Generating Questions...
                     </span>
                     <span v-else>
                       <i class="bi bi-magic me-2"></i>
-                      Generate Quiz
+                      Generate Questions
                     </span>
                   </button>
 
@@ -211,11 +211,11 @@
               <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                   <i class="bi bi-eye me-2"></i>
-                  Generated Quiz Preview
+                  Generated Questions Preview
                 </h5>
-                <div v-if="generatedQuiz">
+                <div v-if="generatedQuestions">
                   <button 
-                    @click="saveQuiz" 
+                    @click="saveQuestions" 
                     class="btn btn-success btn-sm me-2"
                     :disabled="saving"
                   >
@@ -225,10 +225,10 @@
                     </span>
                     <span v-else>
                       <i class="bi bi-check-circle me-1"></i>
-                      Save Quiz
+                      Save to Question Bank
                     </span>
                   </button>
-                  <button @click="regenerateQuiz" class="btn btn-outline-primary btn-sm">
+                  <button @click="regenerateQuestions" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-arrow-clockwise me-1"></i>
                     Regenerate
                   </button>
@@ -236,48 +236,48 @@
               </div>
               
               <div class="card-body">
-                <!-- No Quiz Generated Yet -->
-                <div v-if="!generatedQuiz && !generating" class="text-center py-5">
+                <!-- No Questions Generated Yet -->
+                <div v-if="!generatedQuestions && !generating" class="text-center py-5">
                   <i class="bi bi-lightbulb display-1 text-muted"></i>
                   <h4 class="text-muted mt-3">Ready to Generate</h4>
-                  <p class="text-muted">Fill out the form and click "Generate Quiz" to create AI-powered questions</p>
+                  <p class="text-muted">Fill out the form and click "Generate Questions" to create AI-powered questions</p>
                 </div>
 
                 <!-- Generating State -->
                 <div v-if="generating" class="text-center py-5">
                   <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
                   <h4>AI is Working...</h4>
-                  <p class="text-muted">Creating your custom quiz questions</p>
+                  <p class="text-muted">Creating your custom question bank</p>
                   <div class="progress mx-auto" style="width: 300px;">
                     <div class="progress-bar progress-bar-striped progress-bar-animated" 
                          style="width: 75%"></div>
                   </div>
                 </div>
 
-                <!-- Generated Quiz Display -->
-                <div v-if="generatedQuiz && !generating">
-                  <!-- Quiz Info -->
+                <!-- Generated Questions Display -->
+                <div v-if="generatedQuestions && !generating">
+                  <!-- Questions Info -->
                   <div class="alert alert-success mb-4">
                     <div class="d-flex align-items-center">
                       <i class="bi bi-check-circle-fill me-2"></i>
                       <div>
-                        <strong>Quiz Generated Successfully!</strong>
+                        <strong>Questions Generated Successfully!</strong>
                         <br>
-                        <small>{{ generatedQuiz.questions?.length || 0 }} questions created</small>
+                        <small>{{ generatedQuestions.questions?.length || 0 }} questions created</small>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Quiz Header -->
+                  <!-- Questions Header -->
                   <div class="border rounded p-3 mb-4 bg-light">
-                    <h4 class="mb-1">{{ generatedQuiz.title || 'Generated Quiz' }}</h4>
-                    <p class="text-muted mb-0">{{ generatedQuiz.description || 'AI-generated quiz questions' }}</p>
+                    <h4 class="mb-1">{{ generatedQuestions.title || 'Generated Question Bank' }}</h4>
+                    <p class="text-muted mb-0">{{ generatedQuestions.description || 'AI-generated practice questions' }}</p>
                   </div>
 
                   <!-- Questions Preview -->
                   <div class="questions-preview">
                     <div 
-                      v-for="(question, index) in generatedQuiz.questions || []" 
+                      v-for="(question, index) in generatedQuestions.questions || []" 
                       :key="index"
                       class="card mb-3"
                     >
@@ -509,9 +509,9 @@
                   {{ verificationProgress.failed_count }} questions failed verification.
                 </div>
                 <button 
-                  @click="retryVerification(generatedQuiz?.id)"
+                  @click="retryVerification(generatedQuestions?.id)"
                   class="btn btn-warning me-2"
-                  :disabled="!generatedQuiz?.id"
+                  :disabled="!generatedQuestions?.id"
                 >
                   <i class="bi bi-arrow-clockwise me-1"></i>
                   Retry Failed Questions
@@ -526,9 +526,9 @@
               <p class="text-muted">{{ verificationStatus.error || 'Unknown error occurred' }}</p>
               
               <button 
-                @click="retryVerification(generatedQuiz?.id)"
+                @click="retryVerification(generatedQuestions?.id)"
                 class="btn btn-primary mt-3"
-                :disabled="!generatedQuiz?.id"
+                :disabled="!generatedQuestions?.id"
               >
                 <i class="bi bi-arrow-clockwise me-1"></i>
                 Retry Verification
@@ -547,12 +547,12 @@
           </button>
           
           <button 
-            v-if="verificationStatus?.ready && verificationStatus.successful && generatedQuiz?.id"
+            v-if="verificationStatus?.ready && verificationStatus.successful && generatedQuestions?.id"
             class="btn btn-primary"
-            @click="$router.push(`/admin/quizzes/${generatedQuiz.id}`)"
+            @click="$router.push(`/admin/question-bank/${generatedQuestions.id}`)"
           >
             <i class="bi bi-eye me-1"></i>
-            View Quiz
+            View Questions
           </button>
         </div>
       </div>
@@ -573,7 +573,7 @@ import adminService from '@/services/adminService'
 import aiService from '@/services/aiService'
 
 export default {
-  name: 'AIQuizGenerator',
+  name: 'AIQuestionGenerator',
   setup() {
     const { user } = useAuth()
     return { user, adminService, aiService }
@@ -594,7 +594,7 @@ export default {
       subjects: [],
       chapters: [],
       loadingChapters: false,
-      generatedQuiz: null,
+      generatedQuestions: null,
       generating: false,
       saving: false,
       recentGenerations: [],
@@ -675,16 +675,16 @@ export default {
       }
     },
 
-    async generateQuiz() {
+    async generateQuestions() {
       this.generating = true
       try {
-        const response = await this.aiService.generateQuiz(this.form)
+        const response = await this.aiService.generateQuestions(this.form)
         
-        this.generatedQuiz = response.quiz
+        this.generatedQuestions = response.questions
         this.verificationTaskId = response.verification_task_id
         this.aiStatus = 'Generation Complete - Verification Started'
         
-        this.showToast('Quiz generated! Verification in progress...', 'success')
+        this.showToast('Questions generated! Verification in progress...', 'success')
         
         // Start polling for verification status
         if (this.verificationTaskId) {
@@ -693,9 +693,9 @@ export default {
         }
         
       } catch (error) {
-        console.error('Failed to generate quiz:', error)
+        console.error('Failed to generate questions:', error)
         this.showToast(
-          error.response?.data?.error || 'Failed to generate quiz', 
+          error.response?.data?.error || 'Failed to generate questions', 
           'error'
         )
       } finally {
@@ -726,8 +726,8 @@ export default {
                 'success'
               )
               
-              // Refresh quiz data
-              await this.loadQuizVerificationSummary(this.generatedQuiz.id)
+              // Refresh questions data
+              await this.loadQuestionVerificationSummary(this.generatedQuestions.id)
               
             } else {
               this.aiStatus = 'Verification Failed'
@@ -748,20 +748,20 @@ export default {
       }, 2000) // Poll every 2 seconds
     },
 
-    async loadQuizVerificationSummary(quizId) {
+    async loadQuestionVerificationSummary(questionId) {
       try {
-        const summary = await aiService.getQuizVerificationSummary(quizId)
+        const summary = await aiService.getQuestionVerificationSummary(questionId)
         this.verificationProgress = summary
-        this.generatedQuiz.verification_summary = summary
+        this.generatedQuestions.verification_summary = summary
       } catch (error) {
         console.error('Failed to load verification summary:', error)
       }
     },
 
-    async retryVerification(quizId) {
+    async retryVerification(questionId) {
       try {
         const response = await aiService.retryVerification({ 
-          quiz_id: quizId,
+          question_id: questionId,
           verification_threshold: this.form.verification_threshold,
           max_retry_attempts: this.form.max_retry_attempts,
           fallback_strategy: this.form.fallback_strategy
@@ -783,8 +783,8 @@ export default {
         this.showToast('Question manually approved', 'success')
         
         // Refresh verification summary
-        if (this.generatedQuiz && this.generatedQuiz.id) {
-          await this.loadQuizVerificationSummary(this.generatedQuiz.id)
+        if (this.generatedQuestions && this.generatedQuestions.id) {
+          await this.loadQuestionVerificationSummary(this.generatedQuestions.id)
         }
       } catch (error) {
         console.error('Failed to approve question:', error)
@@ -800,25 +800,24 @@ export default {
       }
     },
 
-    async saveQuiz() {
+    async saveQuestions() {
       this.saving = true
       try {
-        // The quiz is already saved as draft in the backend
-        // Here we just need to update its status or perform additional actions
-        this.aiStatus = 'Quiz Saved'
-        this.showToast('Quiz saved successfully!', 'success')
+        // Save questions to the question bank
+        this.aiStatus = 'Questions Saved'
+        this.showToast('Questions saved to question bank successfully!', 'success')
         await this.loadRecentGenerations()
       } catch (error) {
-        console.error('Failed to save quiz:', error)
-        this.showToast('Failed to save quiz', 'error')
+        console.error('Failed to save questions:', error)
+        this.showToast('Failed to save questions', 'error')
       } finally {
         this.saving = false
       }
     },
 
-    regenerateQuiz() {
-      this.generatedQuiz = null
-      this.generateQuiz()
+    regenerateQuestions() {
+      this.generatedQuestions = null
+      this.generateQuestions()
     },
 
     async loadRecentGenerations() {

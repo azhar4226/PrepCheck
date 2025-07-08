@@ -3,7 +3,7 @@
     <!-- Welcome Section -->
     <WelcomeCard
       :title="`Welcome back, ${user?.full_name}!`"
-      subtitle="Ready to continue your learning journey? Here's your progress overview."
+      subtitle="Ready to continue your UGC NET preparation? Here's your progress overview."
       icon="bi bi-sun"
       icon-class="text-warning"
     />
@@ -31,11 +31,11 @@
                 <div class="d-flex flex-wrap gap-2">
                   <button class="btn btn-light btn-sm" @click="goToUGCNet">
                     <i class="bi bi-arrow-right me-1"></i>
-                    Start UGC NET
+                    Start Mock Test
                   </button>
                   <button class="btn btn-outline-light btn-sm" @click="goToTestGenerator">
                     <i class="bi bi-gear me-1"></i>
-                    Generate Mock Test
+                    Practice Questions
                   </button>
                 </div>
               </div>
@@ -52,15 +52,15 @@
     <div class="row">
       <div class="col-md-8">
         <ActivityCard
-          title="Recent Activity"
+          title="Recent Test Activity"
           icon="bi bi-clock-history"
           :items="recentActivity"
-          empty-message="No recent quiz attempts"
+          empty-message="No recent test attempts"
           empty-icon="bi bi-list-check"
         >
           <template #empty-action>
             <button class="btn btn-primary" @click="startMockTest">
-              Take Your First UGC NET Mock Test
+              Start Your First UGC NET Mock Test
             </button>
           </template>
           
@@ -167,7 +167,7 @@ export default {
     const handleStatClick = (stat) => {
       // Handle stat card clicks
       switch (stat.key) {
-        case 'quizzes_taken':
+        case 'tests_taken':
           router.push('/history')
           break
         case 'average_score':

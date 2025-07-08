@@ -50,8 +50,8 @@
             <router-link to="/admin/subjects" class="btn btn-outline-primary btn-sm">
               <i class="bi bi-book me-1"></i>Subjects
             </router-link>
-            <router-link to="/admin/quizzes" class="btn btn-outline-primary btn-sm">
-              <i class="bi bi-clipboard-check me-1"></i>Quizzes
+            <router-link to="/admin/ai-question-generator" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-clipboard-check me-1"></i>Question Generator
             </router-link>
           </div>
         </div>

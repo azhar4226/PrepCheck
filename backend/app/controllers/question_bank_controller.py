@@ -280,10 +280,10 @@ def create_question_bank_question():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@question_bank_bp.route('/questions/for-quiz', methods=['POST'])
+@question_bank_bp.route('/questions/for-practice', methods=['POST'])
 @jwt_required()
-def get_questions_for_quiz():
-    """Get questions from question bank for creating a new quiz"""
+def get_questions_for_practice():
+    """Get questions from question bank for creating practice tests"""
     try:
         if not admin_required():
             return jsonify({'error': 'Admin access required'}), 403
@@ -297,7 +297,7 @@ def get_questions_for_quiz():
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
         # Get questions from question bank
-        questions = QuestionBankService.get_questions_for_quiz(
+        questions = QuestionBankService.get_questions_for_practice(
             topic=data['topic'],
             difficulty=data['difficulty'],
             num_questions=data['num_questions'],

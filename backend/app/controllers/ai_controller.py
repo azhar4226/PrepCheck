@@ -61,7 +61,7 @@ def generate_questions():
         
         try:
             # Generate questions using AI
-            quiz_data = ai_service.generate_quiz(
+            questions_data = ai_service.generate_test_questions(
                 topic=data['topic'],
                 difficulty=data['difficulty'],
                 num_questions=data['num_questions'],
@@ -87,7 +87,7 @@ def generate_questions():
         if data.get('context'):
             tags.append('contextual')
         
-        for i, q_data in enumerate(quiz_data['questions']):
+        for i, q_data in enumerate(questions_data['questions']):
             try:
                 # Store each question in QuestionBank
                 question_bank_entry, is_new = QuestionBankService.store_ai_question(

@@ -53,22 +53,22 @@ class AIService:
         
         self._initialized = True
     
-    def generate_quiz(self, topic, difficulty, num_questions, additional_context=""):
-        """Generate a complete quiz using Gemini AI or mock data"""
+    def generate_test_questions(self, topic, difficulty, num_questions, additional_context=""):
+        """Generate test questions using Gemini AI or mock data"""
         
         print(f"🔧 AI Service: use_mock = {self.use_mock}")
         
         if self.use_mock:
-            print("🎭 Using mock quiz generation")
-            return self._generate_mock_quiz(topic, difficulty, num_questions, additional_context)
+            print("🎭 Using mock test question generation")
+            return self._generate_mock_test_questions(topic, difficulty, num_questions, additional_context)
         
-        print("🤖 Using real AI quiz generation")
-        return self._generate_real_quiz(topic, difficulty, num_questions, additional_context)
+        print("🤖 Using real AI test question generation")
+        return self._generate_real_test_questions(topic, difficulty, num_questions, additional_context)
     
-    def _generate_mock_quiz(self, topic, difficulty, num_questions, additional_context=""):
-        """Generate a mock quiz for development/testing - OPTIMIZED VERSION"""
+    def _generate_mock_test_questions(self, topic, difficulty, num_questions, additional_context=""):
+        """Generate mock test questions for development/testing - OPTIMIZED VERSION"""
         
-        print(f"🎭 Generating mock quiz: {topic} ({difficulty}, {num_questions} questions)")
+        print(f"🎭 Generating mock test questions: {topic} ({difficulty}, {num_questions} questions)")
         
         # Pre-defined question pools for faster generation
         question_pools = {
@@ -193,24 +193,24 @@ class AIService:
                 "marks": 1
             })
         
-        print(f"✅ Mock quiz generated in < 1ms with {len(questions)} questions")
+        print(f"✅ Mock test questions generated in < 1ms with {len(questions)} questions")
         
         return {
-            "title": f"{topic} - {difficulty.title()} Level Quiz",
-            "description": f"AI-generated quiz on {topic} with {difficulty} difficulty level. {additional_context}".strip(),
+            "title": f"{topic} - {difficulty.title()} Level Test",
+            "description": f"AI-generated test questions on {topic} with {difficulty} difficulty level. {additional_context}".strip(),
             "questions": questions
         }
     
-    def _generate_real_quiz(self, topic, difficulty, num_questions, additional_context=""):
-        """Generate a quiz using real Gemini AI - OPTIMIZED VERSION"""
+    def _generate_real_test_questions(self, topic, difficulty, num_questions, additional_context=""):
+        """Generate test questions using real Gemini AI - OPTIMIZED VERSION"""
         
         if not self.model:
             raise Exception("AI model not available - using mock service")
         
-        print(f"🤖 Generating real AI quiz: {topic} ({difficulty}, {num_questions} questions)")
+        print(f"🤖 Generating real AI test questions: {topic} ({difficulty}, {num_questions} questions)")
         
         # Optimize prompt for faster response and better JSON
-        prompt = f"""Create a {num_questions}-question multiple-choice quiz about {topic} at {difficulty} level.
+        prompt = f"""Create a {num_questions}-question multiple-choice test about {topic} at {difficulty} level.
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no explanations, no code blocks.
 
@@ -221,8 +221,8 @@ Questions: {num_questions}
 
 Return this exact JSON structure:
 {{
-  "title": "{topic} - {difficulty.title()} Quiz",
-  "description": "Quiz about {topic}",
+  "title": "{topic} - {difficulty.title()} Test",
+  "description": "Test about {topic}",
   "questions": [
     {{
       "question": "Question text",
@@ -281,37 +281,37 @@ Rules:
             json_str = response_text[start_idx:end_idx + 1]
             
             try:
-                quiz_data = json.loads(json_str)
+                test_data = json.loads(json_str)
             except json.JSONDecodeError as e:
                 print(f"⚠️ Initial JSON parsing failed: {e}")
                 # Advanced fallback: try to clean and fix common JSON issues
                 json_str = self._advanced_json_cleanup(json_str)
                 try:
-                    quiz_data = json.loads(json_str)
+                    test_data = json.loads(json_str)
                     print("✅ JSON parsing succeeded after cleanup")
                 except json.JSONDecodeError as e2:
                     print(f"❌ JSON parsing failed even after cleanup: {e2}")
                     print(f"Problematic JSON excerpt: {json_str[:500]}...")
                     # Ultimate fallback to mock for this request
                     print("🎭 Falling back to mock generation due to JSON parsing failure")
-                    return self._generate_mock_quiz(topic, difficulty, num_questions, additional_context)
+                    return self._generate_mock_test_questions(topic, difficulty, num_questions, additional_context)
             
             # Quick validation
-            if not quiz_data.get('questions') or len(quiz_data['questions']) == 0:
+            if not test_data.get('questions') or len(test_data['questions']) == 0:
                 raise Exception("No questions found in AI response")
             
             # Validate and clean the data
-            validated_quiz = self._validate_quiz_data(quiz_data)
+            validated_test = self._validate_test_data(test_data)
             
             # Add metadata
-            validated_quiz['timestamp'] = datetime.utcnow().isoformat()
-            validated_quiz['model'] = 'Gemini-1.5-Flash'
-            validated_quiz['confidence'] = 0.85
-            validated_quiz['generation_time'] = generation_time
+            validated_test['timestamp'] = datetime.utcnow().isoformat()
+            validated_test['model'] = 'Gemini-1.5-Flash'
+            validated_test['confidence'] = 0.85
+            validated_test['generation_time'] = generation_time
             
-            print(f"✅ Real AI quiz generated successfully with {len(validated_quiz['questions'])} questions")
+            print(f"✅ Real AI test questions generated successfully with {len(validated_test['questions'])} questions")
             
-            return validated_quiz
+            return validated_test
             
         except json.JSONDecodeError as e:
             print(f"❌ JSON parsing failed: {str(e)}")
@@ -320,7 +320,7 @@ Rules:
             print(f"❌ AI generation failed: {str(e)}")
             # Fallback to mock if AI fails
             print("🎭 Falling back to mock generation...")
-            return self._generate_mock_quiz(topic, difficulty, num_questions, additional_context)
+            return self._generate_mock_test_questions(topic, difficulty, num_questions, additional_context)
     
     def _clean_json_response(self, json_str):
         """Clean AI response to make it valid JSON"""
@@ -484,10 +484,10 @@ Rules:
         for attempt in range(max_attempts):
             try:
                 # Generate a new question for the same topic
-                new_quiz_data = self.generate_quiz(topic, difficulty, 1, f"Regenerating question, attempt {attempt + 1}")
+                new_test_data = self.generate_test_questions(topic, difficulty, 1, f"Regenerating question, attempt {attempt + 1}")
                 
-                if new_quiz_data and new_quiz_data.get('questions'):
-                    new_question = new_quiz_data['questions'][0]
+                if new_test_data and new_test_data.get('questions'):
+                    new_question = new_test_data['questions'][0]
                     
                     # Verify the new question
                     new_verification = self.verify_question_comprehensive(
@@ -508,11 +508,11 @@ Rules:
         verification_result['regeneration_failed'] = True
         return original_question_data, verification_result
     
-    def suggest_quiz_topics(self, subject, difficulty_levels, num_suggestions=10):
-        """Generate quiz topic suggestions for a subject"""
+    def suggest_test_topics(self, subject, difficulty_levels, num_suggestions=10):
+        """Generate test topic suggestions for a subject"""
         
         prompt = f"""
-        Suggest {num_suggestions} quiz topics for the subject: {subject}
+        Suggest {num_suggestions} test topics for the subject: {subject}
         
         Consider these difficulty levels: {', '.join(difficulty_levels)}
         
@@ -532,7 +532,7 @@ Rules:
         Make sure topics are:
         - Relevant to the subject
         - Varied in scope and focus
-        - Appropriate for quiz format
+        - Appropriate for test format
         - Cover different difficulty levels
         - Educational and engaging
         """
@@ -746,18 +746,18 @@ Rules:
             print(f"⚠️ AI recommendation generation failed: {str(e)}")
             return self._generate_mock_recommendations(performance_data)
 
-    def _validate_quiz_data(self, quiz_data):
-        """Validate and clean quiz data from AI"""
+    def _validate_test_data(self, test_data):
+        """Validate and clean test data from AI"""
         
-        if not isinstance(quiz_data, dict):
-            raise ValueError("Quiz data must be a dictionary")
+        if not isinstance(test_data, dict):
+            raise ValueError("Test data must be a dictionary")
         
-        if 'questions' not in quiz_data:
-            raise ValueError("Quiz data must contain questions")
+        if 'questions' not in test_data:
+            raise ValueError("Test data must contain questions")
         
         validated_questions = []
         
-        for i, question in enumerate(quiz_data['questions']):
+        for i, question in enumerate(test_data['questions']):
             try:
                 # Validate question structure
                 if not all(key in question for key in ['question', 'options', 'correct_answer']):
@@ -794,10 +794,10 @@ Rules:
                 continue
         
         if not validated_questions:
-            raise ValueError("No valid questions found in quiz data")
+            raise ValueError("No valid questions found in test data")
         
         return {
-            'title': str(quiz_data.get('title', 'AI Generated Quiz')).strip(),
-            'description': str(quiz_data.get('description', '')).strip(),
+            'title': str(test_data.get('title', 'AI Generated Test')).strip(),
+            'description': str(test_data.get('description', '')).strip(),
             'questions': validated_questions
         }

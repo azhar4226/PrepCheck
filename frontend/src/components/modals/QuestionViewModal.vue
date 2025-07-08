@@ -19,7 +19,7 @@
               <div class="card-body">
                 <div class="row">
                   <div class="col-md-6">
-                    <strong>Quiz:</strong> {{ question.quiz_title }}<br>
+                    <strong>Test:</strong> {{ question.test_title || question.title }}<br>
                     <strong>Subject:</strong> {{ question.subject_name }}<br>
                     <strong>Chapter:</strong> {{ question.chapter_name }}<br>
                     <strong>Type:</strong> 

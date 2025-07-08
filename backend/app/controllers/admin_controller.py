@@ -639,7 +639,7 @@ def create_chapter():
 @admin_bp.route('/mock-tests', methods=['GET'])
 @admin_required
 def get_mock_tests():
-    """Get mock tests (legacy quiz endpoint compatibility)"""
+    """Get mock tests (updated for question bank compatibility)"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
@@ -721,7 +721,7 @@ def create_mock_test():
         
         return jsonify({
             'message': 'Mock test created successfully',
-            'quiz': mock_test.to_dict(),  # Legacy compatibility
+            'test': mock_test.to_dict(),  # Updated compatibility
             'mock_test': mock_test.to_dict()
         }), 201
         
@@ -747,7 +747,7 @@ def toggle_mock_test_status(test_id):
         
         return jsonify({
             'message': f'Mock test {status} successfully',
-            'quiz': mock_test.to_dict(),  # Legacy compatibility
+            'test': mock_test.to_dict(),  # Updated compatibility
             'mock_test': mock_test.to_dict()
         }), 200
         
@@ -775,7 +775,7 @@ def update_mock_test_status(test_id):
         
         return jsonify({
             'message': f'Mock test {status} successfully',
-            'quiz': mock_test.to_dict(),  # Legacy compatibility
+            'test': mock_test.to_dict(),  # Updated compatibility
             'mock_test': mock_test.to_dict()
         }), 200
         

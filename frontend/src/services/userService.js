@@ -14,8 +14,8 @@ class UserService {
     return await apiClient.get(`/api/user/chapters/${subjectId}`)
   }
 
-  async getQuizzes(chapterId) {
-    return await apiClient.get(`/api/user/quizzes/${chapterId}`)
+  async getMockTests(chapterId) {
+    return await apiClient.get(`/api/user/mock-tests/${chapterId}`)
   }
 
   async getHistory(page = 1, perPage = 20) {

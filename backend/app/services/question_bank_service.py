@@ -213,7 +213,7 @@ class QuestionBankService:
         return query.all()
     
     @staticmethod
-    def get_questions_for_quiz(
+    def get_questions_for_practice(
         topic: str,
         difficulty: str,
         num_questions: int,
@@ -221,7 +221,7 @@ class QuestionBankService:
         exclude_recent_usage_hours: int = 24
     ) -> List[QuestionBank]:
         """
-        Get questions from question bank for creating a new quiz
+        Get questions from question bank for creating practice tests
         Prioritizes verified questions and avoids recently used ones
         """
         from datetime import timedelta
@@ -291,14 +291,14 @@ class QuestionBankService:
     @staticmethod
     def record_question_performance(
         question_bank_id: int,
-        quiz_attempt_id: int,
+        test_attempt_id: int,
         user_id: int,
         is_correct: bool,
         selected_option: str,
         time_taken: Optional[int] = None,
         question_position: Optional[int] = None,
-        quiz_difficulty: Optional[str] = None,
-        quiz_topic: Optional[str] = None
+        test_difficulty: Optional[str] = None,
+        test_topic: Optional[str] = None
     ) -> Dict:
         """Record performance data for a question using UGC NET models"""
         
@@ -312,20 +312,15 @@ class QuestionBankService:
         # Return a dict instead of QuestionPerformance object
         return {
             'question_bank_id': question_bank_id,
-            'quiz_attempt_id': quiz_attempt_id,
+            'test_attempt_id': test_attempt_id,
             'user_id': user_id,
             'is_correct': is_correct,
             'selected_option': selected_option,
             'time_taken': time_taken,
             'question_position': question_position,
-            'quiz_difficulty': quiz_difficulty,
-            'quiz_topic': quiz_topic
+            'test_difficulty': test_difficulty,
+            'test_topic': test_topic
         }
-        if question:
-            question.increment_usage()
-        
-        db.session.commit()
-        return performance
     
     @staticmethod
     def get_performance_analytics(

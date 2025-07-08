@@ -187,7 +187,7 @@
                   <h6 class="mb-1">{{ chapter.name }}</h6>
                   <p class="mb-1 text-muted small">{{ chapter.description || 'No description' }}</p>
                   <small class="text-muted">
-                    {{ chapter.quizzes_count || 0 }} quizzes | 
+                    {{ chapter.questions_count || 0 }} questions | 
                     <span :class="chapter.is_active ? 'text-success' : 'text-danger'">
                       {{ chapter.is_active ? 'Active' : 'Inactive' }}
                     </span>

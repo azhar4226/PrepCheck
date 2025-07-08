@@ -57,73 +57,85 @@ class AdminService {
     return await apiClient.post('/api/admin/chapters', chapterData)
   }
 
-  // Quizzes Management
-  async getQuizzes(chapterId = null) {
-    const url = chapterId ? `/api/admin/quizzes?chapter_id=${chapterId}` : '/api/admin/quizzes'
+  // UGC NET Mock Tests Management (replaces legacy quiz management)
+  async getMockTests(chapterId = null) {
+    const url = chapterId ? `/api/admin/ugc-net/mock-tests?chapter_id=${chapterId}` : '/api/admin/ugc-net/mock-tests'
     return await apiClient.get(url)
   }
 
-  async createQuiz(quizData) {
-    return await apiClient.post('/api/admin/quizzes', quizData)
+  async createMockTest(mockTestData) {
+    return await apiClient.post('/api/admin/ugc-net/mock-tests', mockTestData)
   }
 
-  async updateQuiz(quizId, quizData) {
-    return await apiClient.put(`/api/admin/quizzes/${quizId}`, quizData)
+  async updateMockTest(mockTestId, mockTestData) {
+    return await apiClient.put(`/api/admin/ugc-net/mock-tests/${mockTestId}`, mockTestData)
   }
 
-  async toggleQuizStatus(quizId) {
-    return await apiClient.put(`/api/admin/quizzes/${quizId}/toggle-status`)
+  async updateMockTestStatus(mockTestId, isActive) {
+    return await apiClient.put(`/api/admin/ugc-net/mock-tests/${mockTestId}/status`, { is_active: isActive })
   }
 
-  async updateQuizStatus(quizId, isActive) {
-    return await apiClient.put(`/api/admin/quizzes/${quizId}/status`, { is_active: isActive })
+  async deleteMockTest(mockTestId) {
+    return await apiClient.delete(`/api/admin/ugc-net/mock-tests/${mockTestId}`)
   }
 
-  async deleteQuiz(quizId) {
-    return await apiClient.delete(`/api/admin/quizzes/${quizId}`)
-  }
-
-  // Questions Management
-  async getQuizQuestions(quizId) {
-    return await apiClient.get(`/api/admin/questions/${quizId}`)
+  // Question Bank Management (replaces legacy question management)
+  async getMockTestQuestions(mockTestId) {
+    return await apiClient.get(`/api/admin/ugc-net/mock-tests/${mockTestId}/questions`)
   }
 
   async getQuestions(params = {}) {
     const queryString = new URLSearchParams(params).toString()
-    return await apiClient.get(`/api/admin/questions/?${queryString}`)
+    return await apiClient.get(`/api/admin/question-bank/?${queryString}`)
   }
 
   async getQuestionById(questionId) {
-    return await apiClient.get(`/api/admin/questions/${questionId}`)
+    return await apiClient.get(`/api/admin/question-bank/${questionId}`)
   }
 
   async createQuestion(questionData) {
-    return await apiClient.post('/api/admin/questions/', questionData)
+    return await apiClient.post('/api/admin/question-bank/', questionData)
   }
 
   async updateQuestion(questionId, questionData) {
-    return await apiClient.put(`/api/admin/questions/${questionId}`, questionData)
+    return await apiClient.put(`/api/admin/question-bank/${questionId}`, questionData)
   }
 
   async deleteQuestion(questionId) {
-    return await apiClient.delete(`/api/admin/questions/${questionId}`)
+    return await apiClient.delete(`/api/admin/question-bank/${questionId}`)
   }
 
   async bulkCreateQuestions(questionsData) {
-    return await apiClient.post('/api/admin/questions/bulk', questionsData)
+    return await apiClient.post('/api/admin/question-bank/bulk', questionsData)
   }
 
   async deleteQuestions(questionIds) {
-    return await apiClient.post('/api/admin/questions/bulk-delete', { question_ids: questionIds })
+    return await apiClient.post('/api/admin/question-bank/bulk-delete', { question_ids: questionIds })
   }
 
   async exportQuestions(filters = {}) {
     const queryString = new URLSearchParams(filters).toString()
-    return await apiClient.downloadFile(`/api/admin/questions/export?${queryString}`)
+    return await apiClient.downloadFile(`/api/admin/question-bank/export?${queryString}`)
   }
 
   async importQuestions(formData) {
-    return await apiClient.post('/api/admin/questions/import', formData)
+    return await apiClient.post('/api/admin/question-bank/import', formData)
+  }
+
+  // UGC NET Attempts Management
+  async getMockAttempts(params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    return await apiClient.get(`/api/admin/ugc-net/mock-attempts/?${queryString}`)
+  }
+
+  async getPracticeAttempts(params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    return await apiClient.get(`/api/admin/ugc-net/practice-attempts/?${queryString}`)
+  }
+
+  async getAllAttempts(params = {}) {
+    const queryString = new URLSearchParams(params).toString()
+    return await apiClient.get(`/api/admin/ugc-net/attempts/?${queryString}`)
   }
 
   // Users Management

@@ -2,7 +2,7 @@
   <div class="question-bank-management">
     <div class="page-header">
       <h1>🏦 Question Bank Management</h1>
-      <p>Manage AI-generated and manually created questions for reuse across quizzes</p>
+      <p>Manage AI-generated and manually created questions for reuse across tests and practice sessions</p>
     </div>
 
     <!-- Statistics Dashboard -->

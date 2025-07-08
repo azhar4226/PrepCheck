@@ -80,7 +80,7 @@
               <i class="bi bi-clock display-4 mb-3"></i>
               <h3 class="mb-1">{{ analytics.performance.average_time_minutes }}</h3>
               <p class="mb-0">Avg Time (min)</p>
-              <small class="opacity-75">per quiz</small>
+              <small class="opacity-75">per test</small>
             </div>
           </div>
         </div>
@@ -146,7 +146,7 @@
               <div v-if="analytics.subjects.length === 0" class="text-center text-muted py-4">
                 <i class="bi bi-book display-4 mb-3 opacity-50"></i>
                 <h6 class="text-muted">No Subject Data Available</h6>
-                <p class="small">Subject performance data will appear here once users start taking quizzes.</p>
+                <p class="small">Subject performance data will appear here once users start taking mock tests.</p>
               </div>
               <div v-else>
                 <div 
@@ -185,7 +185,7 @@
               <div v-if="topPerformers.length === 0" class="text-center text-muted py-4">
                 <i class="bi bi-trophy display-4 mb-3 opacity-50"></i>
                 <h6 class="text-muted">No Top Performers Yet</h6>
-                <p class="small">Top performers will appear here when users score 80% or higher on quizzes.</p>
+                <p class="small">Top performers will appear here when users score 80% or higher on mock tests.</p>
               </div>
               <div v-else>
                 <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -210,7 +210,7 @@
                           {{ performer.user_name || 'Unknown User' }}
                         </div>
                         <small class="text-muted text-truncate d-block" style="max-width: 150px;">
-                          {{ performer.quiz_title || 'Unknown Quiz' }}
+                          {{ performer.test_title || 'Unknown Test' }}
                         </small>
                         <small class="text-muted">
                           {{ formatDate(performer.completed_at) }}
@@ -295,12 +295,12 @@
             </table>
           </div>
 
-          <!-- Quizzes Tab -->
-          <div v-if="activeTab === 'quizzes'" class="table-responsive">
+          <!-- Tests Tab -->
+          <div v-if="activeTab === 'tests'" class="table-responsive">
             <table class="table table-hover">
               <thead>
                 <tr>
-                  <th>Quiz</th>
+                  <th>Test</th>
                   <th>Subject</th>
                   <th>Attempts</th>
                   <th>Average Score</th>
@@ -309,29 +309,29 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="quiz in detailedQuizzes" :key="quiz.id">
+                <tr v-for="test in detailedTests" :key="test.id">
                   <td>
                     <div>
-                      <div class="fw-medium">{{ quiz.title }}</div>
-                      <small class="text-muted">{{ quiz.total_questions }} questions</small>
+                      <div class="fw-medium">{{ test.title }}</div>
+                      <small class="text-muted">{{ test.total_questions }} questions</small>
                     </div>
                   </td>
-                  <td>{{ quiz.subject_name }}</td>
-                  <td>{{ quiz.attempts_count || 0 }}</td>
+                  <td>{{ test.subject_name }}</td>
+                  <td>{{ test.attempts_count || 0 }}</td>
                   <td>
-                    <span class="badge" :class="getScoreColor(quiz.average_score || 0)">
-                      {{ quiz.average_score || 0 }}%
+                    <span class="badge" :class="getScoreColor(test.average_score || 0)">
+                      {{ test.average_score || 0 }}%
                     </span>
                   </td>
                   <td>
-                    <span class="badge" :class="getDifficultyColor(quiz.difficulty)">
-                      {{ quiz.difficulty || 'Medium' }}
+                    <span class="badge" :class="getDifficultyColor(test.difficulty)">
+                      {{ test.difficulty || 'Medium' }}
                     </span>
                   </td>
                   <td>
                     <button 
                       class="btn btn-sm btn-outline-primary"
-                      @click="viewQuizAnalytics(quiz.id)"
+                      @click="viewTestAnalytics(test.id)"
                     >
                       Analyze
                     </button>
@@ -413,7 +413,7 @@
                         <div class="card-body text-center">
                           <i class="bi bi-clipboard-check display-6 mb-2"></i>
                           <h4 class="mb-1">{{ userAnalytics.summary.total_attempts }}</h4>
-                          <p class="mb-0 small">Quiz Attempts</p>
+                          <p class="mb-0 small">Test Attempts</p>
                         </div>
                       </div>
                     </div>
@@ -577,7 +577,7 @@ export default {
     const activeTab = ref('users')
     const topPerformers = ref([])
     const detailedUsers = ref([])
-    const detailedQuizzes = ref([])
+    const detailedTests = ref([])
     const dailyChart = ref(null)
     const dailyChartInstance = ref(null)
     
@@ -591,7 +591,7 @@ export default {
 
     const analyticsTab = [
       { key: 'users', label: 'Users' },
-      { key: 'quizzes', label: 'Quizzes' }
+      { key: 'tests', label: 'Tests' }
     ]
 
     const loadAnalytics = async () => {
@@ -628,7 +628,7 @@ export default {
         
         // Set sample detailed data for now
         detailedUsers.value = []
-        detailedQuizzes.value = []
+        detailedTests.value = []
         
         // Create charts after data is loaded
         await nextTick()
@@ -703,7 +703,7 @@ export default {
               labels: labels,
               datasets: [
                 {
-                  label: 'Quiz Attempts',
+                  label: 'Test Attempts',
                   data: attempts,
                   borderColor: '#007bff',
                   backgroundColor: 'rgba(0, 123, 255, 0.1)',
@@ -750,7 +750,7 @@ export default {
                   position: 'left',
                   title: {
                     display: true,
-                    text: 'Quiz Attempts'
+                    text: 'Test Attempts'
                   },
                   beginAtZero: true
                 },
@@ -843,9 +843,9 @@ export default {
       window.open(`/admin/analytics/user/${userId}`, '_blank')
     }
 
-    const viewQuizAnalytics = (quizId) => {
-      // Navigate to detailed quiz analytics
-      window.open(`/admin/analytics/quiz/${quizId}`, '_blank')
+    const viewTestAnalytics = (testId) => {
+      // Navigate to detailed test analytics
+      window.open(`/admin/analytics/test/${testId}`, '_blank')
     }
 
     const getScoreColor = (percentage) => {
@@ -1029,7 +1029,7 @@ export default {
       analyticsTab,
       topPerformers,
       detailedUsers,
-      detailedQuizzes,
+      detailedTests,
       dailyChart,
       // User analytics data
       users,
@@ -1045,7 +1045,7 @@ export default {
       exportUserAnalytics,
       exportQuestionBankAnalytics,
       viewUserAnalytics,
-      viewQuizAnalytics,
+      viewTestAnalytics,
       loadUserAnalytics,
       getSuggestionClass,
       getSuggestionIcon,

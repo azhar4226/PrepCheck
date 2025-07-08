@@ -10,22 +10,23 @@ export function useDashboard() {
   
   // User dashboard data
   const userStats = ref({
-    quizzes_taken: 0,
+    tests_taken: 0,
     average_score: 0,
     study_streak: 0,
     rank: null
   })
   
-  const userRecentQuizzes = ref([])
+  const userRecentTests = ref([])
   const userRecommendedSubjects = ref(['Mathematics', 'Science'])
   const userStudyProgress = ref(65)
   
   // Admin dashboard data
   const adminStats = ref({
     total_users: 0,
-    total_quizzes: 0,
+    total_mock_tests: 0,
     total_attempts: 0,
-    total_subjects: 0
+    total_subjects: 0,
+    total_questions: 0
   })
   
   const adminRecentActivity = ref([])
@@ -45,9 +46,10 @@ export function useDashboard() {
       // Ensure stats has the expected properties with fallback values
       const safeStats = {
         total_users: stats.total_users || 0,
-        total_quizzes: stats.total_quizzes || 0,
+        total_mock_tests: stats.total_mock_tests || 0,
         total_attempts: stats.total_attempts || 0,
-        total_subjects: stats.total_subjects || 0
+        total_subjects: stats.total_subjects || 0,
+        total_questions: stats.total_questions || 0
       }
       
       return [
@@ -60,19 +62,27 @@ export function useDashboard() {
           clickable: true
         },
         {
-          key: 'quizzes',
-          title: 'Total Quizzes',
-          value: safeStats.total_quizzes,
-          icon: 'bi bi-question-circle',
+          key: 'mock_tests',
+          title: 'Mock Tests',
+          value: safeStats.total_mock_tests,
+          icon: 'bi bi-clipboard-check',
           variant: 'success',
           clickable: true
         },
         {
           key: 'attempts',
-          title: 'Quiz Attempts',
+          title: 'Test Attempts',
           value: safeStats.total_attempts,
           icon: 'bi bi-bar-chart',
           variant: 'info',
+          clickable: true
+        },
+        {
+          key: 'questions',
+          title: 'Question Bank',
+          value: safeStats.total_questions,
+          icon: 'bi bi-patch-question',
+          variant: 'warning',
           clickable: true
         },
         {
@@ -87,10 +97,10 @@ export function useDashboard() {
     } else {
       return [
         {
-          key: 'quizzes_taken',
-          title: 'Quizzes Taken',
-          value: userStats.value.quizzes_taken || 0,
-          icon: 'bi bi-list-check',
+          key: 'tests_taken',
+          title: 'Tests Taken',
+          value: userStats.value.tests_taken || 0,
+          icon: 'bi bi-clipboard-check',
           variant: 'primary'
         },
         {
@@ -125,18 +135,18 @@ export function useDashboard() {
       return adminRecentActivity.value.map(activity => ({
         id: activity.id,
         title: activity.user_name,
-        subtitle: `${activity.action} - ${activity.quiz_title}`,
+        subtitle: `${activity.action} - ${activity.test_title || activity.activity_title}`,
         timestamp: activity.timestamp,
         badge: activity.type,
         badgeClass: getActivityBadgeClass(activity.type)
       }))
     } else {
-      return userRecentQuizzes.value.map(quiz => ({
-        id: quiz.id,
-        title: quiz.quiz_title || quiz.title,
-        subtitle: `${quiz.subject_name || quiz.subject} • ${quiz.chapter_name || quiz.chapter}`,
-        timestamp: quiz.completed_at,
-        badge: `${quiz.percentage || quiz.score}%`,
+      return userRecentTests.value.map(test => ({
+        id: test.id,
+        title: test.test_title || test.title,
+        subtitle: `${test.subject_name || test.subject} • ${test.paper_type || 'Practice'}`,
+        timestamp: test.completed_at,
+        badge: `${test.percentage || test.score}%`,
         clickable: true
       }))
     }
@@ -156,14 +166,14 @@ export function useDashboard() {
       // Extract stats from dashboard response
       const stats = dashboardRes.stats || {}
       userStats.value = {
-        quizzes_taken: stats.total_attempts || 0,
+        tests_taken: stats.total_attempts || 0,
         average_score: stats.average_score || 0,
         study_streak: stats.study_streak || 0,
         rank: stats.rank || null
       }
       
-      // Extract recent quizzes from history response
-      userRecentQuizzes.value = historyRes.attempts || []
+      // Extract recent test attempts from history response
+      userRecentTests.value = historyRes.attempts || []
       
     } catch (err) {
       console.error('Error loading user dashboard:', err)
@@ -184,9 +194,10 @@ export function useDashboard() {
       // Initialize with fallback data first
       adminStats.value = {
         total_users: 0,
-        total_quizzes: 0,
+        total_mock_tests: 0,
         total_attempts: 0,
-        total_subjects: 0
+        total_subjects: 0,
+        total_questions: 0
       }
       adminRecentActivity.value = []
       
@@ -199,9 +210,10 @@ export function useDashboard() {
         console.log('✅ Updating admin stats with real data')
         adminStats.value = {
           total_users: response.total_users || 0,
-          total_quizzes: response.total_quizzes || 0,
+          total_mock_tests: response.total_mock_tests || 0,
           total_attempts: response.total_attempts || 0,
-          total_subjects: response.total_subjects || 0
+          total_subjects: response.total_subjects || 0,
+          total_questions: response.total_questions || 0
         }
         console.log('📈 Final admin stats:', adminStats.value)
         
@@ -239,10 +251,11 @@ export function useDashboard() {
   // Helper functions
   const getActivityBadgeClass = (type) => {
     const typeMap = {
-      'quiz_completed': 'bg-success',
-      'quiz_started': 'bg-info',
+      'mock_test_completed': 'bg-success',
+      'practice_test_completed': 'bg-info',
+      'test_started': 'bg-info',
       'user_registered': 'bg-primary',
-      'quiz_created': 'bg-warning',
+      'mock_test_created': 'bg-warning',
       'error': 'bg-danger'
     }
     return typeMap[type] || 'bg-secondary'

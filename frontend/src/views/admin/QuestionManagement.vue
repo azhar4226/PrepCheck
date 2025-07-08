@@ -12,11 +12,11 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-3">
-            <label class="form-label">Quiz</label>
-            <select v-model="filters.quiz_id" class="form-select" @change="loadQuestions">
-              <option value="">All Quizzes</option>
-              <option v-for="quiz in quizzes" :key="quiz.id" :value="quiz.id">
-                {{ quiz.title }}
+            <label class="form-label">Test</label>
+            <select v-model="filters.test_id" class="form-select" @change="loadQuestions">
+              <option value="">All Tests</option>
+              <option v-for="test in tests" :key="test.id" :value="test.id">
+                {{ test.title }}
               </option>
             </select>
           </div>
@@ -73,7 +73,7 @@
               <thead class="table-light">
                 <tr>
                   <th>Question</th>
-                  <th>Quiz</th>
+                  <th>Test</th>
                   <th>Subject</th>
                   <th>Type</th>
                   <th>Marks</th>
@@ -89,7 +89,7 @@
                       <small class="text-muted">Correct: {{ question.correct_option }}</small>
                     </div>
                   </td>
-                  <td>{{ question.quiz_title || 'Unassigned' }}</td>
+                  <td>{{ question.test_title || 'Unassigned' }}</td>
                   <td>{{ question.subject_name || 'N/A' }}</td>
                   <td>
                     <span class="badge bg-info">
@@ -178,7 +178,7 @@
       v-if="showCreateModal || showEditModal"
       :show="showCreateModal || showEditModal"
       :question="editingQuestion"
-      :quizzes="quizzes"
+      :tests="tests"
       :subjects="subjects"
       @close="closeModal"
       @save="handleQuestionSave"
@@ -214,7 +214,7 @@ export default {
     const loading = ref(false)
     const error = ref('')
     const questions = ref([])
-    const quizzes = ref([])
+    const tests = ref([])
     const subjects = ref([])
     
     // Pagination
@@ -231,7 +231,7 @@ export default {
     
     // Filters
     const filters = reactive({
-      quiz_id: '',
+      test_id: '',
       subject_id: '',
       verification_status: '',
       search: ''
@@ -271,12 +271,12 @@ export default {
       }
     }
     
-    const loadQuizzes = async () => {
+    const loadTests = async () => {
       try {
-        const response = await adminService.getQuizzes()
-        quizzes.value = response.quizzes || []
+        const response = await adminService.getMockTests()
+        tests.value = response.tests || []
       } catch (err) {
-        console.error('Error loading quizzes:', err)
+        console.error('Error loading tests:', err)
       }
     }
     
@@ -291,12 +291,12 @@ export default {
     
     // Filter handlers
     const filterBySubject = () => {
-      // Reset quiz filter when subject changes
-      filters.quiz_id = ''
+      // Reset test filter when subject changes
+      filters.test_id = ''
       
-      // Filter quizzes by subject
+      // Filter tests by subject
       if (filters.subject_id) {
-        // This would need to be implemented based on quiz-subject relationship
+        // This would need to be implemented based on test-subject relationship
       }
       
       loadQuestions()
@@ -395,7 +395,7 @@ export default {
     }
     
     // Watchers
-    watch(() => filters.quiz_id, () => {
+    watch(() => filters.test_id, () => {
       currentPage.value = 1
       loadQuestions()
     })
@@ -409,7 +409,7 @@ export default {
     onMounted(async () => {
       await Promise.all([
         loadQuestions(),
-        loadQuizzes(),
+        loadTests(),
         loadSubjects()
       ])
     })
@@ -419,7 +419,7 @@ export default {
       loading,
       error,
       questions,
-      quizzes,
+      tests,
       subjects,
       currentPage,
       totalPages,
@@ -434,7 +434,7 @@ export default {
       
       // Methods
       loadQuestions,
-      loadQuizzes,
+      loadTests,
       loadSubjects,
       filterBySubject,
       debounceSearch,

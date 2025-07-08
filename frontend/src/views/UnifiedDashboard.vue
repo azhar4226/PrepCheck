@@ -17,7 +17,7 @@
             </button>
           </template>
           <!-- Admin buttons -->
-          <button v-if="user?.is_admin" class="btn btn-success" @click="navigateToAIQuiz">
+          <button v-if="user?.is_admin" class="btn btn-success" @click="navigateToAIQuestions">
             <i class="bi bi-robot me-1"></i>AI Questions Generator
           </button>
         </template>
@@ -76,11 +76,11 @@
             <li class="nav-item" role="presentation">
               <button 
                 class="nav-link" 
-                :class="{ active: activeTab === 'quizzes' }"
-                @click="setActiveTab('quizzes')"
+                :class="{ active: activeTab === 'mock_tests' }"
+                @click="setActiveTab('mock_tests')"
                 type="button"
               >
-                <i class="bi bi-question-circle me-1"></i>Quizzes
+                <i class="bi bi-clipboard-check me-1"></i>Mock Tests
               </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -130,9 +130,9 @@
               </div>
             </div>
 
-            <div v-show="activeTab === 'quizzes'" class="tab-pane fade show active">
+            <div v-show="activeTab === 'mock_tests'" class="tab-pane fade show active">
               <div class="tab-content-wrapper">
-                <QuizManagement />
+                <UGCNetManagement />
               </div>
             </div>
 
@@ -184,7 +184,7 @@ import UserAnalytics from '@/components/features/UserAnalytics.vue'
 // Import real admin components from views/admin
 import AdminAnalytics from '@/views/admin/Analytics.vue'
 import SubjectManagement from '@/views/admin/SubjectManagement.vue'
-import QuizManagement from '@/views/admin/QuizManagement.vue'
+import UGCNetManagement from '@/views/admin/UGCNetManagement.vue'
 import UserManagement from '@/views/admin/UserManagement.vue'
 import QuestionManagement from '@/views/admin/QuestionManagement.vue'
 
@@ -197,7 +197,7 @@ export default {
     UserAnalytics,
     AdminAnalytics,
     SubjectManagement,
-    QuizManagement,
+    UGCNetManagement,
     UserManagement,
     QuestionManagement
   },
@@ -250,9 +250,9 @@ export default {
       router.push('/ugc-net')
     }
 
-    // Navigate to AI Quiz Generator
-    const navigateToAIQuiz = () => {
-      router.push('/admin/ai-quiz')
+    // Navigate to AI Question Generator
+    const navigateToAIQuestions = () => {
+      router.push('/admin/ai-questions')
     }
 
     // Export data functionality - PDF FORMAT
@@ -265,7 +265,7 @@ export default {
         // Request PDF format specifically
         const response = await api.post('/api/admin/export', {
           format: 'pdf',  // 🔄 Changed from 'csv' to 'pdf'
-          include: ['users', 'quizzes', 'attempts', 'subjects'],
+          include: ['users', 'tests', 'attempts', 'subjects'],
           options: {
             title: 'PrepCheck Admin Data Export',
             orientation: 'landscape',  // Better for tables
@@ -515,7 +515,7 @@ export default {
       setActiveTab,
       refreshData,
       startNewMockTest,
-      navigateToAIQuiz,
+      navigateToAIQuestions,
       exportData,
       // Helper functions (optional to expose)
       showSuccessMessage,
@@ -581,7 +581,7 @@ export default {
 
 /* Override admin component styles for tab embedding */
 .tab-content-wrapper .subject-management,
-.tab-content-wrapper .quiz-management,
+.tab-content-wrapper .test-management,
 .tab-content-wrapper .user-management,
 .tab-content-wrapper .question-management,
 .tab-content-wrapper .analytics-dashboard {

@@ -11,15 +11,26 @@
         </div>
         <div class="modal-body">
           <form @submit.prevent="handleSubmit">
-            <!-- Quiz Selection -->
-            <div class="mb-3">
-              <label class="form-label">Quiz *</label>
-              <select v-model="form.quiz_id" class="form-select" required>
-                <option value="">Select Quiz</option>
-                <option v-for="quiz in quizzes" :key="quiz.id" :value="quiz.id">
-                  {{ quiz.title }}
-                </option>
-              </select>
+            <!-- Subject and Chapter Selection -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label class="form-label">Subject *</label>
+                <select v-model="form.subject_id" class="form-select" required @change="onSubjectChange">
+                  <option value="">Select Subject</option>
+                  <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                    {{ subject.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Chapter</label>
+                <select v-model="form.chapter_id" class="form-select">
+                  <option value="">Select Chapter</option>
+                  <option v-for="chapter in chapters" :key="chapter.id" :value="chapter.id">
+                    {{ chapter.name }}
+                  </option>
+                </select>
+              </div>
             </div>
 
             <!-- Question Text -->
@@ -165,7 +176,11 @@ export default {
       type: Object,
       default: null
     },
-    quizzes: {
+    subjects: {
+      type: Array,
+      default: () => []
+    },
+    chapters: {
       type: Array,
       default: () => []
     }
@@ -176,7 +191,8 @@ export default {
     const saving = ref(false)
     
     const form = ref({
-      quiz_id: '',
+      subject_id: '',
+      chapter_id: '',
       question_text: '',
       question_type: 'multiple_choice',
       option_a: '',
@@ -186,6 +202,8 @@ export default {
       correct_option: '',
       explanation: '',
       difficulty: 'medium',
+      topic: '',
+      paper_type: 'paper2',
       points: 1
     })
 
@@ -193,7 +211,8 @@ export default {
 
     const resetForm = () => {
       form.value = {
-        quiz_id: '',
+        subject_id: '',
+        chapter_id: '',
         question_text: '',
         question_type: 'multiple_choice',
         option_a: '',
@@ -203,15 +222,19 @@ export default {
         correct_option: '',
         explanation: '',
         difficulty: 'medium',
+        topic: '',
+        paper_type: 'paper2',
         points: 1
       }
+      editingQuestion.value = false
     }
 
     const loadQuestion = (question) => {
       if (question) {
         editingQuestion.value = true
         form.value = {
-          quiz_id: question.quiz_id,
+          subject_id: question.subject_id,
+          chapter_id: question.chapter_id,
           question_text: question.question_text,
           question_type: question.question_type || 'multiple_choice',
           option_a: question.option_a,

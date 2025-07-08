@@ -18,7 +18,7 @@ import UserDashboard from '@/views/user/Dashboard.vue'
 import AdminDashboard from '@/views/admin/Dashboard.vue'
 import SubjectManagement from '@/views/admin/SubjectManagement.vue'
 import Analytics from '@/views/admin/Analytics.vue'
-import AIQuizGenerator from '@/views/admin/AIQuizGenerator.vue'
+import AIQuestionGenerator from '@/views/admin/AIQuestionGenerator.vue'
 
 const routes = [
   {
@@ -206,19 +206,23 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/admin/ai-quiz',
-    name: 'AIQuizGenerator',
-    component: AIQuizGenerator,
+    path: '/admin/ai-questions',
+    name: 'AIQuestionGenerator',
+    component: AIQuestionGenerator,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/admin/quiz-generator',
-    redirect: '/admin/ai-quiz'
+    path: '/admin/ai-quiz',
+    redirect: '/admin/ai-questions'
   },
   {
-    path: '/admin/quizzes',
-    name: 'QuizManagement',
-    component: () => import('@/views/admin/QuizManagement.vue'),
+    path: '/admin/quiz-generator',
+    redirect: '/admin/ai-questions'
+  },
+  {
+    path: '/admin/ugc-net',
+    name: 'UGCNetManagement',
+    component: () => import('@/views/admin/UGCNetManagement.vue'),
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
