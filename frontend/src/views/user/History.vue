@@ -47,7 +47,7 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h2><i class="bi bi-clock-history me-2"></i>Test History</h2>
           <div class="btn-group" role="group">
-            <router-link to="/ugc-net" class="btn btn-outline-primary">
+            <router-link to="/ugc-net/generate-test" class="btn btn-outline-primary">
               <i class="bi bi-mortarboard me-2"></i>
               Take New Test
             </router-link>

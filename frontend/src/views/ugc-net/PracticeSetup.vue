@@ -33,8 +33,49 @@
         <div class="card shadow">
           <div class="card-body p-4">
             <form @submit.prevent="generatePracticeTest">
-              <!-- Subject Selection -->
+              <!-- Paper Type Selection -->
               <div class="mb-4">
+                <label class="form-label fw-bold">
+                  <i class="bi bi-file-earmark-text me-2"></i>Paper Selection
+                </label>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input 
+                        id="paper1" 
+                        v-model="config.paper_type" 
+                        value="paper1" 
+                        class="form-check-input" 
+                        type="radio"
+                        @change="onPaperTypeChange"
+                      />
+                      <label for="paper1" class="form-check-label">
+                        <strong>Paper 1</strong> - Teaching and Research Aptitude
+                        <div class="small text-muted">General aptitude questions (common for all subjects)</div>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input 
+                        id="paper2" 
+                        v-model="config.paper_type" 
+                        value="paper2" 
+                        class="form-check-input" 
+                        type="radio"
+                        @change="onPaperTypeChange"
+                      />
+                      <label for="paper2" class="form-check-label">
+                        <strong>Paper 2</strong> - Subject-specific Knowledge
+                        <div class="small text-muted">Questions from your registered subject</div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Subject Selection (only for Paper 2) -->
+              <div v-if="config.paper_type === 'paper2'" class="mb-4">
                 <label class="form-label fw-bold">
                   <i class="bi bi-book me-2"></i>Subject Selection
                 </label>
@@ -58,8 +99,19 @@
                 </div>
               </div>
 
+              <!-- Paper 1 Subject Info (auto-selected) -->
+              <div v-else-if="config.paper_type === 'paper1'" class="mb-4">
+                <label class="form-label fw-bold">
+                  <i class="bi bi-book me-2"></i>Subject
+                </label>
+                <div class="form-control-plaintext bg-light border rounded p-2">
+                  <i class="bi bi-info-circle text-primary me-2"></i>
+                  <strong>Teaching and Research Aptitude</strong> - Common for all subjects
+                </div>
+              </div>
+
               <!-- Chapter Selection -->
-              <div v-if="config.subject_id" class="mb-4">
+              <div v-if="shouldShowChapterSelection" class="mb-4">
                 <label class="form-label fw-bold">
                   <i class="bi bi-list-ul me-2"></i>Chapter Selection
                 </label>
@@ -70,7 +122,7 @@
                 </div>
                 <div v-else-if="chapters.length === 0" class="alert alert-warning">
                   <i class="bi bi-exclamation-triangle me-2"></i>
-                  No chapters available for this subject.
+                  No chapters available for this {{ config.paper_type === 'paper1' ? 'paper' : 'subject' }}.
                 </div>
                 <div v-else>
                   <!-- Select All/None Controls -->
@@ -140,9 +192,9 @@
                   <i class="bi bi-gear me-2"></i>Question Configuration
                 </label>
                 
-                <!-- Total Questions -->
+                <!-- Total Questions and Time -->
                 <div class="row mb-3">
-                  <div class="col-md-6">
+                  <div class="col-md-4">
                     <label class="form-label">Total Questions</label>
                     <input 
                       v-model.number="config.total_questions" 
@@ -154,7 +206,15 @@
                       @input="updateDistribution"
                     />
                   </div>
-                  <div class="col-md-6">
+                  <div class="col-md-4">
+                    <label class="form-label">Time Limit</label>
+                    <div class="form-control-plaintext bg-light border rounded p-2">
+                      <i class="bi bi-clock text-primary me-2"></i>
+                      <strong>{{ calculateTimeLimit(config.total_questions) }}</strong>
+                      <div class="small text-muted">1 hour per 50 questions</div>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
                     <label class="form-label">Distribution Mode</label>
                     <select 
                       v-model="config.distribution_mode" 
@@ -304,6 +364,7 @@ export default {
     })
     
     const config = ref({
+      paper_type: 'paper2', // Default to Paper 2
       subject_id: '',
       selected_chapters: [],
       total_questions: 20,
@@ -328,6 +389,12 @@ export default {
 
     const selectedChapterDetails = computed(() => {
       return chapters.value.filter(c => selectedChapters.value.includes(c.id))
+    })
+
+    // Show chapter selection when Paper 1 is selected OR when Paper 2 with subject selected
+    const shouldShowChapterSelection = computed(() => {
+      return config.value.paper_type === 'paper1' || 
+             (config.value.paper_type === 'paper2' && config.value.subject_id)
     })
 
     const difficultyTotal = computed(() => {
@@ -376,7 +443,11 @@ export default {
     })
 
     const isFormValid = computed(() => {
-      return config.value.subject_id && 
+      const hasValidSubject = config.value.paper_type === 'paper1' || 
+                              (config.value.paper_type === 'paper2' && config.value.subject_id)
+      
+      return config.value.paper_type && 
+             hasValidSubject && 
              selectedChapters.value.length > 0 && 
              config.value.total_questions > 0 &&
              difficultyTotal.value === 100 &&
@@ -384,6 +455,40 @@ export default {
     })
 
     // Methods
+    const calculateTimeLimit = (totalQuestions) => {
+      if (!totalQuestions || totalQuestions <= 0) return '0 minutes'
+      
+      // 1 hour (60 minutes) per 50 questions
+      const totalMinutes = Math.ceil((totalQuestions / 50) * 60)
+      
+      if (totalMinutes < 60) {
+        return `${totalMinutes} minutes`
+      } else {
+        const hours = Math.floor(totalMinutes / 60)
+        const minutes = totalMinutes % 60
+        if (minutes === 0) {
+          return `${hours} hour${hours > 1 ? 's' : ''}`
+        } else {
+          return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minutes`
+        }
+      }
+    }
+
+    const onPaperTypeChange = () => {
+      // Reset chapter and subject selection when changing paper type
+      config.value.selected_chapters = []
+      chapters.value = []
+      
+      if (config.value.paper_type === 'paper1') {
+        // For Paper 1, auto-load general aptitude chapters
+        config.value.subject_id = 1 // Assuming Paper 1 subject has ID 1
+        loadChapters(1)
+      } else {
+        // For Paper 2, reset subject selection
+        config.value.subject_id = ''
+      }
+    }
+
     const loadSubjects = async () => {
       loading.value.subjects = true
       try {
@@ -475,8 +580,12 @@ export default {
     const generatePracticeTest = async () => {
       loading.value.generate = true
       try {
+        // Calculate time limit: 1 hour per 50 questions
+        const timeLimit = Math.ceil((config.value.total_questions / 50) * 60) // in minutes
+        
         const testConfig = {
           ...config.value,
+          time_limit: timeLimit,
           question_distribution: config.value.distribution_mode === 'manual' 
             ? questionDistribution.value 
             : null
@@ -516,10 +625,13 @@ export default {
       selectedSubject,
       selectedChapters,
       selectedChapterDetails,
+      shouldShowChapterSelection,
       difficultyTotal,
       manualTotal,
       distributionPreview,
       isFormValid,
+      calculateTimeLimit,
+      onPaperTypeChange,
       onSubjectChange,
       selectAllChapters,
       selectNoneChapters,
