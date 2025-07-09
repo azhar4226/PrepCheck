@@ -3,14 +3,14 @@
     <!-- Header -->
     <div class="row mb-4">
       <div class="col-12">
-        <div class="card bg-gradient-primary text-white">
+        <div class="card bg-gradient-primary text-black">
           <div class="card-body">
             <h2 class="card-title mb-2">
-              <i class="bi bi-gear-fill me-2"></i>
-              Generate UGC NET Mock Test
+              <i class="bi bi-gear me-2"></i>
+              UGC NET Mock Test
             </h2>
             <p class="card-text mb-0">
-              Create a customized mock test based on weightage and difficulty preferences
+              Create a mock test (Paper 1 + Paper 2) to simulate actual UGC NET exam
             </p>
           </div>
         </div>
@@ -30,7 +30,7 @@
             <form @submit.prevent="generateTest">
               <!-- Basic Settings -->
               <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-md-12">
                   <label class="form-label">Test Title</label>
                   <input 
                     v-model="form.title" 
@@ -40,167 +40,20 @@
                     required
                   >
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label">Subject</label>
-                  <select v-model="form.subject_id" class="form-select" required>
-                    <option value="">Select a subject</option>
-                    <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
-                      {{ subject.name }}
-                    </option>
-                  </select>
-                </div>
               </div>
 
+        
+              <!-- User Subject Info (Read-only) -->
               <div class="row mb-4">
-                <div class="col-md-4">
-                  <label class="form-label">Total Questions</label>
-                  <input 
-                    v-model.number="form.total_questions" 
-                    type="number" 
-                    class="form-control"
-                    min="1"
-                    max="100"
-                    required
-                  >
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Time Limit (minutes)</label>
-                  <input 
-                    v-model.number="form.time_limit" 
-                    type="number" 
-                    class="form-control"
-                    min="10"
-                    max="300"
-                    required
-                  >
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Paper Type</label>
-                  <select v-model="form.paper_type" class="form-select" required>
-                    <option value="paper1">Paper 1</option>
-                    <option value="paper2">Paper 2</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Difficulty Distribution -->
-              <div class="mb-4">
-                <h6 class="mb-3">
-                  <i class="bi bi-bar-chart-steps me-2"></i>Difficulty Distribution
-                </h6>
-                <div class="row">
-                  <div class="col-md-4">
-                    <label class="form-label">Easy Questions (%)</label>
-                    <input 
-                      v-model.number="form.easy_percentage" 
-                      type="number" 
-                      class="form-control"
-                      min="0"
-                      max="100"
-                      @input="validatePercentages"
-                    >
-                    <div class="progress mt-2" style="height: 6px;">
-                      <div 
-                        class="progress-bar bg-success" 
-                        :style="{ width: form.easy_percentage + '%' }"
-                      ></div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Medium Questions (%)</label>
-                    <input 
-                      v-model.number="form.medium_percentage" 
-                      type="number" 
-                      class="form-control"
-                      min="0"
-                      max="100"
-                      @input="validatePercentages"
-                    >
-                    <div class="progress mt-2" style="height: 6px;">
-                      <div 
-                        class="progress-bar bg-warning" 
-                        :style="{ width: form.medium_percentage + '%' }"
-                      ></div>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Hard Questions (%)</label>
-                    <input 
-                      v-model.number="form.hard_percentage" 
-                      type="number" 
-                      class="form-control"
-                      min="0"
-                      max="100"
-                      @input="validatePercentages"
-                    >
-                    <div class="progress mt-2" style="height: 6px;">
-                      <div 
-                        class="progress-bar bg-danger" 
-                        :style="{ width: form.hard_percentage + '%' }"
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-                <small class="text-muted">
-                  Total: {{ totalDifficultyPercentage }}% 
-                  <span v-if="totalDifficultyPercentage !== 100" class="text-warning">
-                    (Should equal 100%)
-                  </span>
-                </small>
-              </div>
-
-              <!-- Weightage Configuration -->
-              <div class="mb-4" v-if="chapters.length > 0">
-                <h6 class="mb-3">
-                  <i class="bi bi-pie-chart me-2"></i>Chapter Weightage Configuration
-                </h6>
-                <div class="alert alert-info">
-                  <i class="bi bi-info-circle me-2"></i>
-                  Adjust the weightage for each chapter. Questions will be selected based on these percentages.
-                </div>
-                <div class="row">
-                  <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 col-lg-4 mb-3">
-                    <div class="card border-0 bg-light">
-                      <div class="card-body">
-                        <h6 class="card-title small">{{ chapter.name }}</h6>
-                        <div class="input-group input-group-sm">
-                          <input 
-                            v-model.number="form.weightage_config[chapter.id]" 
-                            type="number" 
-                            class="form-control"
-                            min="0"
-                            max="100"
-                            @input="calculateWeightageTotal"
-                          >
-                          <span class="input-group-text">%</span>
-                        </div>
-                        <small class="text-muted">
-                          Default: {{ chapter.weightage_paper2 }}%
-                        </small>
-                        <div class="progress mt-1" style="height: 4px;">
-                          <div 
-                            class="progress-bar" 
-                            :style="{ width: (form.weightage_config[chapter.id] || 0) + '%' }"
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                  <small class="text-muted">
-                    Total Weightage: {{ totalWeightage }}%
-                    <span v-if="totalWeightage !== 100" class="text-warning">
-                      (Should equal 100%)
+                <div class="col-md-12">
+                  <label class="form-label">Your Registered Subject</label>
+                  <div class="form-control-plaintext bg-light border rounded p-2">
+                    <span v-if="userSubject">
+                      <strong>{{ userSubject.name }}</strong> ({{ userSubject.subject_code }})
                     </span>
-                  </small>
-                  <button 
-                    @click="resetToDefaultWeightage" 
-                    type="button" 
-                    class="btn btn-sm btn-outline-secondary"
-                  >
-                    <i class="bi bi-arrow-clockwise me-1"></i>Reset to Default
-                  </button>
+                    <span v-else class="text-muted">Loading your subject...</span>
+                  </div>
+                  <div class="form-text">Paper 2 will be based on this subject. Paper 1 is common for all subjects.</div>
                 </div>
               </div>
 
@@ -211,7 +64,7 @@
                   v-model="form.description" 
                   class="form-control" 
                   rows="3"
-                  placeholder="Add a description for this test..."
+                  placeholder="Add a description for this mock test..."
                 ></textarea>
               </div>
 
@@ -254,51 +107,29 @@
               <div class="text-muted small">{{ form.description || 'No description' }}</div>
             </div>
             <div class="row text-center">
-              <div class="col-6">
+              <div class="col-4">
                 <div class="border rounded p-2">
                   <div class="text-primary">
-                    <strong>{{ form.total_questions || 0 }}</strong>
+                    <strong>150</strong>
                   </div>
                   <small class="text-muted">Questions</small>
                 </div>
               </div>
-              <div class="col-6">
+              <div class="col-4">
+                <div class="border rounded p-2">
+                  <div class="text-success">
+                    <strong>300</strong>
+                  </div>
+                  <small class="text-muted">Marks</small>
+                </div>
+              </div>
+              <div class="col-4">
                 <div class="border rounded p-2">
                   <div class="text-info">
-                    <strong>{{ form.time_limit || 0 }}</strong>
+                    <strong>180</strong>
                   </div>
                   <small class="text-muted">Minutes</small>
                 </div>
-              </div>
-            </div>
-            
-            <!-- Difficulty Preview -->
-            <div class="mt-3" v-if="totalDifficultyPercentage === 100">
-              <small class="text-muted d-block mb-2">Difficulty Breakdown:</small>
-              <div class="progress" style="height: 20px;">
-                <div 
-                  class="progress-bar bg-success" 
-                  :style="{ width: form.easy_percentage + '%' }"
-                >
-                  <small v-if="form.easy_percentage > 15">{{ form.easy_percentage }}%</small>
-                </div>
-                <div 
-                  class="progress-bar bg-warning" 
-                  :style="{ width: form.medium_percentage + '%' }"
-                >
-                  <small v-if="form.medium_percentage > 15">{{ form.medium_percentage }}%</small>
-                </div>
-                <div 
-                  class="progress-bar bg-danger" 
-                  :style="{ width: form.hard_percentage + '%' }"
-                >
-                  <small v-if="form.hard_percentage > 15">{{ form.hard_percentage }}%</small>
-                </div>
-              </div>
-              <div class="d-flex justify-content-between text-xs mt-1">
-                <small class="text-success">Easy</small>
-                <small class="text-warning">Medium</small>
-                <small class="text-danger">Hard</small>
               </div>
             </div>
           </div>
@@ -317,11 +148,12 @@
                 <i class="bi bi-info-circle me-1"></i>Test Generation Tips
               </h6>
               <ul class="mb-0 small">
-                <li>Start with 10-15 questions for quick practice</li>
-                <li>Use 30-50 questions for full mock tests</li>
-                <li>Balance difficulty: 40% easy, 40% medium, 20% hard</li>
-                <li>Adjust chapter weightage based on your weak areas</li>
-                <li>Allow 1.5-2 minutes per question for timing</li>
+                <li>Mock tests simulate the actual UGC NET exam format</li>
+                <li>Paper 1: 50 questions (Teaching & Research Aptitude)</li>
+                <li>Paper 2: 100 questions (Your subject-specific questions)</li>
+                <li>Each question carries 2 marks (no negative marking)</li>
+                <li>Total time: 3 hours for 150 questions</li>
+                <li>Questions are randomly selected to ensure fairness</li>
               </ul>
             </div>
             
@@ -330,8 +162,7 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>Important
               </h6>
               <p class="mb-0 small">
-                Ensure sufficient questions are available in the database for your selected configuration.
-                The system will inform you if adjustments are needed.
+                Mock tests use your registered subject automatically. Ensure you have registered for the correct subject in your profile before taking mock tests.
               </p>
             </div>
           </div>
@@ -403,22 +234,24 @@ export default {
     
     // Reactive data
     const subjects = ref([])
+    const userSubject = ref(null)
     const chapters = ref([])
     const loading = ref(false)
     const generatedTest = ref(null)
     
-    // Form data
+    // Form data for Mock Test (Fixed configuration)
     const form = ref({
       title: '',
       description: '',
-      subject_id: '',
-      total_questions: 10,
-      time_limit: 45,
-      paper_type: 'paper2',
-      easy_percentage: 40,
-      medium_percentage: 40,
+      // Fixed Mock Test configuration - cannot be changed by user
+      total_questions: 150, // Paper 1 (50) + Paper 2 (100)
+      time_limit: 180, // Fixed 3 hours = 180 minutes
+      paper_type: 'mock', // Mock test includes both papers
+      // Fixed difficulty distribution as per UGC NET pattern
+      easy_percentage: 30,
+      medium_percentage: 50,
       hard_percentage: 20,
-      weightage_config: {}
+      weightage_config: null // Will use fixed weightage from backend
     })
 
     // Computed properties
@@ -431,47 +264,46 @@ export default {
     })
 
     const isFormValid = computed(() => {
-      return form.value.title &&
-             form.value.subject_id &&
-             form.value.total_questions > 0 &&
-             form.value.time_limit > 0 &&
-             totalDifficultyPercentage.value === 100
+      return form.value.title && userSubject.value
+      // No need to validate time/questions as they are fixed for mock tests
+      // User subject is fetched automatically, no selection needed
     })
 
-    // Watch subject selection to load chapters
-    watch(() => form.value.subject_id, async (newSubjectId) => {
-      if (newSubjectId) {
-        await loadChapters(newSubjectId)
-      }
-    })
-
+    // Watch removed as no subject selection needed
+    
     // Methods
-    const loadSubjects = async () => {
+    const loadUserSubject = async () => {
       try {
-        const result = await api.ugcNet.getSubjects()
-        if (result.success) {
-          subjects.value = result.data.subjects || []
-          
-          // Pre-select subject from query params
-          const subjectId = route.query.subject
-          if (subjectId) {
-            form.value.subject_id = parseInt(subjectId)
+        // Get user's registered subject from profile
+        const userData = await api.user.getProfile()
+        console.log('🔍 User profile data:', userData)
+        
+        if (userData && userData.subject_id) {
+          const subjectId = userData.subject_id
+          // Get subject details
+          const subjectResult = await api.ugcNet.getSubjects()
+          if (subjectResult.success) {
+            const subject = subjectResult.data.subjects.find(s => s.id === subjectId)
+            if (subject) {
+              userSubject.value = subject
+              // Set default title
+              form.value.title = `${subject.name} Mock Test - ${new Date().toLocaleDateString()}`
+            }
           }
+        } else {
+          console.warn('User has no registered UGC NET subject')
         }
       } catch (error) {
-        console.error('Failed to load subjects:', error)
+        console.error('Failed to load user subject:', error)
       }
     }
-
     const loadChapters = async (subjectId) => {
+      // For mock tests, we don't need to load chapters for user configuration
+      // The backend will use fixed weightage for all chapters
       try {
-        const result = await api.ugcNet.getSubjectChapters(subjectId)
-        if (result.success) {
-          chapters.value = result.data.chapters || []
-          resetToDefaultWeightage()
-        }
+        console.log('Mock test will use fixed weightage for all chapters of subject:', subjectId)
       } catch (error) {
-        console.error('Failed to load chapters:', error)
+        console.error('Error:', error)
       }
     }
 
@@ -502,7 +334,12 @@ export default {
 
     const generateTest = async () => {
       if (!isFormValid.value) {
-        alert('Please fill all required fields and ensure percentages total 100%')
+        alert('Please fill all required fields. Make sure you have a registered UGC NET subject.')
+        return
+      }
+
+      if (!userSubject.value) {
+        alert('Please register for a UGC NET subject in your profile before generating mock tests.')
         return
       }
 
@@ -512,14 +349,19 @@ export default {
         const testConfig = {
           title: form.value.title,
           description: form.value.description,
-          subject_id: form.value.subject_id,
-          total_questions: form.value.total_questions,
-          time_limit: form.value.time_limit,
-          paper_type: form.value.paper_type,
-          easy_percentage: form.value.easy_percentage,
-          medium_percentage: form.value.medium_percentage,
-          hard_percentage: form.value.hard_percentage,
-          weightage_config: form.value.weightage_config
+          subject_id: userSubject.value.id, // Use user's registered subject
+          // Fixed Mock Test configuration
+          total_questions: form.value.total_questions, // 150 questions (50 Paper 1 + 100 Paper 2)
+          time_limit: form.value.time_limit, // 180 minutes (3 hours)
+          paper_type: 'mock', // Both Paper 1 and Paper 2
+          // Fixed difficulty and weightage - no user customization
+          difficulty_distribution: {
+            easy: form.value.easy_percentage,
+            medium: form.value.medium_percentage,
+            hard: form.value.hard_percentage
+          },
+          // No custom weightage_config - backend will use fixed UGC NET pattern
+          use_fixed_weightage: true
         }
 
         const result = await api.ugcNet.generateMockTest(testConfig)
@@ -568,19 +410,12 @@ export default {
 
     // Lifecycle
     onMounted(async () => {
-      await loadSubjects()
-      
-      // Set default title based on subject
-      if (form.value.subject_id) {
-        const subject = subjects.value.find(s => s.id === form.value.subject_id)
-        if (subject) {
-          form.value.title = `${subject.name} Mock Test`
-        }
-      }
+      await loadUserSubject()
     })
 
     return {
       subjects,
+      userSubject,
       chapters,
       form,
       loading,
@@ -588,7 +423,7 @@ export default {
       totalDifficultyPercentage,
       totalWeightage,
       isFormValid,
-      loadSubjects,
+      loadUserSubject,
       loadChapters,
       resetToDefaultWeightage,
       validatePercentages,

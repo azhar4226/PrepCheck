@@ -9,11 +9,8 @@
               <div class="col-md-8">
                 <h2 class="card-title mb-2">
                   <i class="bi bi-mortarboard-fill me-2"></i>
-                  UGC NET Preparation Dashboard
+                  UGC NET Preparation
                 </h2>
-                <p class="card-text mb-0">
-                  Comprehensive preparation platform for UGC NET examinations with weightage-based mock tests
-                </p>
               </div>
               <div class="col-md-4 text-md-end">
                 <div class="d-flex flex-column">
@@ -153,117 +150,7 @@
           </div>
         </div>
 
-        <!-- Recent Mock Tests -->
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-              <i class="bi bi-clipboard-data me-2"></i>Recent Mock Tests
-            </h5>
-            <div>
-              <button @click="generateNewTest" class="btn btn-sm btn-primary me-2">
-                <i class="bi bi-plus-circle me-1"></i>Generate Test
-              </button>
-              <button @click="loadMockTests" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-              </button>
-            </div>
-          </div>
-          <div class="card-body">
-            <div v-if="loading.mockTests" class="text-center py-4">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading mock tests...</span>
-              </div>
-            </div>
-            <div v-else-if="mockTests.length === 0" class="text-center py-4 text-muted">
-              <i class="bi bi-clipboard-x display-4 d-block mb-3"></i>
-              <p>No mock tests available.</p>
-              <button @click="generateNewTest" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i>Create First Test
-              </button>
-            </div>
-            <div v-else>
-              <div v-for="test in mockTests.slice(0, 5)" :key="test.id" class="mb-3">
-                <div class="d-flex justify-content-between align-items-center p-3 border rounded">
-                  <div>
-                    <h6 class="mb-1">{{ test.title }}</h6>
-                    <small class="text-muted">
-                      <i class="bi bi-clock me-1"></i>{{ formatTimeLimit(test.time_limit) }}
-                      <span class="mx-2">•</span>
-                      <i class="bi bi-question-circle me-1"></i>{{ test.total_questions }} questions
-                      <span class="mx-2">•</span>
-                      <i class="bi bi-calendar me-1"></i>{{ formatDate(test.created_at) }}
-                    </small>
-                    <!-- Show attempt info if user has attempted -->
-                    <div v-if="test.user_attempts > 0" class="mt-1">
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        {{ test.user_attempts }} attempt{{ test.user_attempts > 1 ? 's' : '' }}
-                        <span v-if="test.best_score !== null"> • Best: {{ test.best_score }}%</span>
-                        <span v-if="test.last_attempted"> • Last: {{ formatDate(test.last_attempted) }}</span>
-                      </small>
-                    </div>
-                  </div>
-                  <div class="d-flex gap-2">
-                    <!-- Primary action button based on attempt status -->
-                    <button 
-                      v-if="test.user_attempts > 0"
-                      @click="viewTestResults(test)" 
-                      class="btn btn-sm btn-success"
-                      title="View your test results and performance"
-                    >
-                      <i class="bi bi-graph-up me-1"></i>
-                      View Results
-                    </button>
-                    <button 
-                      v-else
-                      @click="startTest(test)" 
-                      class="btn btn-sm btn-primary"
-                      :disabled="loading.startTest === test.id"
-                      title="Start taking this test"
-                    >
-                      <span v-if="loading.startTest === test.id" 
-                            class="spinner-border spinner-border-sm me-1" 
-                            role="status">
-                      </span>
-                      <i v-else class="bi bi-play-fill me-1"></i>
-                      Start Test
-                    </button>
-                    
-                    <!-- Secondary action: Take test again (if attempted) or View info (if not attempted) -->
-                    <button 
-                      v-if="test.user_attempts > 0"
-                      @click="startTest(test)" 
-                      class="btn btn-sm btn-outline-primary"
-                      :disabled="loading.startTest === test.id"
-                      title="Take this test again"
-                    >
-                      <span v-if="loading.startTest === test.id" 
-                            class="spinner-border spinner-border-sm me-1" 
-                            role="status">
-                      </span>
-                      <i v-else class="bi bi-arrow-clockwise me-1"></i>
-                      Retake
-                    </button>
-                    <button 
-                      v-else
-                      @click="showTestInfo(test)" 
-                      class="btn btn-sm btn-outline-secondary"
-                      title="View test information and details"
-                    >
-                      <i class="bi bi-info-circle me-1"></i>
-                      Info
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div v-if="mockTests.length > 5" class="text-center">
-                <button @click="$router.push('/ugc-net/tests')" class="btn btn-outline-primary">
-                  View All Tests ({{ mockTests.length }})
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       <!-- Right Column - Quick Actions & Performance -->
@@ -434,7 +321,6 @@ export default {
     // Reactive data
     const subjects = ref([])
     const chapters = ref([])
-    const mockTests = ref([])
     const stats = ref({
       overview: {
         total_subjects: 0,
@@ -457,9 +343,7 @@ export default {
     // Loading states
     const loading = ref({
       subjects: false,
-      chapters: false,
-      mockTests: false,
-      startTest: null
+      chapters: false
     })
 
     // Computed user's registered subject
@@ -479,35 +363,22 @@ export default {
         
         return {
           totalAttempts: stats.value.user_stats.total_attempts || 0,
-          bestScore: Math.round(stats.value.user_stats.best_score || 0),
-          averageScore: Math.round(stats.value.user_stats.average_score || 0),
+          bestScore: Math.min(Math.round(stats.value.user_stats.best_score || 0), 100),
+          averageScore: Math.min(Math.round(stats.value.user_stats.average_score || 0), 100),
           practiceAttempts: stats.value.user_stats.practice_attempts || 0,
           mockAttempts: stats.value.user_stats.mock_attempts || 0,
           qualifiedTests: stats.value.user_stats.qualified_attempts || qualifiedTests || 0
         }
       }
       
-      // Fallback: Calculate from mock tests only (legacy behavior)
-      const attempts = mockTests.value.reduce((acc, test) => {
-        return acc + (test.user_attempts || 0)
-      }, 0)
-      
-      // Calculate best and average scores from mock tests
-      const scores = mockTests.value
-        .filter(test => test.best_score !== null)
-        .map(test => test.best_score)
-      
-      const bestScore = scores.length > 0 ? Math.max(...scores) : 0
-      const averageScore = scores.length > 0 ? 
-        Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-      
+      // Fallback: Return default stats when no API data available
       return {
-        totalAttempts: attempts,
-        bestScore,
-        averageScore,
+        totalAttempts: 0,
+        bestScore: 0,
+        averageScore: 0,
         practiceAttempts: 0,
-        mockAttempts: attempts,
-        qualifiedTests: scores.filter(score => score >= 40).length
+        mockAttempts: 0,
+        qualifiedTests: 0
       }
     })
 
@@ -542,25 +413,6 @@ export default {
         subjects.value = []
       } finally {
         loading.value.subjects = false
-      }
-    }
-
-    const loadMockTests = async () => {
-      loading.value.mockTests = true
-      try {
-        const result = await api.ugcNet.getMockTests()
-        if (result.success && result.data) {
-          // API returns data directly, not wrapped in .data
-          mockTests.value = result.data.mock_tests || []
-        } else {
-          console.error('Failed to load mock tests:', result.error)
-          mockTests.value = []
-        }
-      } catch (error) {
-        console.error('Failed to load mock tests:', error)
-        mockTests.value = []
-      } finally {
-        loading.value.mockTests = false
       }
     }
 
@@ -676,61 +528,6 @@ export default {
       router.push(`/ugc-net/generate-test?subject=${selectedSubject.value.id}`)
     }
 
-    const startTest = async (test) => {
-      loading.value.startTest = test.id
-      try {
-        const result = await api.ugcNet.startAttempt(test.id)
-        if (result.success && result.data) {
-          // Check different possible response structures
-          const attemptId = result.data.attempt?.id || result.data.id || result.data.attempt_id
-          if (attemptId) {
-            router.push(`/ugc-net/test/${test.id}/attempt/${attemptId}`)
-          } else {
-            console.error('No attempt ID found in response:', result.data)
-            alert('Failed to start test: No attempt ID received')
-          }
-        } else {
-          console.error('Failed to start test:', result.error)
-          alert('Failed to start test: ' + (result.error || 'Unknown error'))
-        }
-      } catch (error) {
-        console.error('Failed to start test:', error)
-        alert('Failed to start test: ' + error.message)
-      } finally {
-        loading.value.startTest = null
-      }
-    }
-
-    const viewTestDetails = (test) => {
-      // If the user has attempted the test, show results
-      if (test.user_attempts > 0) {
-        viewTestResults(test)
-      } else {
-        // If not attempted, show test information/preview
-        router.push(`/ugc-net/test/${test.id}/preview`)
-      }
-    }
-
-    const viewTestResults = async (test) => {
-      // Debug logging
-      console.log('🔍 Dashboard: viewTestResults called with test:', test)
-      console.log('🔍 Dashboard: test.id =', test.id)
-      console.log('🔍 Dashboard: test.user_attempts =', test.user_attempts)
-      
-      // Since we know the user has attempts (user_attempts > 0), 
-      // navigate to a general results page that can handle finding the latest attempt
-      try {
-        const route = `/ugc-net/test/${test.id}/results`
-        console.log('🔍 Dashboard: Navigating to route:', route)
-        // Navigate to test results page - the TestResults component can handle finding the latest attempt
-        await router.push(route)
-        console.log('✅ Dashboard: Navigation completed')
-      } catch (error) {
-        console.error('❌ Dashboard: Failed to navigate to test results:', error)
-        alert('Failed to view test results')
-      }
-    }
-
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A'
       try {
@@ -766,7 +563,6 @@ export default {
     onMounted(async () => {
       await Promise.all([
         loadSubjects(),
-        loadMockTests(),
         loadStats()
       ])
     })
@@ -775,7 +571,6 @@ export default {
       user,
       subjects,
       chapters,
-      mockTests,
       stats,
       selectedSubject,
       userSubject,
@@ -783,15 +578,11 @@ export default {
       userStats,
       qualificationRate,
       loadSubjects,
-      loadMockTests,
       viewSubjectChapters,
       generateNewTest,
       startPractice,
       viewPerformance,
       generateTestForSubject,
-      startTest,
-      viewTestDetails,
-      viewTestResults,
       formatDate,
       formatTimeLimit
     }

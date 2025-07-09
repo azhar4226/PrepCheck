@@ -1,16 +1,4 @@
 <template>
-  <!-- Debug Info (can be removed in production) -->
-  <div class="debug-info bg-light p-2 mb-3 small" v-if="true">
-    <strong>Debug Info:</strong><br>
-    Loading: {{ loading }}<br>
-    Error: {{ error }}<br>
-    Results: {{ results ? 'EXISTS' : 'NULL' }}<br>
-    Route Params: {{ JSON.stringify($route.params) }}<br>
-    Show Main Content: {{ !loading && !error && results ? 'YES' : 'NO' }}<br>
-    Mock Test: {{ mockTest ? mockTest.title : 'NULL' }}<br>
-    User Token: {{ userToken ? 'EXISTS' : 'NULL' }}
-  </div>
-
   <!-- Main Content -->
   <div class="test-results" v-if="!loading && !error && results">
     <div class="container-fluid">
@@ -490,6 +478,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
+import { useAppState } from '@/composables/useAppState'
 
 export default {
   name: 'TestResults',
@@ -510,6 +499,7 @@ export default {
   setup(props) {
     const router = useRouter()
     const route = useRoute()
+    const { stopLoading } = useAppState()
     
     // Reactive data
     const mockTest = ref(null)
@@ -965,11 +955,57 @@ export default {
       }
     }
 
+    // Debug function to check for blocking elements
+    const debugInteractionIssues = () => {
+      console.log('🔍 Debugging interaction issues...')
+      
+      // Check for loading overlays
+      const loadingOverlays = document.querySelectorAll('.loading-overlay')
+      console.log('Loading overlays found:', loadingOverlays.length)
+      loadingOverlays.forEach((overlay, index) => {
+        console.log(`Overlay ${index}:`, {
+          visible: overlay.style.display !== 'none',
+          zIndex: overlay.style.zIndex || getComputedStyle(overlay).zIndex,
+          opacity: getComputedStyle(overlay).opacity
+        })
+      })
+      
+      // Check for modal backdrops
+      const modalBackdrops = document.querySelectorAll('.modal-backdrop, .backdrop')
+      console.log('Modal backdrops found:', modalBackdrops.length)
+      
+      // Check body classes that might affect interaction
+      console.log('Body classes:', document.body.className)
+      
+      // Check for elements with high z-index
+      const allElements = document.querySelectorAll('*')
+      const highZIndexElements = Array.from(allElements).filter(el => {
+        const zIndex = getComputedStyle(el).zIndex
+        return zIndex && parseInt(zIndex) > 1000
+      })
+      console.log('High z-index elements:', highZIndexElements.length)
+      
+      return {
+        loadingOverlays: loadingOverlays.length,
+        modalBackdrops: modalBackdrops.length,
+        highZIndexElements: highZIndexElements.length
+      }
+    }
+
+    // Expose debug function globally for console access
+    if (typeof window !== 'undefined') {
+      window.debugTestResults = debugInteractionIssues
+    }
+
     // Lifecycle
     onMounted(() => {
       console.log('🔍 TestResults: Component mounted')
       console.log('🔍 TestResults: Route params:', route.params)
       console.log('🔍 TestResults: Props:', props)
+      
+      // Ensure global loading overlay is hidden
+      stopLoading()
+      
       loading.value = true
       error.value = null
       loadResults()
@@ -1016,10 +1052,16 @@ export default {
 <style scoped>
 .test-results {
   padding: 1rem;
+  position: relative;
+  z-index: 1;
+  background-color: #ffffff;
+  min-height: 100vh;
 }
 
 .card {
   transition: transform 0.2s ease-in-out;
+  position: relative;
+  z-index: 2;
 }
 
 .card:hover {
@@ -1033,6 +1075,8 @@ export default {
 
 .question-item {
   background-color: #f8f9fa;
+  position: relative;
+  z-index: 2;
 }
 
 .metadata-section {
@@ -1044,6 +1088,24 @@ export default {
 
 .progress {
   border-radius: 10px;
+}
+
+/* Ensure buttons are clickable */
+.btn {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+/* Ensure form elements are interactive */
+input, button, select, textarea {
+  pointer-events: auto;
+}
+
+/* Remove any potential blur effects */
+* {
+  backdrop-filter: none !important;
+  filter: none !important;
 }
 
 @media (max-width: 768px) {

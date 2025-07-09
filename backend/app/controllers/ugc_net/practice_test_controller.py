@@ -214,7 +214,7 @@ def submit_practice_test(attempt_id):
         
         # Calculate score
         score = 0
-        total_marks = len(questions)
+        total_marks = sum(getattr(question, 'marks', 1) for question in questions)  # Sum of all question marks
         correct_answers = 0
         wrong_answers = 0
         question_results = []
@@ -238,7 +238,7 @@ def submit_practice_test(attempt_id):
                 'explanation': question.explanation
             })
         
-        percentage = (score / total_marks * 100) if total_marks > 0 else 0
+        percentage = min((score / total_marks * 100), 100) if total_marks > 0 else 0
         
         # Update attempt with results
         attempt.status = 'completed'

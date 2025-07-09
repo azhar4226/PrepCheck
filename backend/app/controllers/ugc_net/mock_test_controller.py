@@ -24,63 +24,92 @@ def get_current_user():
 @ugc_net_mock_bp.route('/mock-tests/generate', methods=['POST'])
 @jwt_required()
 def generate_mock_test():
-    """Generate a new UGC NET mock test based on weightage system"""
+    """Generate a new UGC NET mock test with fixed configuration (150 questions, 3 hours)"""
     try:
         user = get_current_user()
         if not user:
             return jsonify({'error': 'Authentication required'}), 401
         
+        # Check if user has a registered subject
+        if not user.subject_id or not user.registered_subject:
+            return jsonify({
+                'error': 'No registered subject',
+                'message': 'Please register for a UGC NET subject in your profile before generating mock tests.'
+            }), 400
+        
         data = request.get_json()
+        
+        # Fixed Mock Test Configuration - Override any user input
+        mock_config = {
+            'title': data.get('title', f"{user.registered_subject.name} Mock Test"),
+            'description': data.get('description', 'Full UGC NET Mock Test - Paper 1 + Paper 2'),
+            'subject_id': user.subject_id,  # Use user's registered subject automatically
+            'paper_type': 'mock',  # Fixed to mock (both papers)
+            'total_questions': 150,  # Fixed: Paper 1 (50) + Paper 2 (100)
+            'time_limit': 180,  # Fixed: 3 hours = 180 minutes
+            # Fixed difficulty distribution as per UGC NET pattern
+            'difficulty_distribution': {
+                'easy': 30,
+                'medium': 50,
+                'hard': 20
+            },
+            # Use fixed weightage from backend - no custom user configuration
+            'use_fixed_weightage': True
+        }
         
         # Initialize paper generator
         generator = UGCNetPaperGenerator()
         
         # Validate configuration
-        validation = generator.validate_paper_config(data)
+        validation = generator.validate_paper_config(mock_config)
         if not validation['valid']:
             return jsonify({'error': 'Invalid configuration', 'details': validation['errors']}), 400
         
         # Generate the paper
-        result = generator.generate_paper(data)
+        result = generator.generate_paper(mock_config)
         
         if not result['success']:
             return jsonify({'error': result['error']}), 400
         
-        # Create mock test record
+        # Create mock test record with fixed configuration
         mock_test = UGCNetMockTest(
-            title=data.get('title', f"Mock Test - {data['paper_type'].upper()}"),
-            description=data.get('description', ''),
-            subject_id=data['subject_id'],
-            paper_type=data['paper_type'],
+            title=mock_config['title'],
+            description=mock_config['description'],
+            subject_id=mock_config['subject_id'],
+            paper_type=mock_config['paper_type'],
             total_questions=result['paper']['total_questions'],
-            time_limit=data.get('time_limit', 120),  # Default 2 hours
+            time_limit=mock_config['time_limit'],  # Fixed 180 minutes
             created_by=user.id,
-            weightage_config=json.dumps(data.get('weightage_config', {}))
+            weightage_config=json.dumps({'fixed_weightage': True})  # Indicate fixed weightage used
         )
         
-        # Set difficulty distribution if provided
-        if 'difficulty_distribution' in data:
-            difficulty_dist = data['difficulty_distribution']
-            mock_test.easy_percentage = difficulty_dist.get('easy', 30.0)
-            mock_test.medium_percentage = difficulty_dist.get('medium', 50.0)
-            mock_test.hard_percentage = difficulty_dist.get('hard', 20.0)
+        # Set fixed difficulty distribution
+        mock_test.easy_percentage = 30.0
+        mock_test.medium_percentage = 50.0
+        mock_test.hard_percentage = 20.0
         
-        # Set source distribution if provided
-        if 'source_distribution' in data:
-            source_dist = data['source_distribution']
-            mock_test.previous_year_percentage = source_dist.get('previous_year', 70.0)
-            mock_test.ai_generated_percentage = source_dist.get('ai_generated', 30.0)
+        # Set default source distribution
+        mock_test.previous_year_percentage = 70.0
+        mock_test.ai_generated_percentage = 30.0
         
         db.session.add(mock_test)
         db.session.commit()
         
         # Store the generated questions as a separate field or return them without storing
         mock_test_dict = mock_test.to_dict()
-        mock_test_dict['generated_questions'] = [q.to_dict() for q in result['paper']['questions']]
+        # For mock tests, questions are already converted to dict in the generator
+        if mock_config['paper_type'] == 'mock':
+            mock_test_dict['generated_questions'] = result['paper']['questions']
+        else:
+            mock_test_dict['generated_questions'] = [q.to_dict() if hasattr(q, 'to_dict') else q for q in result['paper']['questions']]
         
         # Also convert questions in the paper for return
         paper_result = result['paper'].copy()
-        paper_result['questions'] = [q.to_dict() for q in result['paper']['questions']]
+        # For mock tests, questions are already converted to dict in the generator
+        if mock_config['paper_type'] == 'mock':
+            paper_result['questions'] = result['paper']['questions']
+        else:
+            paper_result['questions'] = [q.to_dict() if hasattr(q, 'to_dict') else q for q in result['paper']['questions']]
         
         return jsonify({
             'message': 'Mock test generated successfully',
@@ -248,7 +277,11 @@ def start_mock_test_attempt(test_id):
                 
                 if result['success']:
                     ongoing_attempt_dict = ongoing_attempt.to_dict()
-                    ongoing_attempt_dict['questions'] = [q.to_dict() for q in result['paper']['questions']]
+                    # Check if questions are already dicts or model objects
+                    if result['paper']['questions'] and hasattr(result['paper']['questions'][0], 'to_dict'):
+                        ongoing_attempt_dict['questions'] = [q.to_dict() for q in result['paper']['questions']]
+                    else:
+                        ongoing_attempt_dict['questions'] = result['paper']['questions']
                     ongoing_attempt_dict['statistics'] = result['statistics']
                 else:
                     ongoing_attempt_dict = ongoing_attempt.to_dict()
@@ -302,7 +335,11 @@ def start_mock_test_attempt(test_id):
         
         # Return attempt details with questions
         attempt_dict = attempt.to_dict()
-        attempt_dict['questions'] = [q.to_dict() for q in result['paper']['questions']]
+        # Check if questions are already dicts or model objects
+        if result['paper']['questions'] and hasattr(result['paper']['questions'][0], 'to_dict'):
+            attempt_dict['questions'] = [q.to_dict() for q in result['paper']['questions']]
+        else:
+            attempt_dict['questions'] = result['paper']['questions']
         attempt_dict['statistics'] = result['statistics']
         
         return jsonify({
@@ -375,9 +412,21 @@ def submit_mock_test_attempt(test_id, attempt_id):
             question_answers = {}
             question_marks = {}
             for q in questions:
-                question_answers[str(q.id)] = q.correct_option if hasattr(q, 'correct_option') else 'A'  # Default fallback
-                question_marks[str(q.id)] = q.marks if hasattr(q, 'marks') else 2  # Default 2 marks per question
-                total_marks += question_marks[str(q.id)]
+                # Handle both model objects and dictionaries
+                if hasattr(q, 'id'):
+                    # q is a model object
+                    question_id = str(q.id)
+                    correct_option = q.correct_option if hasattr(q, 'correct_option') else 'A'
+                    marks = q.marks if hasattr(q, 'marks') else 2
+                else:
+                    # q is a dictionary
+                    question_id = str(q.get('id', 0))
+                    correct_option = q.get('correct_option', 'A')
+                    marks = q.get('marks', 2)
+                
+                question_answers[question_id] = correct_option
+                question_marks[question_id] = marks
+                total_marks += marks
             
             # Check submitted answers
             for question_id, submitted_answer in answers.items():
@@ -391,8 +440,8 @@ def submit_mock_test_attempt(test_id, attempt_id):
             correct_answers = 0
             obtained_marks = 0
         
-        # Calculate percentage
-        percentage = (obtained_marks / total_marks * 100) if total_marks > 0 else 0
+        # Calculate percentage (ensure it doesn't exceed 100%)
+        percentage = min((obtained_marks / total_marks * 100), 100) if total_marks > 0 else 0
         
         # Determine qualification status based on UGC NET criteria
         qualification_status = 'not_qualified'

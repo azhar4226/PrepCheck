@@ -20,12 +20,12 @@ class UGCNetPaperGenerator:
     
     def generate_paper(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate a UGC NET mock paper based on configuration
+        Generate a UGC NET paper based on configuration
         
         Args:
             config: Dictionary containing:
-                - subject_id: ID of the subject
-                - paper_type: 'paper1' or 'paper2'
+                - subject_id: ID of the subject (for Paper 2)
+                - paper_type: 'paper1', 'paper2', or 'mock' (both papers)
                 - total_questions: Total number of questions
                 - difficulty_distribution: Dict with easy, medium, hard percentages
                 - source_distribution: Dict with previous_year, ai_generated percentages
@@ -38,6 +38,10 @@ class UGCNetPaperGenerator:
             subject_id = config['subject_id']
             paper_type = config['paper_type']
             total_questions = config['total_questions']
+            
+            # Handle mock test (Paper 1 + Paper 2)
+            if paper_type == 'mock':
+                return self._generate_mock_test(config)
             
             # Get subject and validate
             subject = Subject.query.get(subject_id)
@@ -284,8 +288,8 @@ class UGCNetPaperGenerator:
                 errors.append('Subject not found')
         
         # Validate paper type
-        if 'paper_type' in config and config['paper_type'] not in ['paper1', 'paper2']:
-            errors.append('Paper type must be either "paper1" or "paper2"')
+        if 'paper_type' in config and config['paper_type'] not in ['paper1', 'paper2', 'mock']:
+            errors.append('Paper type must be either "paper1", "paper2", or "mock"')
         
         # Validate total questions
         if 'total_questions' in config:
@@ -497,3 +501,125 @@ class UGCNetPaperGenerator:
             return 'easy'
         else:
             return 'medium'
+    
+    def _generate_mock_test(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate a UGC NET mock test with both Paper 1 and Paper 2
+        
+        Args:
+            config: Dictionary containing mock test configuration
+        
+        Returns:
+            Dictionary with generated mock test data
+        """
+        try:
+            subject_id = config['subject_id']
+            total_questions = config.get('total_questions', 150)  # Default: 50 Paper 1 + 100 Paper 2
+            difficulty_distribution = config.get('difficulty_distribution', {
+                'easy': 30, 'medium': 50, 'hard': 20
+            })
+            
+            # Get the subject for Paper 2
+            subject = Subject.query.get(subject_id)
+            if not subject:
+                return {'success': False, 'error': 'Subject not found for Paper 2'}
+            
+            # Get Paper 1 subject (Teaching & Research Aptitude)
+            paper1_subject = Subject.query.filter_by(subject_code='P1').first()
+            if not paper1_subject:
+                return {'success': False, 'error': 'Paper 1 subject not found. Please ensure UGC NET Paper 1 is seeded.'}
+            
+            # Fixed distribution: Paper 1 (50 questions), Paper 2 (100 questions)
+            paper1_questions = 50
+            paper2_questions = total_questions - paper1_questions
+            
+            # Generate Paper 1 questions
+            paper1_config = {
+                'subject_id': paper1_subject.id,
+                'paper_type': 'paper1',
+                'total_questions': paper1_questions,
+                'difficulty_distribution': difficulty_distribution
+            }
+            
+            paper1_result = self.generate_paper(paper1_config)
+            if not paper1_result['success']:
+                return {'success': False, 'error': f'Failed to generate Paper 1: {paper1_result["error"]}'}
+            
+            # Generate Paper 2 questions
+            paper2_config = {
+                'subject_id': subject_id,
+                'paper_type': 'paper2',
+                'total_questions': paper2_questions,
+                'difficulty_distribution': difficulty_distribution
+            }
+            
+            paper2_result = self.generate_paper(paper2_config)
+            if not paper2_result['success']:
+                return {'success': False, 'error': f'Failed to generate Paper 2: {paper2_result["error"]}'}
+            
+            # Combine questions from both papers
+            all_questions = []
+            
+            # Add Paper 1 questions (mark them as Paper 1)
+            for question in paper1_result['paper']['questions']:
+                question_dict = question.to_dict() if hasattr(question, 'to_dict') else question
+                question_dict['paper_type'] = 'paper1'
+                all_questions.append(question_dict)
+            
+            # Add Paper 2 questions (mark them as Paper 2)
+            for question in paper2_result['paper']['questions']:
+                question_dict = question.to_dict() if hasattr(question, 'to_dict') else question
+                question_dict['paper_type'] = 'paper2'
+                all_questions.append(question_dict)
+            
+            # Shuffle to randomize order while maintaining paper segregation
+            # (In actual exam, papers are separate, but for our mock test we can mix)
+            random.shuffle(all_questions)
+            
+            # Combine statistics
+            combined_stats = {
+                'total_questions': len(all_questions),
+                'paper1_questions': paper1_questions,
+                'paper2_questions': paper2_questions,
+                'difficulty_distribution': {
+                    'easy': 0,
+                    'medium': 0,
+                    'hard': 0
+                },
+                'source_distribution': {
+                    'previous_year': 0,
+                    'ai_generated': 0,
+                    'manual': 0
+                },
+                'paper_breakdown': {
+                    'paper1': paper1_result.get('statistics', {}),
+                    'paper2': paper2_result.get('statistics', {})
+                }
+            }
+            
+            # Calculate combined difficulty and source distribution
+            for question in all_questions:
+                if isinstance(question, dict):
+                    difficulty = question.get('difficulty', 'medium')
+                    source = question.get('source', 'manual')
+                else:
+                    difficulty = getattr(question, 'difficulty', 'medium')
+                    source = getattr(question, 'source', 'manual')
+                
+                combined_stats['difficulty_distribution'][difficulty] += 1
+                combined_stats['source_distribution'][source] += 1
+            
+            return {
+                'success': True,
+                'paper': {
+                    'paper1_subject': paper1_subject.to_dict(),
+                    'paper2_subject': subject.to_dict(),
+                    'paper_type': 'mock',
+                    'total_questions': len(all_questions),
+                    'questions': all_questions
+                },
+                'statistics': combined_stats
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': f'Mock test generation failed: {str(e)}'}

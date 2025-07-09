@@ -174,14 +174,14 @@ def get_ugc_net_statistics():
             UGCNetMockAttempt.percentage != None
         ).all()
         
-        # Calculate comprehensive statistics
-        practice_scores = [attempt.percentage for attempt in completed_practice_attempts if attempt.percentage is not None]
-        mock_scores = [attempt.percentage for attempt in completed_mock_attempts if attempt.percentage is not None]
+        # Calculate comprehensive statistics with percentage validation
+        practice_scores = [min(max(attempt.percentage, 0), 100) for attempt in completed_practice_attempts if attempt.percentage is not None]
+        mock_scores = [min(max(attempt.percentage, 0), 100) for attempt in completed_mock_attempts if attempt.percentage is not None]
         all_scores = practice_scores + mock_scores
         
-        # Calculate averages and best scores
-        avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
-        best_score = max(all_scores) if all_scores else 0
+        # Calculate averages and best scores (ensure they don't exceed 100%)
+        avg_score = min(sum(all_scores) / len(all_scores), 100) if all_scores else 0
+        best_score = min(max(all_scores), 100) if all_scores else 0
         
         # Calculate qualified attempts (>=40%)
         qualified_practice = len([score for score in practice_scores if score >= 40])

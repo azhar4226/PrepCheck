@@ -14,7 +14,10 @@ import apiClient from './apiClient'
 class ApiService {
   constructor() {
     // Expose domain services
-    this.auth = authService
+    this.auth = {
+      ...authService,
+      getProfile: () => userService.getProfile()  // Add getProfile to auth service
+    }
     this.user = userService
     this.admin = adminService
     this.analytics = analyticsService
