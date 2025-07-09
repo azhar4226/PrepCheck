@@ -2,14 +2,15 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from sqlalchemy import desc, func, distinct, cast, Date
-from werkzeug.utils import secure_filename
-import os
-import uuid
 from app import db, redis_client
 from app.models import User, Subject, Chapter, QuestionBank, UGCNetMockTest, UGCNetMockAttempt, UGCNetPracticeAttempt
+from app.services.user_profile_service import UserProfileService
 import json
 
 user_bp = Blueprint('user', __name__)
+
+# Initialize profile service
+profile_service = UserProfileService()
 
 def get_current_user():
     user_id = get_jwt_identity()
@@ -374,24 +375,26 @@ def get_user_analytics():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# User Profile Management
 @user_bp.route('/profile', methods=['GET'])
 @jwt_required()
-def get_profile():
-    """Get user profile"""
+def get_user_profile():
+    """Get current user's profile"""
     try:
         user = get_current_user()
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        return jsonify(user.to_dict()), 200
-        
+        profile = profile_service.get_user_profile(user.id)
+        return jsonify({'user': profile}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @user_bp.route('/profile', methods=['PUT'])
 @jwt_required()
-def update_profile():
-    """Update user profile"""
+def update_user_profile():
+    """Update current user's profile"""
     try:
         user = get_current_user()
         if not user:
@@ -401,45 +404,21 @@ def update_profile():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
-        # Validate email uniqueness if changed
-        if 'email' in data and data['email'] != user.email:
-            existing_user = User.query.filter_by(email=data['email']).first()
-            if existing_user:
-                return jsonify({'error': 'Email already exists'}), 400
-        
-        # Update allowed fields
-        updatable_fields = [
-            'full_name', 'email', 'phone', 'bio', 'date_of_birth', 
-            'gender', 'country', 'timezone', 'notification_email',
-            'notification_quiz_reminders', 'theme_preference'
-        ]
-        
-        for field in updatable_fields:
-            if field in data:
-                if field == 'date_of_birth' and data[field]:
-                    try:
-                        user.date_of_birth = datetime.strptime(data[field], '%Y-%m-%d').date()
-                    except ValueError:
-                        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
-                else:
-                    setattr(user, field, data[field])
-        
-        user.updated_at = datetime.utcnow()
-        db.session.commit()
-        
+        updated_profile = profile_service.update_user_profile(user.id, data)
         return jsonify({
             'message': 'Profile updated successfully',
-            'user': user.to_dict()
+            'user': updated_profile
         }), 200
-        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@user_bp.route('/change-password', methods=['PUT'])
+
+@user_bp.route('/profile/password', methods=['PUT'])
 @jwt_required()
-def change_password():
-    """Change user password"""
+def change_user_password():
+    """Change user's password"""
     try:
         user = get_current_user()
         if not user:
@@ -448,73 +427,55 @@ def change_password():
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided'}), 400
-            
+        
         current_password = data.get('current_password')
         new_password = data.get('new_password')
         
-        if not current_password or not new_password:
-            return jsonify({'error': 'Current password and new password are required'}), 400
-            
-        if not user.check_password(current_password):
-            return jsonify({'error': 'Current password is incorrect'}), 400
-            
-        if len(new_password) < 6:
-            return jsonify({'error': 'New password must be at least 6 characters long'}), 400
-            
-        user.set_password(new_password)
-        user.updated_at = datetime.utcnow()
-        db.session.commit()
-        
+        profile_service.change_user_password(user.id, current_password, new_password)
         return jsonify({'message': 'Password changed successfully'}), 200
-        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@user_bp.route('/upload-avatar', methods=['POST'])
+@user_bp.route('/profile/picture', methods=['POST'])
 @jwt_required()
-def upload_avatar():
-    """Upload user avatar"""
+def upload_user_profile_picture():
+    """Upload user profile picture"""
     try:
         user = get_current_user()
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        if 'avatar' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
         
-        file = request.files['avatar']
-        if not file.filename:
+        file = request.files['file']
+        if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
-        # Check file type
-        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-        if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
-            return jsonify({'error': 'Invalid file type. Only PNG, JPG, JPEG, GIF, and WEBP are allowed'}), 400
-        
-        # Generate unique filename
-        filename = secure_filename(file.filename)
-        unique_filename = f"{user.id}_{uuid.uuid4().hex}_{filename}"
-        
-        # Save file
-        upload_folder = os.path.join(current_app.root_path, '..', 'uploads', 'avatars')
-        os.makedirs(upload_folder, exist_ok=True)
-        
-        file_path = os.path.join(upload_folder, unique_filename)
-        file.save(file_path)
-        
-        # Update user profile
-        user.profile_picture_url = f"/uploads/avatars/{unique_filename}"
-        user.updated_at = datetime.utcnow()
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Avatar uploaded successfully',
-            'avatar_url': user.profile_picture_url
-        }), 200
-        
+        result = profile_service.upload_profile_picture(user.id, file)
+        return jsonify(result), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@user_bp.route('/profile/picture', methods=['DELETE'])
+@jwt_required()
+def remove_user_profile_picture():
+    """Remove user profile picture"""
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        result = profile_service.remove_profile_picture(user.id)
+        return jsonify(result), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @user_bp.route('/attempts/history', methods=['GET'])
@@ -586,5 +547,24 @@ def get_attempts_history():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Legacy endpoint compatibility
+@user_bp.route('/subjects/paper2', methods=['GET'])
+@jwt_required()
+def get_paper2_subjects():
+    """Get only Paper 2 subjects for profile settings"""
+    try:
+        # Get only Paper 2 subjects (these are the elective subjects users can choose)
+        subjects = Subject.query.filter_by(
+            is_active=True, 
+            paper_type=2
+        ).all()
+        
+        subjects_data = []
+        for subject in subjects:
+            subject_dict = subject.to_dict()
+            subjects_data.append(subject_dict)
+        
+        return jsonify(subjects_data), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 

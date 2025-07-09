@@ -3,6 +3,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from datetime import datetime
 from app import db
 from app.models import User
+from app.utils.timezone_utils import get_ist_now
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -65,7 +66,7 @@ def login():
         
         if user and user.check_password(data['password']) and user.is_active:
             # Update last login
-            user.last_login = datetime.utcnow()
+            user.last_login = get_ist_now()
             db.session.commit()
                  # Create access token
             access_token = create_access_token(identity=str(user.id))

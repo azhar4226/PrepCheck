@@ -7,6 +7,9 @@ from sqlalchemy import desc, func
 from app import db
 from app.models import User, Subject, Chapter, QuestionBank, UGCNetPracticeAttempt, UGCNetMockAttempt, UGCNetMockTest, UGCNetMockTest
 from app.utils.ugc_net_seed_data import get_subject_weightage_info
+from app.utils.timezone_utils import get_ist_now
+from app.services.user_metrics_service import UserMetricsService
+from app.services.ai_study_recommendation_service import AIStudyRecommendationService
 import json
 
 ugc_net_subject_bp = Blueprint('ugc_net_subject', __name__)
@@ -245,7 +248,7 @@ def create_subject():
             name=data['name'],
             subject_code=data['subject_code'],
             description=data.get('description', ''),
-            created_at=datetime.utcnow()
+            created_at=get_ist_now()
         )
         
         db.session.add(subject)
@@ -436,7 +439,7 @@ def export_user_analytics():
                 'total_login_days': 'N/A'  # Would need tracking for accurate count
             },
             'export_info': {
-                'generated_at': datetime.utcnow().isoformat(),
+                'generated_at': get_ist_now().isoformat(),
                 'timeline': timeline,
                 'date_range': {
                     'start': start_date.isoformat() if start_date else 'All time',
@@ -622,3 +625,157 @@ def get_user_registered_subject():
         
     except Exception as e:
         return jsonify({'error': f'Failed to fetch user subject: {str(e)}'}), 500
+
+
+@ugc_net_subject_bp.route('/incomplete-tests', methods=['GET'])
+@jwt_required()
+def get_incomplete_tests():
+    """Get all incomplete tests (both practice and mock) for the current user"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Get incomplete practice attempts
+        incomplete_practice = UGCNetPracticeAttempt.query.filter_by(
+            user_id=current_user.id, 
+            is_completed=False
+        ).order_by(desc(UGCNetPracticeAttempt.created_at)).all()
+
+        # Get incomplete mock attempts
+        incomplete_mock = UGCNetMockAttempt.query.filter_by(
+            user_id=current_user.id, 
+            is_completed=False
+        ).order_by(desc(UGCNetMockAttempt.created_at)).all()
+
+        print(f"[DEBUG] Incomplete practice attempts for user {current_user.id}: {len(incomplete_practice)}")
+        print(f"[DEBUG] Incomplete mock attempts for user {current_user.id}: {len(incomplete_mock)}")
+
+        practice_tests = []
+        for attempt in incomplete_practice:
+            practice_tests.append({
+                'id': attempt.id,
+                'type': 'practice',
+                'title': f"Practice Test - {attempt.subject.name if attempt.subject else 'Unknown'}",
+                'subject_name': attempt.subject.name if attempt.subject else 'Unknown',
+                'paper_type': attempt.paper_type or 'paper2',
+                'total_questions': attempt.total_questions,
+                'answered_questions': len(json.loads(attempt.answers_data or '{}')),
+                'time_limit': attempt.time_limit,
+                'created_at': attempt.created_at.isoformat(),
+                'progress_percentage': (len(json.loads(attempt.answers_data or '{}')) / attempt.total_questions * 100) if attempt.total_questions > 0 else 0
+            })
+
+        mock_tests = []
+        for attempt in incomplete_mock:
+            mock_tests.append({
+                'id': attempt.id,
+                'type': 'mock',
+                'title': attempt.mock_test.title if attempt.mock_test else 'Mock Test',
+                'subject_name': attempt.mock_test.subject.name if attempt.mock_test and attempt.mock_test.subject else 'Unknown',
+                'paper_type': 'paper1+paper2',
+                'total_questions': attempt.total_questions,
+                'answered_questions': len(json.loads(attempt.answers_data or '{}')),
+                'time_limit': attempt.time_limit,
+                'created_at': attempt.created_at.isoformat(),
+                'progress_percentage': (len(json.loads(attempt.answers_data or '{}')) / attempt.total_questions * 100) if attempt.total_questions > 0 else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'practice_tests': practice_tests,
+                'mock_tests': mock_tests,
+                'total_incomplete': len(practice_tests) + len(mock_tests)
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch incomplete tests: {str(e)}'
+        }), 500
+
+
+@ugc_net_subject_bp.route('/ai/recommendations', methods=['GET'])
+@jwt_required()
+def get_ai_study_recommendations():
+    """Get AI-generated study recommendations for the current user"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get query parameters
+        max_recommendations = request.args.get('max_recommendations', 5, type=int)
+        
+        # Generate recommendations
+        ai_service = AIStudyRecommendationService()
+        recommendations = ai_service.generate_study_recommendations(
+            current_user.id, 
+            max_recommendations=max_recommendations
+        )
+        
+        return jsonify({
+            'recommendations': recommendations,
+            'total': len(recommendations),
+            'generated_at': datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate recommendations: {str(e)}'}), 500
+
+
+@ugc_net_subject_bp.route('/ai/study-plan', methods=['GET'])
+@jwt_required()
+def get_ai_study_plan():
+    """Get AI-generated personalized study plan for the current user"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get query parameters
+        plan_duration_weeks = request.args.get('weeks', 12, type=int)
+        
+        # Validate duration (4-20 weeks)
+        if plan_duration_weeks < 4 or plan_duration_weeks > 20:
+            return jsonify({'error': 'Plan duration must be between 4 and 20 weeks'}), 400
+        
+        # Generate study plan
+        ai_service = AIStudyRecommendationService()
+        study_plan = ai_service.generate_study_plan(
+            current_user.id,
+            plan_duration_weeks=plan_duration_weeks
+        )
+        
+        return jsonify(study_plan), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate study plan: {str(e)}'}), 500
+
+
+@ugc_net_subject_bp.route('/metrics/comprehensive', methods=['GET'])
+@jwt_required()
+def get_comprehensive_user_metrics():
+    """Get comprehensive user metrics for analysis"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get query parameters
+        days = request.args.get('days', 30, type=int)
+        
+        # Validate days parameter
+        if days < 7 or days > 365:
+            return jsonify({'error': 'Days parameter must be between 7 and 365'}), 400
+        
+        # Get comprehensive metrics
+        metrics_service = UserMetricsService()
+        metrics = metrics_service.get_comprehensive_user_metrics(current_user.id, days=days)
+        
+        return jsonify(metrics), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch comprehensive metrics: {str(e)}'}), 500

@@ -1,6 +1,7 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from app.utils.timezone_utils import current_ist_timestamp, get_ist_isoformat
 import json
 from typing import Dict, Optional
 
@@ -19,7 +20,7 @@ class User(db.Model):
     date_of_birth = db.Column(db.Date)
     gender = db.Column(db.String(10))  # male, female, other
     country = db.Column(db.String(50))
-    timezone = db.Column(db.String(50), default='UTC')
+    timezone = db.Column(db.String(50), default='Asia/Kolkata')
     
     # Preferences
     notification_email = db.Column(db.Boolean, default=True)
@@ -33,8 +34,8 @@ class User(db.Model):
     email_verification_token = db.Column(db.String(255))
     password_reset_token = db.Column(db.String(255))
     password_reset_expires = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
+    updated_at = db.Column(db.DateTime, default=current_ist_timestamp, onupdate=current_ist_timestamp)
     last_login = db.Column(db.DateTime)
     
     # User's registered subject for UGC NET preparation
@@ -69,9 +70,9 @@ class User(db.Model):
             'is_admin': self.is_admin,
             'is_active': self.is_active,
             'email_verified': self.email_verified,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'created_at': get_ist_isoformat(self.created_at),
+            'updated_at': get_ist_isoformat(self.updated_at),
+            'last_login': get_ist_isoformat(self.last_login),
             'subject_id': self.subject_id,
             'registered_subject': self.registered_subject.to_dict() if self.registered_subject else None
         }
@@ -92,7 +93,7 @@ class Subject(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
     
     # UGC NET specific fields
     subject_code = db.Column(db.String(10))  # UGC NET subject code
@@ -112,7 +113,7 @@ class Subject(db.Model):
             'name': self.name,
             'description': self.description,
             'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': get_ist_isoformat(self.created_at),
             'chapters_count': Chapter.query.filter_by(subject_id=self.id).count(),
             'subject_code': self.subject_code,
             'paper_type': self.paper_type,
@@ -130,7 +131,7 @@ class Chapter(db.Model):
     description = db.Column(db.Text)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
     
     # UGC NET specific fields
     weightage_paper1 = db.Column(db.Integer, default=0)  # Weightage for Paper 1 (0-100)
@@ -172,8 +173,8 @@ class StudyMaterial(db.Model):
     chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
+    updated_at = db.Column(db.DateTime, default=current_ist_timestamp, onupdate=current_ist_timestamp)
     
     # Relationships
     chapter = db.relationship('Chapter', backref='materials')
@@ -191,8 +192,8 @@ class StudyMaterial(db.Model):
             'chapter_id': self.chapter_id,
             'created_by': self.created_by,
             'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'created_at': get_ist_isoformat(self.created_at),
+            'updated_at': get_ist_isoformat(self.updated_at)
         }
 
 class QuestionBank(db.Model):
@@ -238,8 +239,8 @@ class QuestionBank(db.Model):
     # Metadata
     usage_count = db.Column(db.Integer, default=0)  # How many times used in quizzes
     last_used = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
+    updated_at = db.Column(db.DateTime, default=current_ist_timestamp, onupdate=current_ist_timestamp)
     
     # Content hash for deduplication
     content_hash = db.Column(db.String(64), unique=True, nullable=False)
@@ -278,9 +279,9 @@ class QuestionBank(db.Model):
             'verification_confidence': self.verification_confidence,
             'verification_notes': self.verification_notes,
             'usage_count': self.usage_count,
-            'last_used': self.last_used.isoformat() if self.last_used else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_used': get_ist_isoformat(self.last_used),
+            'created_at': get_ist_isoformat(self.created_at),
+            'updated_at': get_ist_isoformat(self.updated_at),
             'chapter_id': self.chapter_id
         }
         
@@ -299,7 +300,7 @@ class QuestionBank(db.Model):
     def increment_usage(self):
         """Increment usage count and update last used timestamp"""
         self.usage_count = (self.usage_count or 0) + 1
-        self.last_used = datetime.utcnow()
+        self.last_used = current_ist_timestamp()
     
     def get_performance_stats(self):
         """Get performance statistics for this question"""
@@ -309,7 +310,7 @@ class QuestionBank(db.Model):
             'average_time': self.avg_solve_time or 0,
             'difficulty_rating': self.difficulty,
             'usage_count': self.usage_count or 0,
-            'last_used': self.last_used.isoformat() if self.last_used else None
+            'last_used': get_ist_isoformat(self.last_used)
         }
     
     def get_usage_trends(self, days=30):
@@ -347,8 +348,8 @@ class UGCNetMockTest(db.Model):
     # Status and metadata
     is_active = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
+    updated_at = db.Column(db.DateTime, default=current_ist_timestamp, onupdate=current_ist_timestamp)
     
     # Relationships
     subject = db.relationship('Subject', backref='ugc_net_mock_tests')
@@ -381,8 +382,8 @@ class UGCNetMockTest(db.Model):
             'weightage_config': self.get_weightage_config(),
             'is_active': self.is_active,
             'created_by': self.created_by,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'created_at': get_ist_isoformat(self.created_at),
+            'updated_at': get_ist_isoformat(self.updated_at)
         }
         
         # Note: In the current implementation, questions are generated dynamically
@@ -402,10 +403,10 @@ class UGCNetMockAttempt(db.Model):
     
     # Attempt status and timing
     status = db.Column(db.String(20), default='in_progress')  # 'in_progress', 'completed', 'abandoned'
-    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    start_time = db.Column(db.DateTime, default=current_ist_timestamp)
     end_time = db.Column(db.DateTime)
     time_limit = db.Column(db.Integer, default=180)  # Time limit in minutes
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
     
     # Basic attempt data
     score = db.Column(db.Float, default=0.0)  # Changed to Float for percentage scores
@@ -434,7 +435,7 @@ class UGCNetMockAttempt(db.Model):
     question_ids = db.Column(db.Text)  # JSON array of question IDs used in this attempt
     
     # Time tracking (legacy fields for backward compatibility)
-    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime, default=current_ist_timestamp)
     completed_at = db.Column(db.DateTime)
     is_completed = db.Column(db.Boolean, default=False)
     
@@ -534,10 +535,10 @@ class UGCNetMockAttempt(db.Model):
             'mock_test_id': self.mock_test_id,
             'mock_test_title': self.mock_test.title if self.mock_test else None,
             'status': self.status,
-            'start_time': self.start_time.isoformat() + 'Z' if self.start_time else None,
-            'end_time': self.end_time.isoformat() + 'Z' if self.end_time else None,
+            'start_time': get_ist_isoformat(self.start_time),
+            'end_time': get_ist_isoformat(self.end_time),
             'time_limit': self.time_limit,
-            'created_at': self.created_at.isoformat() + 'Z' if self.created_at else None,
+            'created_at': get_ist_isoformat(self.created_at),
             'score': self.score,
             'total_marks': self.total_marks,
             'correct_answers': self.correct_answers,
@@ -609,8 +610,8 @@ class UGCNetPracticeAttempt(db.Model):
     recommendations = db.Column(db.Text)  # JSON array of study recommendations
     
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
+    updated_at = db.Column(db.DateTime, default=current_ist_timestamp, onupdate=current_ist_timestamp)
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     is_completed = db.Column(db.Boolean, default=False)
@@ -786,8 +787,8 @@ class UGCNetPracticeAttempt(db.Model):
             'ai_generated_percentage': self.ai_generated_percentage,
             'status': self.status,
             'time_limit': self.time_limit,
-            'start_time': self.start_time.isoformat() + 'Z' if self.start_time else None,
-            'end_time': self.end_time.isoformat() + 'Z' if self.end_time else None,
+            'start_time': get_ist_isoformat(self.start_time),
+            'end_time': get_ist_isoformat(self.end_time),
             'time_taken': self.time_taken,
             'score': self.score,
             'total_marks': self.total_marks,
@@ -797,10 +798,10 @@ class UGCNetPracticeAttempt(db.Model):
             'strengths': self.get_strengths(),
             'weaknesses': self.get_weaknesses(),
             'recommendations': self.get_recommendations(),
-            'created_at': self.created_at.isoformat() + 'Z' if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() + 'Z' if self.updated_at else None,
-            'started_at': self.started_at.isoformat() + 'Z' if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() + 'Z' if self.completed_at else None,
+            'created_at': get_ist_isoformat(self.created_at),
+            'updated_at': get_ist_isoformat(self.updated_at),
+            'started_at': get_ist_isoformat(self.started_at),
+            'completed_at': get_ist_isoformat(self.completed_at),
             'is_completed': self.is_completed
         }
         
@@ -812,5 +813,135 @@ class UGCNetPracticeAttempt(db.Model):
             result['detailed_results'] = self.get_detailed_results()
         
         return result
+
+class UserStudySession(db.Model):
+    """Track detailed user study sessions for AI analysis"""
+    __tablename__ = 'user_study_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    session_type = db.Column(db.String(50), nullable=False)  # 'practice', 'mock', 'study', 'revision'
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)
+    chapter_ids = db.Column(db.JSON, nullable=True)  # List of chapter IDs studied
+    
+    # Session details
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=True)
+    duration_minutes = db.Column(db.Integer, nullable=True)
+    
+    # Performance metrics
+    questions_attempted = db.Column(db.Integer, default=0)
+    questions_correct = db.Column(db.Integer, default=0)
+    accuracy_percentage = db.Column(db.Float, nullable=True)
+    average_time_per_question = db.Column(db.Float, nullable=True)  # in seconds
+    
+    # Learning insights
+    difficulty_level = db.Column(db.String(20), nullable=True)  # 'easy', 'medium', 'hard'
+    topics_mastered = db.Column(db.JSON, nullable=True)  # List of topic IDs where user scored >80%
+    topics_struggling = db.Column(db.JSON, nullable=True)  # List of topic IDs where user scored <50%
+    
+    # Engagement metrics
+    focus_score = db.Column(db.Float, nullable=True)  # Based on time patterns (1-100)
+    completion_rate = db.Column(db.Float, nullable=True)  # Percentage of session completed
+    
+    # Metadata
+    device_type = db.Column(db.String(50), nullable=True)  # 'mobile', 'desktop', 'tablet'
+    created_at = db.Column(db.DateTime, default=current_ist_timestamp)
+    updated_at = db.Column(db.DateTime, default=current_ist_timestamp, onupdate=current_ist_timestamp)
+    
+    # Relationships
+    user = db.relationship('User', backref='study_sessions')
+    subject = db.relationship('Subject', backref='study_sessions')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'session_type': self.session_type,
+            'subject_id': self.subject_id,
+            'subject_name': self.subject.name if self.subject else None,
+            'chapter_ids': self.chapter_ids,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'duration_minutes': self.duration_minutes,
+            'questions_attempted': self.questions_attempted,
+            'questions_correct': self.questions_correct,
+            'accuracy_percentage': self.accuracy_percentage,
+            'average_time_per_question': self.average_time_per_question,
+            'difficulty_level': self.difficulty_level,
+            'topics_mastered': self.topics_mastered,
+            'topics_struggling': self.topics_struggling,
+            'focus_score': self.focus_score,
+            'completion_rate': self.completion_rate,
+            'device_type': self.device_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class UserLearningMetrics(db.Model):
+    """Store aggregated learning metrics for AI recommendations"""
+    __tablename__ = 'user_learning_metrics'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    
+    # Overall performance
+    total_study_hours = db.Column(db.Float, default=0.0)
+    total_questions_attempted = db.Column(db.Integer, default=0)
+    total_questions_correct = db.Column(db.Integer, default=0)
+    overall_accuracy = db.Column(db.Float, default=0.0)
+    
+    # Learning patterns
+    preferred_study_time = db.Column(db.String(20), nullable=True)  # 'morning', 'afternoon', 'evening', 'night'
+    average_session_duration = db.Column(db.Float, default=0.0)  # in minutes
+    study_consistency_score = db.Column(db.Float, default=0.0)  # 1-100 based on regular study pattern
+    
+    # Strength and weakness analysis
+    strong_subjects = db.Column(db.JSON, nullable=True)  # List of subject IDs with >70% accuracy
+    weak_subjects = db.Column(db.JSON, nullable=True)  # List of subject IDs with <50% accuracy
+    strong_chapters = db.Column(db.JSON, nullable=True)  # List of chapter IDs with >70% accuracy
+    weak_chapters = db.Column(db.JSON, nullable=True)  # List of chapter IDs with <50% accuracy
+    
+    # Progress tracking
+    improvement_trend = db.Column(db.Float, default=0.0)  # +/- percentage change over last 30 days
+    plateau_warning = db.Column(db.Boolean, default=False)  # True if no improvement for 2+ weeks
+    last_significant_improvement = db.Column(db.DateTime, nullable=True)
+    
+    # AI insights
+    learning_style = db.Column(db.String(50), nullable=True)  # 'visual', 'auditory', 'kinesthetic', 'mixed'
+    recommended_daily_hours = db.Column(db.Float, default=2.0)
+    estimated_readiness_percentage = db.Column(db.Float, default=0.0)  # Overall exam readiness (1-100)
+    
+    # Metadata
+    last_calculated = db.Column(db.DateTime, default=current_ist_timestamp)
+    calculation_version = db.Column(db.String(10), default='1.0')  # For tracking algorithm updates
+    
+    # Relationships
+    user = db.relationship('User', backref='learning_metrics')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'total_study_hours': self.total_study_hours,
+            'total_questions_attempted': self.total_questions_attempted,
+            'total_questions_correct': self.total_questions_correct,
+            'overall_accuracy': self.overall_accuracy,
+            'preferred_study_time': self.preferred_study_time,
+            'average_session_duration': self.average_session_duration,
+            'study_consistency_score': self.study_consistency_score,
+            'strong_subjects': self.strong_subjects,
+            'weak_subjects': self.weak_subjects,
+            'strong_chapters': self.strong_chapters,
+            'weak_chapters': self.weak_chapters,
+            'improvement_trend': self.improvement_trend,
+            'plateau_warning': self.plateau_warning,
+            'last_significant_improvement': self.last_significant_improvement.isoformat() if self.last_significant_improvement else None,
+            'learning_style': self.learning_style,
+            'recommended_daily_hours': self.recommended_daily_hours,
+            'estimated_readiness_percentage': self.estimated_readiness_percentage,
+            'last_calculated': self.last_calculated.isoformat() if self.last_calculated else None,
+            'calculation_version': self.calculation_version
+        }
 
 

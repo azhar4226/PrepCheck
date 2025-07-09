@@ -7,6 +7,7 @@ from sqlalchemy import desc
 from app import db
 from app.models import User, Subject, Chapter, QuestionBank, UGCNetPracticeAttempt
 from app.services.ugc_net_paper_generator import UGCNetPaperGenerator
+from app.utils.timezone_utils import get_ist_now
 import json
 
 ugc_net_practice_bp = Blueprint('ugc_net_practice', __name__)
@@ -159,7 +160,7 @@ def auto_save_answers(attempt_id):
         # Update the attempt status to in_progress if it was generated
         if attempt.status == 'generated':
             attempt.status = 'in_progress'
-            attempt.started_at = datetime.utcnow()
+            attempt.started_at = get_ist_now()
         
         # Save the current answers (auto-save)
         attempt.set_answers_data(answers)
@@ -243,7 +244,7 @@ def submit_practice_test(attempt_id):
         # Update attempt with results
         attempt.status = 'completed'
         attempt.is_completed = True  # Also update the boolean field for consistency
-        attempt.completed_at = datetime.utcnow()
+        attempt.completed_at = get_ist_now()
         attempt.score = score
         attempt.total_marks = total_marks
         attempt.percentage = percentage
