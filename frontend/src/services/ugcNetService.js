@@ -2,7 +2,7 @@ import apiClient from './apiClient'
 
 class UGCNetService {
   constructor() {
-    this.baseUrl = '/api/ugc-net'
+    this.baseUrl = '/api/v1/ugc-net'
   }
 
   // ============================================================================
@@ -552,6 +552,94 @@ class UGCNetService {
       }
     }
   }
+
+  // ============================================================================
+  // AI-Powered Features
+  // ============================================================================
+
+  async getAIStudyRecommendations(maxRecommendations = 5) {
+    try {
+      console.log('🔍 UGCNetService: Getting AI study recommendations...')
+      const response = await apiClient.get(`${this.baseUrl}/ai/recommendations`, {
+        params: { max_recommendations: maxRecommendations }
+      })
+      console.log('✅ UGCNetService: getAIStudyRecommendations response:', response)
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: getAIStudyRecommendations error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to get AI study recommendations'
+      }
+    }
+  }
+
+  async getAIStudyPlan(weeks = 12) {
+    try {
+      console.log('🔍 UGCNetService: Getting AI study plan for', weeks, 'weeks...')
+      const response = await apiClient.get(`${this.baseUrl}/ai/study-plan`, {
+        params: { weeks }
+      })
+      console.log('✅ UGCNetService: getAIStudyPlan response:', response)
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: getAIStudyPlan error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to get AI study plan'
+      }
+    }
+  }
+
+  async getComprehensiveMetrics(days = 30) {
+    try {
+      console.log('🔍 UGCNetService: Getting comprehensive metrics for', days, 'days...')
+      const response = await apiClient.get(`${this.baseUrl}/metrics/comprehensive`, {
+        params: { days }
+      })
+      console.log('✅ UGCNetService: getComprehensiveMetrics response:', response)
+      return {
+        success: true,
+        data: response
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: getComprehensiveMetrics error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to get comprehensive metrics'
+      }
+    }
+  }
+
+  // ============================================================================
+  // Incomplete Tests Management
+  // ============================================================================
+
+  async getIncompleteTests() {
+    try {
+      console.log('🔍 UGCNetService: Calling getIncompleteTests API...')
+      const response = await apiClient.get(`${this.baseUrl}/incomplete-tests`)
+      console.log('✅ UGCNetService: getIncompleteTests response:', response)
+      return {
+        success: true,
+        data: response.data
+      }
+    } catch (error) {
+      console.error('❌ UGCNetService: getIncompleteTests error:', error)
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to fetch incomplete tests'
+      }
+    }
+  }
+
+  // ============================================================================
 }
 
 export default new UGCNetService()

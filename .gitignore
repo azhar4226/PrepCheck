@@ -121,3 +121,6 @@ frontend/dist/
 *.backup
 *_backup.*
 *_old.*
+
+# Miscellaneous
+gemini.md

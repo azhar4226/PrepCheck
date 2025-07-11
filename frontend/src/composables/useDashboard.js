@@ -40,7 +40,7 @@ export function useDashboard() {
   // Computed dashboard data based on user role
   const dashboardStats = computed(() => {
     if (!user.value) return []
-    
+
     if (user.value.is_admin) {
       const stats = adminStats.value || {}
       // Ensure stats has the expected properties with fallback values
@@ -95,35 +95,53 @@ export function useDashboard() {
         }
       ]
     } else {
+      // Map backend stats to new stat cards
+      const stats = userStats.value || {}
+      // Helper for relative time
+      function getRelativeTime(dateString) {
+        if (!dateString) return 'N/A'
+        const now = new Date()
+        const date = new Date(dateString)
+        const diff = Math.floor((now - date) / 1000)
+        if (diff < 60) return 'just now'
+        if (diff < 3600) return `${Math.floor(diff/60)} min ago`
+        if (diff < 86400) return `${Math.floor(diff/3600)} hr ago`
+        if (diff < 2592000) return `${Math.floor(diff/86400)} days ago`
+        return date.toLocaleDateString()
+      }
       return [
         {
-          key: 'tests_taken',
-          title: 'Tests Taken',
-          value: userStats.value.tests_taken || 0,
-          icon: 'bi bi-clipboard-check',
-          variant: 'primary'
-        },
-        {
-          key: 'average_score',
-          title: 'Average Score',
-          value: `${userStats.value.average_score || 0}%`,
-          icon: 'bi bi-trophy',
-          variant: 'success'
+          key: 'hours_studied',
+          title: 'Hours Studied',
+          value: stats.hours_studied != null ? stats.hours_studied : 0,
+          subtitle: 'Total study time',
+          icon: 'bi bi-clock-history',
+          variant: 'info',
         },
         {
           key: 'study_streak',
-          title: 'Study Streak',
-          value: `${userStats.value.study_streak || 0} days`,
+          title: 'Current Streak',
+          value: stats.study_streak != null ? stats.study_streak : 0,
+          subtitle: 'Days in a row',
           icon: 'bi bi-fire',
-          variant: 'info'
+          variant: 'warning',
         },
         {
-          key: 'rank',
-          title: 'Rank',
-          value: userStats.value.rank ? `#${userStats.value.rank}` : '--',
-          icon: 'bi bi-award',
-          variant: 'warning'
-        }
+          key: 'last_activity',
+          title: 'Last Activity',
+          value: getRelativeTime(stats.last_activity),
+          subtitle: 'Recent session',
+          icon: 'bi bi-calendar-check',
+          variant: 'primary',
+        },
+        {
+          key: 'accuracy_rate',
+          title: 'Accuracy Rate',
+          value: stats.accuracy_rate != null ? stats.accuracy_rate.toFixed(1) + '%' : '0%',
+          subtitle: 'Correct answers',
+          icon: 'bi bi-bullseye',
+          variant: 'success',
+        },
       ]
     }
   })
@@ -166,10 +184,10 @@ export function useDashboard() {
       // Extract stats from dashboard response
       const stats = dashboardRes.stats || {}
       userStats.value = {
-        tests_taken: stats.total_attempts || 0,
-        average_score: stats.average_score || 0,
+        hours_studied: stats.hours_studied || 0,
         study_streak: stats.study_streak || 0,
-        rank: stats.rank || null
+        accuracy_rate: stats.accuracy_rate || 0,
+        last_activity: stats.last_activity || null
       }
       
       // Extract recent test attempts from history response

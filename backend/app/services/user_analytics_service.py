@@ -3,6 +3,7 @@ User Analytics Service
 Handles user analytics and reporting for admin
 """
 from datetime import datetime, timedelta
+from collections import defaultdict
 from sqlalchemy import desc
 from app import db
 from app.models import User, UGCNetMockAttempt, UGCNetPracticeAttempt, UGCNetMockTest
@@ -11,10 +12,7 @@ from app.models import User, UGCNetMockAttempt, UGCNetPracticeAttempt, UGCNetMoc
 class UserAnalyticsService:
     """Service for user analytics operations"""
     
-    def __init__(self):
-        pass
-    
-    def get_user_analytics(self, user_id, days=30, subject_id=None):
+    def get_user_analytics(self, user_id, days=30, subject_id=None, test_type='all'):
         """Get comprehensive analytics for a specific user"""
         try:
             # Verify user exists
@@ -47,169 +45,163 @@ class UserAnalyticsService:
                 mock_attempts_query = mock_attempts_query.join(UGCNetMockTest).filter(UGCNetMockTest.subject_id == subject_id)
                 practice_attempts_query = practice_attempts_query.filter(UGCNetPracticeAttempt.subject_id == subject_id)
             
-            mock_attempts = mock_attempts_query.order_by(UGCNetMockAttempt.completed_at.desc()).all()
-            practice_attempts = practice_attempts_query.order_by(UGCNetPracticeAttempt.completed_at.desc()).all()
+            # Get attempts based on test type
+            mock_attempts = mock_attempts_query.all() if test_type in ('all', 'mock') else []
+            practice_attempts = practice_attempts_query.all() if test_type in ('all', 'practice') else []
             
-            # Calculate basic stats
-            total_mock_attempts = len(mock_attempts)
-            total_practice_attempts = len(practice_attempts)
-            total_attempts = total_mock_attempts + total_practice_attempts
+            attempts = mock_attempts + practice_attempts if test_type == 'all' else mock_attempts if test_type == 'mock' else practice_attempts
             
-            # Calculate averages
-            mock_scores = [attempt.percentage for attempt in mock_attempts if attempt.percentage is not None]
-            practice_scores = [attempt.percentage for attempt in practice_attempts if attempt.percentage is not None]
+            if not attempts:
+                return self.get_empty_analytics()
             
-            average_mock_score = sum(mock_scores) / len(mock_scores) if mock_scores else 0
-            average_practice_score = sum(practice_scores) / len(practice_scores) if practice_scores else 0
-            average_overall_score = (average_mock_score + average_practice_score) / 2 if (mock_scores or practice_scores) else 0
-            
-            # Calculate trends (compare to previous period)
-            prev_start = start_date - timedelta(days=days)
-            prev_mock_attempts = UGCNetMockAttempt.query.filter(
-                UGCNetMockAttempt.user_id == user_id,
-                UGCNetMockAttempt.is_completed == True,
-                UGCNetMockAttempt.completed_at >= prev_start,
-                UGCNetMockAttempt.completed_at < start_date
-            ).all()
-            
-            prev_practice_attempts = UGCNetPracticeAttempt.query.filter(
-                UGCNetPracticeAttempt.user_id == user_id,
-                UGCNetPracticeAttempt.is_completed == True,
-                UGCNetPracticeAttempt.completed_at >= prev_start,
-                UGCNetPracticeAttempt.completed_at < start_date
-            ).all()
-            
-            prev_mock_scores = [attempt.percentage for attempt in prev_mock_attempts if attempt.percentage is not None]
-            prev_practice_scores = [attempt.percentage for attempt in prev_practice_attempts if attempt.percentage is not None]
-            prev_average_score = (sum(prev_mock_scores + prev_practice_scores) / len(prev_mock_scores + prev_practice_scores)) if (prev_mock_scores or prev_practice_scores) else 0
-            
-            score_trend = average_overall_score - prev_average_score
-            
-            # Get daily performance
-            daily_performance = self._get_daily_performance(mock_attempts, practice_attempts)
-            
-            # Get subject performance
-            subject_performance = self._get_subject_performance(mock_attempts, practice_attempts)
+            # Calculate overall stats
+            total_score = sum(a.percentage for a in attempts if a.percentage is not None)
+            total_correct = sum(a.correct_answers for a in attempts if a.correct_answers is not None)
+            total_questions = sum(a.total_questions for a in attempts if a.total_questions is not None)
+            total_time = sum(a.time_taken for a in attempts if a.time_taken is not None)
             
             return {
-                'user': {
-                    'id': user.id,
-                    'full_name': user.full_name,
-                    'email': user.email
+                "snapshot": {
+                    "overall_average_score": round(total_score / len(attempts), 2) if attempts else 0,
+                    "overall_accuracy": round((total_correct / total_questions * 100) if total_questions > 0 else 0, 2),
+                    "total_tests_taken": len(attempts),
+                    "total_time_studied": total_time
                 },
-                'summary': {
-                    'total_attempts': total_attempts,
-                    'total_mock_attempts': total_mock_attempts,
-                    'total_practice_attempts': total_practice_attempts,
-                    'average_score': round(average_overall_score, 2),
-                    'average_mock_score': round(average_mock_score, 2),
-                    'average_practice_score': round(average_practice_score, 2),
-                    'score_trend': round(score_trend, 2),
-                    'period_days': days
-                },
-                'daily_performance': daily_performance,
-                'subject_performance': subject_performance,
-                'filters': {
-                    'subject_id': subject_id,
-                    'days': days
-                }
+                "performance_over_time": self._calculate_performance_over_time(attempts),
+                "strengths": self._calculate_strengths(attempts),
+                "weaknesses": self._calculate_weaknesses(attempts),
+                "performance_by_paper": self._calculate_paper_performance(attempts),
+                "accuracy_by_difficulty": self._calculate_accuracy_by_difficulty(attempts)
             }
-        except Exception as e:
-            raise Exception(f"Error getting user analytics: {str(e)}")
-    
-    def _get_daily_performance(self, mock_attempts, practice_attempts):
-        """Calculate daily performance data"""
-        daily_performance = {}
-        all_attempts = []
-        
-        # Combine all attempts with type info
-        for attempt in mock_attempts:
-            all_attempts.append({
-                'type': 'mock',
-                'attempt': attempt,
-                'date': attempt.completed_at,
-                'percentage': attempt.percentage
-            })
-        
-        for attempt in practice_attempts:
-            all_attempts.append({
-                'type': 'practice',
-                'attempt': attempt,
-                'date': attempt.completed_at,
-                'percentage': attempt.percentage
-            })
-        
-        for item in all_attempts:
-            day_key = item['date'].strftime('%Y-%m-%d')
-            if day_key not in daily_performance:
-                daily_performance[day_key] = {'attempts': 0, 'scores': []}
-            daily_performance[day_key]['attempts'] += 1
-            if item['percentage'] is not None:
-                daily_performance[day_key]['scores'].append(item['percentage'])
-        
-        # Convert to list and calculate percentages
-        performance_data = []
-        for day, data in sorted(daily_performance.items()):
-            percentage = sum(data['scores']) / len(data['scores']) if data['scores'] else 0
-            performance_data.append({
-                'date': day,
-                'attempts': data['attempts'],
-                'percentage': round(percentage, 2)
-            })
-        
-        return performance_data
-    
-    def _get_subject_performance(self, mock_attempts, practice_attempts):
-        """Calculate subject-wise performance"""
-        subject_performance = {}
-        
-        # Process mock attempts
-        for attempt in mock_attempts:
-            if attempt.mock_test and attempt.mock_test.subject:
-                subject_name = attempt.mock_test.subject.name
-                
-                if subject_name not in subject_performance:
-                    subject_performance[subject_name] = {
-                        'mock_attempts': 0, 
-                        'practice_attempts': 0,
-                        'mock_scores': [],
-                        'practice_scores': []
-                    }
-                
-                subject_performance[subject_name]['mock_attempts'] += 1
-                if attempt.percentage is not None:
-                    subject_performance[subject_name]['mock_scores'].append(attempt.percentage)
-        
-        # Process practice attempts
-        for attempt in practice_attempts:
-            if attempt.subject:
-                subject_name = attempt.subject.name
-                
-                if subject_name not in subject_performance:
-                    subject_performance[subject_name] = {
-                        'mock_attempts': 0,
-                        'practice_attempts': 0,
-                        'mock_scores': [],
-                        'practice_scores': []
-                    }
-                
-                subject_performance[subject_name]['practice_attempts'] += 1
-                if attempt.percentage is not None:
-                    subject_performance[subject_name]['practice_scores'].append(attempt.percentage)
-        
-        # Convert to list with percentages
-        subjects_data = []
-        for subject_name, data in subject_performance.items():
-            all_subject_scores = data['mock_scores'] + data['practice_scores']
-            total_subject_attempts = data['mock_attempts'] + data['practice_attempts']
-            percentage = sum(all_subject_scores) / len(all_subject_scores) if all_subject_scores else 0
             
-            subjects_data.append({
-                'name': subject_name,
-                'attempts': total_subject_attempts,
-                'mock_attempts': data['mock_attempts'],
-                'practice_attempts': data['practice_attempts'],
-                'percentage': round(percentage, 2)
-            })
+        except Exception as e:
+            raise Exception(f"Failed to get user analytics: {str(e)}")
+
+    def _calculate_performance_over_time(self, attempts):
+        """Calculate performance trends over time"""
+        attempts_by_date = defaultdict(list)
+        for attempt in attempts:
+            if attempt.completed_at and attempt.percentage is not None:
+                date_key = attempt.completed_at.strftime('%Y-%m-%d')
+                attempts_by_date[date_key].append(attempt.percentage)
         
-        return subjects_data
+        return [
+            {
+                "date": date,
+                "score": round(sum(scores) / len(scores), 2)
+            }
+            for date, scores in sorted(attempts_by_date.items())
+        ]
+
+    def _calculate_strengths(self, attempts):
+        """Calculate areas of strength"""
+        topic_scores = defaultdict(lambda: {"correct": 0, "total": 0})
+        
+        for attempt in attempts:
+            if hasattr(attempt, 'get_topic_wise_performance'):
+                topic_perf = attempt.get_topic_wise_performance()
+                for topic, scores in topic_perf.items():
+                    topic_scores[topic]["correct"] += scores["correct"]
+                    topic_scores[topic]["total"] += scores["total"]
+        
+        strengths = []
+        for topic, scores in topic_scores.items():
+            if scores["total"] > 0:
+                percentage = (scores["correct"] / scores["total"]) * 100
+                if percentage >= 70:
+                    strengths.append({"topic": topic, "score": round(percentage, 2)})
+        
+        return sorted(strengths, key=lambda x: x["score"], reverse=True)[:5]
+
+    def _calculate_weaknesses(self, attempts):
+        """Calculate areas needing improvement"""
+        topic_scores = defaultdict(lambda: {"correct": 0, "total": 0})
+        
+        for attempt in attempts:
+            if hasattr(attempt, 'get_topic_wise_performance'):
+                topic_perf = attempt.get_topic_wise_performance()
+                for topic, scores in topic_perf.items():
+                    topic_scores[topic]["correct"] += scores["correct"]
+                    topic_scores[topic]["total"] += scores["total"]
+        
+        weaknesses = []
+        for topic, scores in topic_scores.items():
+            if scores["total"] > 0:
+                percentage = (scores["correct"] / scores["total"]) * 100
+                if percentage <= 50:
+                    weaknesses.append({"topic": topic, "score": round(percentage, 2)})
+        
+        return sorted(weaknesses, key=lambda x: x["score"])[:5]
+
+    def _calculate_paper_performance(self, attempts):
+        """Calculate performance by paper type"""
+        mock_attempts = [a for a in attempts if isinstance(a, UGCNetMockAttempt)]
+        paper1_scores = [a.paper1_score for a in mock_attempts if a.paper1_score is not None]
+        paper2_scores = [a.paper2_score for a in mock_attempts if a.paper2_score is not None]
+        
+        return {
+            "Paper 1": round(sum(paper1_scores) / len(paper1_scores), 2) if paper1_scores else 0,
+            "Paper 2": round(sum(paper2_scores) / len(paper2_scores), 2) if paper2_scores else 0
+        }
+
+    def _calculate_accuracy_by_difficulty(self, attempts):
+        """Calculate accuracy by question difficulty"""
+        difficulty_scores = defaultdict(lambda: {"correct": 0, "total": 0})
+        
+        for attempt in attempts:
+            if hasattr(attempt, 'get_difficulty_wise_performance'):
+                diff_perf = attempt.get_difficulty_wise_performance()
+                for diff, scores in diff_perf.items():
+                    difficulty_scores[diff]["correct"] += scores["correct"]
+                    difficulty_scores[diff]["total"] += scores["total"]
+        
+        return {
+            diff: round((scores["correct"] / scores["total"] * 100), 2) if scores["total"] > 0 else 0
+            for diff, scores in difficulty_scores.items()
+        }
+
+    def get_empty_analytics(self):
+        """Return empty analytics structure"""
+        return {
+            "snapshot": {
+                "overall_average_score": 0,
+                "overall_accuracy": 0,
+                "total_tests_taken": 0,
+                "total_time_studied": 0
+            },
+            "performance_over_time": [],
+            "strengths": [],
+            "weaknesses": [],
+            "performance_by_paper": {
+                "Paper 1": 0,
+                "Paper 2": 0
+            },
+            "accuracy_by_difficulty": {
+                "Easy": 0,
+                "Medium": 0,
+                "Hard": 0
+            }
+        }
+
+    def export_user_analytics(self, user_id, format_type='pdf'):
+        """Export user analytics in specified format"""
+        try:
+            analytics_data = self.get_user_analytics(user_id)
+            if format_type == 'pdf':
+                return self._generate_pdf_report(analytics_data)
+            elif format_type == 'csv':
+                return self._generate_csv_report(analytics_data)
+            else:
+                raise ValueError(f'Unsupported export format: {format_type}')
+        except Exception as e:
+            raise Exception(f'Failed to export analytics: {str(e)}')
+
+    def _generate_pdf_report(self, analytics_data):
+        """Generate PDF report from analytics data"""
+        # TODO: Implement PDF generation
+        return None
+
+    def _generate_csv_report(self, analytics_data):
+        """Generate CSV report from analytics data"""
+        # TODO: Implement CSV generation
+        return None

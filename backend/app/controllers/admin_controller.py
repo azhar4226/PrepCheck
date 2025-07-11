@@ -124,7 +124,6 @@ def delete_subject(subject_id):
 
 # Chapter Management
 @admin_bp.route('/chapters', methods=['GET'])
-@admin_required
 def get_chapters():
     try:
         subject_id = request.args.get('subject_id', type=int)

@@ -152,21 +152,18 @@ export default {
       this.isLoading = true
 
       try {
-        const response = await authService.login({
+        const data = await authService.login({
           email: this.form.email,
           password: this.form.password
         })
 
-        // Store token and user data
-        localStorage.setItem('prepcheck_token', response.access_token)
-        localStorage.setItem('prepcheck_user', JSON.stringify(response.user))
+        localStorage.setItem('prepcheck_token', data.access_token)
+        localStorage.setItem('prepcheck_user', JSON.stringify(data.user))
 
-        // Redirect based on user role
-        if (response.user.is_admin) {
-          this.$router.push('/admin/dashboard')
-        } else {
+        // Ensure token is set before redirecting
+        setTimeout(() => {
           this.$router.push('/dashboard')
-        }
+        }, 100)
 
       } catch (error) {
         this.handleError(error)
@@ -200,10 +197,17 @@ export default {
     },
 
     handleError(error) {
-      if (error.response?.data?.error) {
-        this.errors.general = error.response.data.error
+      // Try to extract error message from backend response
+      if (error.response && error.response.data) {
+        if (error.response.data.message) {
+          this.errors.general = error.response.data.message
+        } else if (error.response.data.error) {
+          this.errors.general = error.response.data.error
+        } else {
+          this.errors.general = 'Login failed. Please try again.'
+        }
       } else {
-        this.errors.general = 'An error occurred. Please try again.'
+        this.errors.general = 'Network error. Please check your connection.'
       }
     },
 

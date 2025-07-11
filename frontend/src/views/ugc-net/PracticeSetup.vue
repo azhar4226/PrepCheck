@@ -74,47 +74,30 @@
                 </div>
               </div>
 
-              <!-- Subject Selection (only for Paper 2) -->
-              <div v-if="config.paper_type === 'paper2'" class="mb-4">
-                <label class="form-label fw-bold">
-                  <i class="bi bi-book me-2"></i>Subject Selection
-                </label>
-                <select 
-                  v-model="config.subject_id" 
-                  class="form-select form-select-lg"
-                  required
-                  @change="onSubjectChange"
-                >
-                  <option value="">Select a subject...</option>
-                  <option 
-                    v-for="subject in subjects" 
-                    :key="subject.id" 
-                    :value="subject.id"
-                  >
-                    {{ subject.name }} ({{ subject.subject_code }})
-                  </option>
-                </select>
-                <div v-if="selectedSubject" class="form-text">
-                  {{ selectedSubject.description }}
-                </div>
-              </div>
-
-              <!-- Paper 1 Subject Info (auto-selected) -->
-              <div v-else-if="config.paper_type === 'paper1'" class="mb-4">
+              <!-- Paper Info (auto-selected based on paper type) -->
+              <div v-if="config.paper_type" class="mb-4">
                 <label class="form-label fw-bold">
                   <i class="bi bi-book me-2"></i>Subject
                 </label>
                 <div class="form-control-plaintext bg-light border rounded p-2">
                   <i class="bi bi-info-circle text-primary me-2"></i>
-                  <strong>Teaching and Research Aptitude</strong> - Common for all subjects
+                  <strong v-if="config.paper_type === 'paper1'">Teaching and Research Aptitude</strong>
+                  <strong v-else-if="config.paper_type === 'paper2'">Computer Science and Applications</strong>
+                  <span class="text-muted ms-2">
+                    - {{ config.paper_type === 'paper1' ? 'Common for all subjects' : 'Subject-specific knowledge' }}
+                  </span>
                 </div>
               </div>
 
-              <!-- Chapter Selection -->
+              <!-- Chapter Selection & Weightage Distribution -->
               <div v-if="shouldShowChapterSelection" class="mb-4">
                 <label class="form-label fw-bold">
-                  <i class="bi bi-list-ul me-2"></i>Chapter Selection
+                  <i class="bi bi-list-ul me-2"></i>Chapter Selection & Weightage Distribution
                 </label>
+                <div class="small text-muted mb-3">
+                  Select chapters for your practice test. Each chapter has a default weightage for balanced question distribution.
+                </div>
+                
                 <div v-if="loading.chapters" class="text-center py-3">
                   <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading chapters...</span>
@@ -147,39 +130,80 @@
                       <small class="text-muted">
                         {{ selectedChapters.length }} of {{ chapters.length }} chapters selected
                       </small>
+                      <div v-if="selectedChapters.length > 0" class="small text-success">
+                        <i class="bi bi-check-circle me-1"></i>Equal weightage applied by default
+                      </div>
                     </div>
                   </div>
 
-                  <!-- Chapter List -->
-                  <div class="row">
-                    <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-2">
-                      <div class="form-check">
-                        <input 
-                          :id="`chapter-${chapter.id}`"
-                          v-model="config.selected_chapters" 
-                          :value="chapter.id"
-                          class="form-check-input" 
-                          type="checkbox"
-                        />
-                        <label 
-                          :for="`chapter-${chapter.id}`" 
-                          class="form-check-label w-100"
-                        >
-                          <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                              <strong>{{ chapter.name }}</strong>
-                              <div class="small text-muted">{{ chapter.description }}</div>
-                            </div>
-                            <div class="text-end">
-                              <small class="badge bg-light text-dark">
-                                {{ chapter.verified_questions || 0 }} questions
-                              </small>
-                              <div v-if="chapter.weightage" class="small text-primary">
-                                {{ chapter.weightage }}% weightage
-                              </div>
-                            </div>
-                          </div>
-                        </label>
+                  <!-- Weightage Distribution Board -->
+                  <div class="card bg-light border">
+                    <div class="card-header bg-primary text-white">
+                      <h6 class="mb-0">
+                        <i class="bi bi-pie-chart me-2"></i>
+                        Chapter Weightage Distribution for {{ config.paper_type === 'paper1' ? 'Paper 1' : 'Paper 2' }}
+                      </h6>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width: 50px">
+                                <input 
+                                  type="checkbox" 
+                                  :checked="selectedChapters.length === chapters.length && chapters.length > 0"
+                                  :indeterminate="selectedChapters.length > 0 && selectedChapters.length < chapters.length"
+                                  @change="selectedChapters.length === chapters.length ? selectNoneChapters() : selectAllChapters()"
+                                  class="form-check-input"
+                                />
+                              </th>
+                              <th>Chapter Name</th>
+                              <th class="text-center">Weightage (%)</th>
+                              <th class="text-center">Available Questions</th>
+                              <th class="text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="chapter in chapters" :key="chapter.id" 
+                                :class="{ 'table-success': config.selected_chapters.includes(chapter.id) }">
+                              <td>
+                                <input 
+                                  :id="`chapter-${chapter.id}`"
+                                  v-model="config.selected_chapters" 
+                                  :value="chapter.id"
+                                  class="form-check-input" 
+                                  type="checkbox"
+                                />
+                              </td>
+                              <td>
+                                <label :for="`chapter-${chapter.id}`" class="mb-0 fw-semibold">
+                                  {{ chapter.name }}
+                                </label>
+                                <div class="small text-muted">{{ chapter.description }}</div>
+                              </td>
+                              <td class="text-center">
+                                <span class="badge bg-primary">
+                                  {{ getChapterWeightage(chapter) }}%
+                                </span>
+                              </td>
+                              <td class="text-center">
+                                <span class="badge bg-info text-dark">
+                                  {{ chapter.verified_questions || 0 }}
+                                </span>
+                              </td>
+                              <td class="text-center">
+                                <span v-if="config.selected_chapters.includes(chapter.id)" 
+                                      class="badge bg-success">
+                                  <i class="bi bi-check-circle me-1"></i>Selected
+                                </span>
+                                <span v-else class="badge bg-light text-dark">
+                                  Available
+                                </span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>
@@ -393,8 +417,7 @@ export default {
 
     // Show chapter selection when Paper 1 is selected OR when Paper 2 with subject selected
     const shouldShowChapterSelection = computed(() => {
-      return config.value.paper_type === 'paper1' || 
-             (config.value.paper_type === 'paper2' && config.value.subject_id)
+      return config.value.paper_type && (config.value.paper_type === 'paper1' || config.value.paper_type === 'paper2')
     })
 
     const difficultyTotal = computed(() => {
@@ -443,11 +466,7 @@ export default {
     })
 
     const isFormValid = computed(() => {
-      const hasValidSubject = config.value.paper_type === 'paper1' || 
-                              (config.value.paper_type === 'paper2' && config.value.subject_id)
-      
       return config.value.paper_type && 
-             hasValidSubject && 
              selectedChapters.value.length > 0 && 
              config.value.total_questions > 0 &&
              difficultyTotal.value === 100 &&
@@ -474,19 +493,50 @@ export default {
       }
     }
 
-    const onPaperTypeChange = () => {
-      // Reset chapter and subject selection when changing paper type
+    const onPaperTypeChange = async () => {
+      console.log('onPaperTypeChange called for:', config.value.paper_type)
+      console.log('Available subjects:', subjects.value.length)
+      
+      // Reset chapter selection when changing paper type
       config.value.selected_chapters = []
       chapters.value = []
       
-      if (config.value.paper_type === 'paper1') {
-        // For Paper 1, auto-load general aptitude chapters
-        config.value.subject_id = 1 // Assuming Paper 1 subject has ID 1
-        loadChapters(1)
-      } else {
-        // For Paper 2, reset subject selection
-        config.value.subject_id = ''
+      if (!subjects.value.length) {
+        console.log('No subjects available yet, waiting...')
+        return
       }
+      
+      if (config.value.paper_type === 'paper1') {
+        // For Paper 1, find the general aptitude subject
+        const paper1Subject = subjects.value.find(s => s.subject_code === 'P1' || s.name.includes('Teaching'))
+        console.log('Paper 1 subject found:', paper1Subject)
+        if (paper1Subject) {
+          config.value.subject_id = paper1Subject.id
+          await loadChapters(paper1Subject.id)
+        }
+      } else if (config.value.paper_type === 'paper2') {
+        // For Paper 2, auto-select Computer Science subject (or first available subject)
+        const paper2Subject = subjects.value.find(s => s.subject_code === 'CS' || s.name.includes('Computer Science'))
+        console.log('Paper 2 subject found:', paper2Subject)
+        if (paper2Subject) {
+          config.value.subject_id = paper2Subject.id
+          await loadChapters(paper2Subject.id)
+        } else if (subjects.value.length > 0) {
+          // Fallback to first available subject for Paper 2
+          const firstSubject = subjects.value.find(s => s.subject_code !== 'P1')
+          console.log('Fallback Paper 2 subject:', firstSubject)
+          if (firstSubject) {
+            config.value.subject_id = firstSubject.id
+            await loadChapters(firstSubject.id)
+          }
+        }
+      }
+    }
+
+    const getChapterWeightage = (chapter) => {
+      // Return equal weightage for all chapters (100% divided by total chapters)
+      if (chapters.value.length === 0) return 0
+      return Math.round(100 / chapters.value.length)
     }
 
     const loadSubjects = async () => {
@@ -611,9 +661,20 @@ export default {
       updateDistribution()
     })
 
+    // Watch for subjects loading completion to auto-select paper type
+    watch(subjects, (newSubjects) => {
+      if (newSubjects.length > 0 && config.value.paper_type && chapters.value.length === 0) {
+        onPaperTypeChange()
+      }
+    })
+
     // Lifecycle
-    onMounted(() => {
-      loadSubjects()
+    onMounted(async () => {
+      await loadSubjects()
+      // After subjects are loaded, auto-select for the default paper type
+      if (config.value.paper_type) {
+        onPaperTypeChange()
+      }
     })
 
     return {
@@ -631,6 +692,7 @@ export default {
       distributionPreview,
       isFormValid,
       calculateTimeLimit,
+      getChapterWeightage,
       onPaperTypeChange,
       onSubjectChange,
       selectAllChapters,

@@ -6,12 +6,13 @@ from flask_mail import Mail
 from flask_migrate import Migrate
 from celery import Celery
 import redis
-from config.config import config
 import os
 
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env')))
+
+from config.config import config
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -47,23 +48,17 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    
-    # Import models to ensure they are registered with SQLAlchemy
-    from app.models import (User, Subject, Chapter, StudyMaterial, 
-                           QuestionBank, UGCNetMockTest, UGCNetMockAttempt, 
-                           UGCNetPracticeAttempt)
-    
     jwt.init_app(app)
-    
-    # Configure CORS properly
-    cors = CORS(app, 
-         resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "http://127.0.0.1:5173"]}},
-         allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         supports_credentials=True,
-         expose_headers=["Content-Type", "Authorization", "Content-Length", "X-Total-Count"])
-    
     mail.init_app(app)
+    
+    # Enable CORS with specific configuration
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:3000"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    })
     
     # Initialize Redis
     global redis_client
@@ -71,26 +66,20 @@ def create_app(config_name=None):
     
     # Register blueprints
     from app.controllers.auth_controller import auth_bp
-    from app.controllers.admin_controller import admin_bp
     from app.controllers.user_controller import user_bp
     from app.controllers.analytics_controller import analytics_bp
-    from app.controllers.ai_controller import ai_bp
-    from app.controllers.notifications_controller import notifications_bp
-    from app.controllers.study_material_controller import study_material_bp
-    from app.controllers.question_bank_controller import question_bank_bp
-    # Import modular UGC NET controllers
+    from app.controllers.admin_controller import admin_bp
     from app.controllers.ugc_net import register_ugc_net_blueprints
-    
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(user_bp, url_prefix='/api/user')
-    app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
-    app.register_blueprint(ai_bp, url_prefix='/api/ai')
-    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
-    app.register_blueprint(study_material_bp, url_prefix='/api/study-materials')
-    app.register_blueprint(question_bank_bp, url_prefix='/api/admin/question-bank')
-    
-    # Register modular UGC NET blueprints
+    from app.controllers.notifications_controller import notifications_bp
+
+    # Register blueprints with v1 prefix
+    app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
+    app.register_blueprint(user_bp, url_prefix='/api/v1/users')
+    app.register_blueprint(analytics_bp, url_prefix='/api/v1/analytics')
+    app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
+    app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')
+
+    # Register UGC NET modular blueprints with the app
     register_ugc_net_blueprints(app)
     
     # Serve uploaded files
@@ -112,8 +101,9 @@ def create_app(config_name=None):
         except Exception as e:
             print(f"Migration error (this is normal for new databases): {e}")
         
-        from app.utils.seed_data import seed_admin_user
+        from app.utils.seed_data import seed_admin_user, seed_sample_data
         seed_admin_user()
+        seed_sample_data()
     
     return app
 

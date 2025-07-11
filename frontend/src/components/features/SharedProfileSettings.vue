@@ -79,6 +79,8 @@
         <div class="card mb-4">
           <div class="card-header">
             <h5 class="mb-0"><i class="bi bi-person me-2"></i>Profile Information</h5>
+            <!-- Debug info - remove after testing -->
+
           </div>
           <div class="card-body">
             <form @submit.prevent="updateProfile">
@@ -129,7 +131,7 @@
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="gender" class="form-label">Gender</label>
-                  <select class="form-select" id="gender" v-model="profile.gender">
+                  <select class="form-select" id="gender" v-model="profile.gender" :disabled="isAdmin">
                     <option value="">Select Gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -144,33 +146,49 @@
                     class="form-control" 
                     id="country" 
                     v-model="profile.country"
+                    :disabled="isAdmin"
                   >
                 </div>
               </div>
 
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label for="timezone" class="form-label">Timezone</label>
-                  <select class="form-select" id="timezone" v-model="profile.timezone">
-                    <option value="UTC">UTC</option>
-                    <option value="America/New_York">Eastern Time</option>
-                    <option value="America/Chicago">Central Time</option>
-                    <option value="America/Denver">Mountain Time</option>
-                    <option value="America/Los_Angeles">Pacific Time</option>
-                    <option value="Europe/London">London</option>
-                    <option value="Europe/Paris">Paris</option>
-                    <option value="Asia/Tokyo">Tokyo</option>
-                    <option value="Asia/Shanghai">Shanghai</option>
-                    <option value="Australia/Sydney">Sydney</option>
-                  </select>
+              <!-- Admin-only section -->
+              <div v-if="isAdmin" class="row mb-4">
+                <div class="col-12">
+                  <div class="card bg-light">
+                    <div class="card-body">
+                      <h6 class="card-title"><i class="bi bi-shield-lock me-2"></i>Administrative Controls</h6>
+                      <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        As an administrator, some personal profile fields are restricted. Use the User Management section to make administrative changes.
+                      </div>
+                      <div class="d-grid gap-2">
+                        <router-link to="/admin/users" class="btn btn-primary">
+                          <i class="bi bi-people me-2"></i>Manage Users
+                        </router-link>
+                        <router-link to="/admin/subjects" class="btn btn-secondary">
+                          <i class="bi bi-book me-2"></i>Manage Subjects
+                        </router-link>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              <!-- Subject preference (non-admin only) -->
+              <div v-if="!isAdmin" class="row mb-3">
                 <div class="col-md-6 mb-3">
-                  <label for="theme" class="form-label">Theme Preference</label>
-                  <select class="form-select" id="theme" v-model="profile.theme_preference">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                    <option value="auto">Auto</option>
+                  <label for="subject" class="form-label">Subject Preference</label>
+                  <select class="form-select" id="subject" v-model="profile.subject_id">
+                    <option value="">Select Subject</option>
+                    <option v-for="subject in availableSubjects" 
+                            :key="subject.id" 
+                            :value="subject.id">
+                      {{ subject.name }}
+                    </option>
                   </select>
+                  <div class="form-text text-muted">
+                    <i class="bi bi-info-circle me-1"></i>Select your preferred subject for Paper 2.
+                  </div>
                 </div>
               </div>
 
@@ -187,13 +205,17 @@
 
               <div class="row mb-3">
                 <div class="col-12">
-                  <h6 class="mb-3">Notification Preferences</h6>
+                  <h6 class="mb-3">
+                    Notification Preferences
+                    <span v-if="isAdmin" class="badge bg-secondary ms-2">Read Only</span>
+                  </h6>
                   <div class="form-check form-switch mb-2">
                     <input 
                       class="form-check-input" 
                       type="checkbox" 
                       id="emailNotifications" 
                       v-model="profile.notification_email"
+                      :disabled="isAdmin"
                     >
                     <label class="form-check-label" for="emailNotifications">
                       Email Notifications
@@ -205,6 +227,7 @@
                       type="checkbox" 
                       id="testReminders" 
                       v-model="profile.notification_test_reminders"
+                      :disabled="isAdmin"
                     >
                     <label class="form-check-label" for="testReminders">
                       Test Reminders
@@ -279,6 +302,20 @@
         <slot name="additional-content"></slot>
       </div>
     </div>
+    
+    <!-- Custom Notification Modal -->
+    <NotificationModal
+      :show="modal.show"
+      :type="modal.type"
+      :title="modal.title"
+      :message="modal.message"
+      :details="modal.details"
+      :confirm-text="modal.confirmText"
+      :cancel-text="modal.cancelText"
+      @close="modal.show = false"
+      @confirm="handleModalConfirm"
+      @cancel="handleModalCancel"
+    />
   </div>
 </template>
 
@@ -286,14 +323,19 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import userService from '@/services/userService'
+import ugcNetService from '@/services/ugcNetService'
 import apiClient from '@/services/apiClient'
+import NotificationModal from '@/components/ui/NotificationModal.vue'
 
 export default {
   name: 'SharedProfileSettings',
+  components: {
+    NotificationModal
+  },
   props: {
     isAdmin: {
       type: Boolean,
-      default: false
+      required: true
     },
     headerTitle: {
       type: String,
@@ -320,12 +362,16 @@ export default {
       date_of_birth: '',
       gender: '',
       country: '',
-      timezone: 'UTC',
+      subject_id: '',
+      timezone: 'Asia/Kolkata',
       notification_email: true,
       notification_test_reminders: true,
       theme_preference: 'light',
       profile_picture_url: ''
     })
+
+    // Available subjects for selection
+    const availableSubjects = ref([])
 
     // Password form
     const passwordForm = reactive({
@@ -343,47 +389,161 @@ export default {
 
     // File input ref
     const fileInput = ref(null)
+    
+    // Cache busting timestamp for profile picture
+    const profilePictureTimestamp = ref(Date.now())
+
+    // Modal state
+    const modal = reactive({
+      show: false,
+      type: 'success',
+      title: '',
+      message: '',
+      details: '',
+      confirmText: 'OK',
+      cancelText: 'Cancel',
+      onConfirm: null,
+      onCancel: null
+    })
+
+    // Helper functions for modal
+    const showModal = (type, title, message, details = '', options = {}) => {
+      modal.type = type
+      modal.title = title
+      modal.message = message
+      modal.details = details
+      modal.confirmText = options.confirmText || 'OK'
+      modal.cancelText = options.cancelText || 'Cancel'
+      modal.onConfirm = options.onConfirm || null
+      modal.onCancel = options.onCancel || null
+      modal.show = true
+    }
+
+    const showSuccess = (message, details = '') => {
+      showModal('success', '✅ Success', message, details)
+    }
+
+    const showError = (message, details = '') => {
+      showModal('error', '❌ Error', message, details)
+    }
+
+    const showConfirm = (message, onConfirm, options = {}) => {
+      showModal('confirm', options.title || '🤔 Confirm Action', message, options.details || '', {
+        confirmText: options.confirmText || 'Yes',
+        cancelText: options.cancelText || 'Cancel',
+        onConfirm: onConfirm,
+        onCancel: options.onCancel || null
+      })
+    }
+
+    const handleModalConfirm = () => {
+      if (modal.onConfirm) {
+        modal.onConfirm()
+      }
+    }
+
+    const handleModalCancel = () => {
+      if (modal.onCancel) {
+        modal.onCancel()
+      }
+    }
 
     // Computed properties
     const profilePictureUrl = computed(() => {
       if (profile.profile_picture_url) {
         // If it's already a full URL, return as is
         if (profile.profile_picture_url.startsWith('http')) {
-          return profile.profile_picture_url
+          return `${profile.profile_picture_url}?t=${profilePictureTimestamp.value}`
         }
-        // Otherwise, construct the full URL using the API base URL
-        return `${apiClient.baseURL || ''}${profile.profile_picture_url}`
+        // For development, the uploads need to go through the proxy
+        // For production, they should work with relative paths
+        // Since we're using Vite proxy, just use the profile_picture_url directly
+        return `${profile.profile_picture_url}?t=${profilePictureTimestamp.value}`
       }
       // Return default avatar using UI Avatars service
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'User')}&background=3498db&color=fff&size=120`
     })
+
+    // Helper function to update both local and global user state
+    const updateUserState = (updatedUserData) => {
+      // Update local profile state
+      Object.assign(profile, updatedUserData)
+      
+      // Update global auth state
+      if (user.value) {
+        Object.assign(user.value, updatedUserData)
+        // Update localStorage
+        localStorage.setItem('prepcheck_user', JSON.stringify(user.value))
+      }
+    }
 
     // Methods
     const loadProfile = async () => {
       try {
         loading.value = true
         const response = await userService.getProfile()
-        Object.assign(profile, response.user)
+        
+        // Update both local and global user state
+        if (response.user) {
+          updateUserState(response.user)
+        } else {
+          // Fallback: just update local profile if response doesn't have user object
+          Object.assign(profile, response)
+          // Still try to update global state
+          if (user.value) {
+            Object.assign(user.value, response)
+            localStorage.setItem('prepcheck_user', JSON.stringify(user.value))
+          }
+        }
       } catch (error) {
         console.error('Error loading profile:', error)
+        showError('Failed to load profile', error.response?.data?.error || error.message)
       } finally {
         loading.value = false
       }
     }
 
-    const refreshProfile = () => {
-      loadProfile()
+    const loadSubjects = async () => {
+      try {
+        // Only load subjects for non-admin users
+        if (!props.isAdmin) {
+          // Load only Paper 2 subjects (elective subjects) for profile selection
+          const response = await userService.getPaper2Subjects()
+          availableSubjects.value = response || []
+        }
+      } catch (error) {
+        console.error('Error loading Paper 2 subjects:', error)
+      }
+    }
+
+    const refreshProfile = async () => {
+      try {
+        // Reload both profile data and available subjects
+        await Promise.all([
+          loadProfile(),
+          loadSubjects()
+        ])
+        showSuccess('Profile refreshed successfully!')
+      } catch (error) {
+        console.error('Error refreshing profile:', error)
+        showError('Failed to refresh profile', error.response?.data?.error || error.message)
+      }
     }
 
     const updateProfile = async () => {
       try {
         updating.value = true
         const response = await userService.updateProfile(profile)
-        Object.assign(profile, response.user)
-        // Show success message
+        
+        // Update both local and global user state
+        if (response.user) {
+          updateUserState(response.user)
+        }
+        
+        showSuccess('Profile updated successfully!')
       } catch (error) {
         console.error('Error updating profile:', error)
-        // Show error message
+        showError('Failed to update profile', error.response?.data?.error || error.message)
       } finally {
         updating.value = false
       }
@@ -395,7 +555,7 @@ export default {
 
     const changePassword = async () => {
       if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-        alert('New passwords do not match')
+        showError('Password mismatch', 'New passwords do not match. Please try again.')
         return
       }
 
@@ -413,10 +573,10 @@ export default {
           confirmPassword: ''
         })
         
-        // Show success message
+        showSuccess('Password changed successfully!', 'Your password has been updated.')
       } catch (error) {
         console.error('Error changing password:', error)
-        // Show error message
+        showError('Failed to change password', error.response?.data?.error || error.message)
       } finally {
         changingPassword.value = false
       }
@@ -432,14 +592,14 @@ export default {
 
       // Validate file
       if (file.size > 5 * 1024 * 1024) { // 5MB
-        alert('File size must be less than 5MB')
+        showError('File too large', 'File size must be less than 5MB. Please select a smaller image.')
         return
       }
 
       // Validate file type
       const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp']
       if (!allowedTypes.includes(file.type)) {
-        alert('Invalid file type. Please select a PNG, JPG, JPEG, GIF, or WebP image.')
+        showError('Invalid file type', 'Please select a PNG, JPG, JPEG, GIF, or WebP image.')
         return
       }
 
@@ -462,19 +622,33 @@ export default {
         clearInterval(progressInterval)
         uploadProgress.value = 100
 
-        profile.profile_picture_url = response.profile_picture_url
+        // Update both local and global user state with the new profile picture
+        if (response.user) {
+          console.log('Upload response user data:', response.user)
+          updateUserState(response.user)
+        } else {
+          console.log('Upload response profile_picture_url:', response.profile_picture_url)
+          // Fallback to just updating the profile picture URL
+          updateUserState({ profile_picture_url: response.profile_picture_url })
+        }
+        
+        // Update cache-busting timestamp to force image reload
+        profilePictureTimestamp.value = Date.now()
+        console.log('Updated profile picture URL:', profilePictureUrl.value)
+        
+        // Force page reload for header to update
+        window.location.reload()
         
         // Reset file input
         if (fileInput.value) {
           fileInput.value.value = ''
         }
         
-        // Show success message
-        alert('Profile picture uploaded successfully!')
+        showSuccess('Profile picture uploaded successfully!', 'Your new profile picture is now visible across the application.')
         
       } catch (error) {
         console.error('Error uploading profile picture:', error)
-        alert('Failed to upload profile picture: ' + (error.response?.data?.error || error.message))
+        showError('Failed to upload profile picture', error.response?.data?.error || error.message)
       } finally {
         uploading.value = false
         uploadProgress.value = 0
@@ -482,24 +656,46 @@ export default {
     }
 
     const deleteProfilePicture = async () => {
-      if (!confirm('Are you sure you want to remove your profile picture?')) {
-        return
-      }
-
-      try {
-        uploading.value = true
-        await userService.deleteProfilePicture()
-        profile.profile_picture_url = null
-        alert('Profile picture removed successfully!')
-      } catch (error) {
-        console.error('Error deleting profile picture:', error)
-        alert('Failed to remove profile picture: ' + (error.response?.data?.error || error.message))
-      } finally {
-        uploading.value = false
-      }
+      showConfirm(
+        'Are you sure you want to remove your profile picture?',
+        async () => {
+          try {
+            uploading.value = true
+            const response = await userService.deleteProfilePicture()
+            
+            // Update both local and global user state
+            if (response.user) {
+              updateUserState(response.user)
+            } else {
+              // Fallback to just updating the profile picture URL
+              updateUserState({ profile_picture_url: null })
+            }
+            
+            // Update cache-busting timestamp to force image reload
+            profilePictureTimestamp.value = Date.now()
+            
+            // Force page reload for header to update
+            window.location.reload()
+            
+            showSuccess('Profile picture removed successfully!', 'Your profile picture has been removed and the default avatar is now displayed.')
+          } catch (error) {
+            console.error('Error deleting profile picture:', error)
+            showError('Failed to remove profile picture', error.response?.data?.error || error.message)
+          } finally {
+            uploading.value = false
+          }
+        },
+        {
+          title: '🗑️ Remove Profile Picture',
+          confirmText: 'Yes, Remove',
+          cancelText: 'Keep Picture'
+        }
+      )
     }
 
     const handleImageError = (event) => {
+      console.log('Image error for URL:', event.target.src)
+      console.log('Profile picture URL from profile:', profile.profile_picture_url)
       // Set a default avatar URL when image fails to load
       event.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'User')}&background=6c757d&color=fff&size=120`
     }
@@ -507,10 +703,14 @@ export default {
     // Initialize
     onMounted(() => {
       loadProfile()
+      if (!props.isAdmin) {
+        loadSubjects()
+      }
     })
 
     return {
       profile,
+      availableSubjects,
       passwordForm,
       loading,
       updating,
@@ -519,6 +719,7 @@ export default {
       changingPassword,
       fileInput,
       profilePictureUrl,
+      modal,
       loadProfile,
       refreshProfile,
       updateProfile,
@@ -527,7 +728,10 @@ export default {
       triggerFileInput,
       handleFileSelect,
       deleteProfilePicture,
-      handleImageError
+      handleImageError,
+      handleModalConfirm,
+      handleModalCancel,
+      isAdmin: computed(() => props.isAdmin) // Properly expose isAdmin as a computed prop
     }
   }
 }

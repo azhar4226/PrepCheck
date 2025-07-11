@@ -40,9 +40,9 @@ export default {
     UserAnalytics
   },
   methods: {
-    refreshAnalytics() {
+    async refreshAnalytics() {
       if (this.$refs.userAnalytics) {
-        this.$refs.userAnalytics.refreshAnalytics()
+        await this.$refs.userAnalytics.refreshAnalytics()
       }
     }
   }

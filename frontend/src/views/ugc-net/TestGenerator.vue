@@ -269,36 +269,50 @@ export default {
       // User subject is fetched automatically, no selection needed
     })
 
-    // Watch removed as no subject selection needed
     
     // Methods
     const loadUserSubject = async () => {
       try {
-        // Get user's registered subject from profile
-        const userData = await api.user.getProfile()
-        console.log('🔍 User profile data:', userData)
-        
-        if (userData && userData.subject_id) {
-          const subjectId = userData.subject_id
-          // Get subject details
-          const subjectResult = await api.ugcNet.getSubjects()
-          if (subjectResult.success) {
-            const subject = subjectResult.data.subjects.find(s => s.id === subjectId)
-            if (subject) {
-              userSubject.value = subject
-              // Set default title
-              form.value.title = `${subject.name} Mock Test - ${new Date().toLocaleDateString()}`
-            }
+          loading.value.subjects = true
+        try {
+          const result = await api.ugcNet.getSubjects()
+          if (result.success && result.data) {
+            // API returns data directly, not wrapped in .data
+            subjects.value = result.data.subjects || []
+          } else {
+            console.error('Failed to load subjects:', result.error)
+            subjects.value = []
           }
-        } else {
-          console.warn('User has no registered UGC NET subject')
+        } catch (error) {
+          console.error('Failed to load subjects:', error)
+          subjects.value = []
+        } finally {
+          loading.value.subjects = false
         }
+        // // Get user's registered subject from profile
+        // const userData = await api.user.getProfile()
+        // console.log('🔍 User profile data:', userData)
+        
+        // if (userData && userData.subject_id) {
+        //   const subjectId = userData.subject_id
+        //   // Get subject details
+        //   const subjectResult = await api.ugcNet.getSubjects()
+        //   if (subjectResult.success) {
+        //     const subject = subjectResult.data.subjects.find(s => s.id === subjectId)
+        //     if (subject) {
+        //       userSubject.value = subject
+        //       // Set default title
+        //       form.value.title = `${subject.name} Mock Test - ${new Date().toLocaleDateString()}`
+        //     }
+        //   }
+        // } else {
+        //   console.warn('User has no registered UGC NET subject')
+        // }
       } catch (error) {
         console.error('Failed to load user subject:', error)
       }
     }
     const loadChapters = async (subjectId) => {
-      // For mock tests, we don't need to load chapters for user configuration
       // The backend will use fixed weightage for all chapters
       try {
         console.log('Mock test will use fixed weightage for all chapters of subject:', subjectId)

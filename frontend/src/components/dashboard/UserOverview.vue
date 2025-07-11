@@ -5,6 +5,7 @@
       :title="`Welcome back, ${user?.full_name}!`"
       icon="bi bi-sun"
       icon-class="text-warning"
+      subtitle="Let's get started!"
     />
 
     <!-- Quick Stats -->

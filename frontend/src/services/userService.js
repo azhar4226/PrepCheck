@@ -3,65 +3,102 @@ import apiClient from './apiClient'
 class UserService {
   // Dashboard and navigation
   async getDashboard() {
-    return await apiClient.get('/api/user/dashboard')
+    return await apiClient.get('/api/v1/users/dashboard')
   }
 
   async getSubjects() {
-    return await apiClient.get('/api/user/subjects')
+    return await apiClient.get('/api/v1/users/subjects')
+  }
+
+  async getPaper2Subjects() {
+    return await apiClient.get('/api/v1/users/subjects/paper2')
   }
 
   async getChapters(subjectId) {
-    return await apiClient.get(`/api/user/chapters/${subjectId}`)
+    return await apiClient.get(`/api/v1/users/chapters/${subjectId}`)
   }
 
   async getMockTests(chapterId) {
-    return await apiClient.get(`/api/user/mock-tests/${chapterId}`)
+    return await apiClient.get(`/api/v1/users/mock-tests/${chapterId}`)
   }
 
   async getHistory(page = 1, perPage = 20) {
-    return await apiClient.get(`/api/user/attempts/history?page=${page}&per_page=${perPage}`)
+    return await apiClient.get(`/api/v1/users/attempts/history?page=${page}&per_page=${perPage}`)
   }
 
   async getProgress() {
-    return await apiClient.get('/api/user/progress')
+    return await apiClient.get('/api/v1/users/progress')
   }
 
   // Profile Management
   async getProfile() {
-    return await apiClient.get('/api/user/profile')
+    return await apiClient.get('/api/v1/users/profile')
   }
 
   async updateProfile(profileData) {
-    return await apiClient.put('/api/user/profile', profileData)
+    return await apiClient.put('/api/v1/users/profile', profileData)
   }
 
   async changePassword(passwordData) {
-    return await apiClient.put('/api/user/profile/password', passwordData)
+    return await apiClient.put('/api/v1/users/profile/password', passwordData)
   }
 
   async uploadProfilePicture(formData) {
-    return await apiClient.post('/api/user/profile/picture', formData, {
+    return await apiClient.post('/api/v1/users/profile/picture', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
   }
 
-  async deleteProfilePicture() {
-    return await apiClient.delete('/api/user/profile/picture')
+  // Mock Test Management
+  async startMockTest(mockTestId) {
+    return await apiClient.post(`/api/v1/users/mock-tests/${mockTestId}/start`)
   }
 
-  // Data Export
-  async exportData() {
-    return await apiClient.post('/api/user/export')
+  async submitMockTest(mockTestId, answers) {
+    return await apiClient.post(`/api/v1/users/mock-tests/${mockTestId}/submit`, answers)
   }
 
-  async getExportStatus(taskId) {
-    return await apiClient.get(`/api/user/export/${taskId}`)
+  async getMockTestQuestions(mockTestId) {
+    return await apiClient.get(`/api/v1/users/mock-tests/${mockTestId}/questions`)
   }
 
-  async downloadExportFile(filename) {
-    return await apiClient.downloadFile(`/api/user/download/${filename}`)
+  async getMockTestResults(mockTestId) {
+    return await apiClient.get(`/api/v1/users/mock-tests/${mockTestId}/results`)
+  }
+
+  async getMockTestAttempt(attemptId) {
+    return await apiClient.get(`/api/v1/users/mock-tests/attempts/${attemptId}`)
+  }
+
+  async getMockTestSummary(mockTestId) {
+    return await apiClient.get(`/api/v1/users/mock-tests/${mockTestId}/summary`)
+  }
+
+  // Practice Test Management
+  async startPracticeTest(chapterId) {
+    return await apiClient.post(`/api/v1/users/practice/${chapterId}/start`)
+  }
+
+  async submitPracticeTest(testId, answers) {
+    return await apiClient.post(`/api/v1/users/practice/${testId}/submit`, answers)
+  }
+
+  async getPracticeQuestions(testId) {
+    return await apiClient.get(`/api/v1/users/practice/${testId}/questions`)
+  }
+
+  async getPracticeResults(testId) {
+    return await apiClient.get(`/api/v1/users/practice/${testId}/results`)
+  }
+
+  async getPracticeAttempt(attemptId) {
+    return await apiClient.get(`/api/v1/users/practice/attempts/${attemptId}`)
+  }
+
+  async getPracticeSummary(testId) {
+    return await apiClient.get(`/api/v1/users/practice/${testId}/summary`)
   }
 }
 

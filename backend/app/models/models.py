@@ -97,17 +97,15 @@ class Subject(db.Model):
     
     # UGC NET specific fields
     subject_code = db.Column(db.String(10))  # UGC NET subject code
-    paper_type = db.Column(db.String(20), default='paper2')  # 'paper1', 'paper2', 'both'
-    total_marks_paper1 = db.Column(db.Integer, default=100)  # Total marks for Paper 1
-    total_marks_paper2 = db.Column(db.Integer, default=100)  # Total marks for Paper 2
-    exam_duration_paper1 = db.Column(db.Integer, default=60)  # Duration in minutes
-    exam_duration_paper2 = db.Column(db.Integer, default=120)  # Duration in minutes
-    
+    paper_type = db.Column(db.String(20), default='paper2')  # 'paper1' or 'paper2'
+
     # Relationships
     chapters = db.relationship('Chapter', backref='subject', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
-        from sqlalchemy.orm import selectinload
+        # Dynamically set total_marks and exam_duration based on paper_type
+        total_marks = 200 if self.paper_type == 'paper2' else 100
+        exam_duration = 120 if self.paper_type == 'paper2' else 60
         return {
             'id': self.id,
             'name': self.name,
@@ -117,10 +115,8 @@ class Subject(db.Model):
             'chapters_count': Chapter.query.filter_by(subject_id=self.id).count(),
             'subject_code': self.subject_code,
             'paper_type': self.paper_type,
-            'total_marks_paper1': self.total_marks_paper1,
-            'total_marks_paper2': self.total_marks_paper2,
-            'exam_duration_paper1': self.exam_duration_paper1,
-            'exam_duration_paper2': self.exam_duration_paper2
+            'total_marks': total_marks,
+            'exam_duration': exam_duration
         }
 
 class Chapter(db.Model):
@@ -134,12 +130,10 @@ class Chapter(db.Model):
     created_at = db.Column(db.DateTime, default=current_ist_timestamp)
     
     # UGC NET specific fields
-    weightage_paper1 = db.Column(db.Integer, default=0)  # Weightage for Paper 1 (0-100)
-    weightage_paper2 = db.Column(db.Integer, default=0)  # Weightage for Paper 2 (0-100)
-    estimated_questions_paper1 = db.Column(db.Integer, default=0)  # Expected questions in Paper 1
-    estimated_questions_paper2 = db.Column(db.Integer, default=0)  # Expected questions in Paper 2
+    weightage = db.Column(db.Integer, default=0)  # Weightage for the chapter (0-100)
+    estimated_questions = db.Column(db.Integer, default=0)  # Expected questions in the chapter
     chapter_order = db.Column(db.Integer, default=0)  # Order in syllabus
-    
+
     # Relationships - Updated to use QuestionBank instead of Quiz
     # Note: backref relationships are defined in child models to avoid conflicts
     
@@ -153,10 +147,8 @@ class Chapter(db.Model):
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'questions_count': QuestionBank.query.filter_by(chapter_id=self.id).count(),
-            'weightage_paper1': self.weightage_paper1,
-            'weightage_paper2': self.weightage_paper2,
-            'estimated_questions_paper1': self.estimated_questions_paper1,
-            'estimated_questions_paper2': self.estimated_questions_paper2,
+            'weightage': self.weightage,
+            'estimated_questions': self.estimated_questions,
             'chapter_order': self.chapter_order
         }
 
@@ -943,5 +935,8 @@ class UserLearningMetrics(db.Model):
             'last_calculated': self.last_calculated.isoformat() if self.last_calculated else None,
             'calculation_version': self.calculation_version
         }
+
+# TestAttempt and QuestionResponse models removed as they are redundant
+# Their functionality is covered by UGCNetMockAttempt and UGCNetPracticeAttempt models
 
 

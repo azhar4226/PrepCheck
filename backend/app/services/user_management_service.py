@@ -20,17 +20,23 @@ class UserManagementService:
     def __init__(self):
         pass
     
-    def get_users(self, page=1, per_page=20, search='', role_filter='', status_filter=''):
+    def get_users(self, page=1, per_page=20, search='', filter_type='all', role_filter='', status_filter=''):
         """Get users with filtering and pagination"""
         try:
-            # Build the query based on role filter
+            # Start with base query
+            query = User.query
+            
+            # Apply role filter
             if role_filter == 'admin':
-                query = User.query.filter_by(is_admin=True)
+                query = query.filter_by(is_admin=True)
             elif role_filter == 'user':
-                query = User.query.filter_by(is_admin=False)
+                query = query.filter_by(is_admin=False)
+            elif filter_type == 'all':
+                # When filter_type is 'all', don't filter by role
+                pass
             else:
                 # Default: exclude admin users unless specifically requested
-                query = User.query.filter_by(is_admin=False)
+                query = query.filter_by(is_admin=False)
             
             # Apply status filter
             if status_filter == 'active':

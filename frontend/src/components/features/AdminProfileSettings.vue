@@ -1,3 +1,4 @@
+# Using the new pattern, only admin-specific profile settings
 <template>
   <div class="container-fluid py-4">
     <div class="row">
@@ -5,13 +6,22 @@
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h2>
-            <i class="bi bi-person-circle me-2"></i>Profile Settings
+            <i class="bi bi-shield-check me-2"></i>Admin Profile Settings
           </h2>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary" @click="refreshProfile">
               <i class="bi bi-arrow-clockwise me-1"></i>Refresh
             </button>
+            <router-link to="/admin/users" class="btn btn-primary">
+              <i class="bi bi-people me-1"></i>Manage Users
+            </router-link>
           </div>
+        </div>
+
+        <!-- Admin Status Banner -->
+        <div class="alert alert-info mb-4">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Administrator Account:</strong> You have full system access and can manage all users, content, and settings.
         </div>
 
         <!-- Profile Picture Section -->
@@ -63,10 +73,10 @@
           </div>
         </div>
 
-        <!-- Profile Information -->
+        <!-- Admin Information -->
         <div class="card mb-4">
           <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-person me-2"></i>Profile Information</h5>
+            <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Admin Information</h5>
           </div>
           <div class="card-body">
             <form @submit.prevent="updateProfile">
@@ -93,102 +103,52 @@
                 </div>
               </div>
 
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label for="phone" class="form-label">Phone Number</label>
-                  <input 
-                    type="tel" 
-                    class="form-control" 
-                    id="phone" 
-                    v-model="profile.phone"
-                  >
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label for="dateOfBirth" class="form-label">Date of Birth</label>
-                  <input 
-                    type="date" 
-                    class="form-control" 
-                    id="dateOfBirth" 
-                    v-model="profile.date_of_birth"
-                  >
-                </div>
-              </div>
-
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label for="gender" class="form-label">Gender</label>
-                  <select class="form-select" id="gender" v-model="profile.gender">
-                    <option value="">Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label for="country" class="form-label">Country</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    id="country" 
-                    v-model="profile.country"
-                  >
-                </div>
-              </div>
-
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label for="subject" class="form-label">Subject Preference</label>
-                  <select class="form-select" id="subject" v-model="profile.subject_id">
-                    <option value="">Select Subject</option>
-                    <option v-for="subject in availableSubjects" 
-                            :key="subject.id" 
-                            :value="subject.id">
-                      {{ subject.name }}
-                    </option>
-                  </select>
-                  <div class="form-text text-muted">
-                    <i class="bi bi-info-circle me-1"></i>Select your preferred subject for Paper 2.
-                  </div>
-                </div>
-              </div>
-
-              <div class="mb-3">
-                <label for="bio" class="form-label">Bio</label>
-                <textarea 
-                  class="form-control" 
-                  id="bio" 
-                  rows="3" 
-                  v-model="profile.bio"
-                  placeholder="Tell us about yourself..."
-                ></textarea>
-              </div>
-
-              <div class="row mb-3">
+              <!-- Admin Management Links -->
+              <div class="row mb-4">
                 <div class="col-12">
-                  <h6 class="mb-3">Notification Preferences</h6>
-                  <div class="form-check form-switch mb-2">
-                    <input 
-                      class="form-check-input" 
-                      type="checkbox" 
-                      id="emailNotifications" 
-                      v-model="profile.notification_email"
-                    >
-                    <label class="form-check-label" for="emailNotifications">
-                      Email Notifications
-                    </label>
+                  <div class="card bg-light">
+                    <div class="card-body">
+                      <h6 class="card-title mb-3"><i class="bi bi-shield-lock me-2"></i>Administrative Controls</h6>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <router-link to="/admin/users" class="btn btn-primary w-100">
+                            <i class="bi bi-people me-2"></i>User Management
+                          </router-link>
+                        </div>
+                        <div class="col-md-6">
+                          <router-link to="/admin/subjects" class="btn btn-secondary w-100">
+                            <i class="bi bi-book me-2"></i>Subject Management
+                          </router-link>
+                        </div>
+                        <div class="col-md-6">
+                          <router-link to="/admin/questions" class="btn btn-info w-100 text-white">
+                            <i class="bi bi-question-circle me-2"></i>Question Bank
+                          </router-link>
+                        </div>
+                        <div class="col-md-6">
+                          <router-link to="/admin/reports" class="btn btn-success w-100">
+                            <i class="bi bi-graph-up me-2"></i>Analytics Dashboard
+                          </router-link>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="form-check form-switch">
-                    <input 
-                      class="form-check-input" 
-                      type="checkbox" 
-                      id="testReminders" 
-                      v-model="profile.notification_test_reminders"
-                    >
-                    <label class="form-check-label" for="testReminders">
-                      Test Reminders
-                    </label>
-                  </div>
+                </div>
+              </div>
+
+              <!-- System Preferences -->
+              <div class="mb-4">
+                <h6 class="mb-3">System Preferences</h6>
+                <div class="form-check form-switch mb-2">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    id="emailNotifications" 
+                    v-model="profile.notification_email"
+                  >
+                  <label class="form-check-label" for="emailNotifications">
+                    System Notifications
+                  </label>
                 </div>
               </div>
 
@@ -208,7 +168,7 @@
         <!-- Password Change Section -->
         <div class="card mb-4">
           <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Change Password</h5>
+            <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Change Admin Password</h5>
           </div>
           <div class="card-body">
             <form @submit.prevent="changePassword">
@@ -258,13 +218,7 @@
 
     <!-- Notification Modal -->
     <NotificationModal
-      :show="modal.show"
-      :type="modal.type"
-      :title="modal.title"
-      :message="modal.message"
-      :details="modal.details"
-      :confirm-text="modal.confirmText"
-      :cancel-text="modal.cancelText"
+      v-bind="modal"
       @close="modal.show = false"
       @confirm="handleModalConfirm"
       @cancel="handleModalCancel"
@@ -275,38 +229,37 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
-import userService from '@/services/userService'
-import ugcNetService from '@/services/ugcNetService'
+import adminService from '@/services/adminService'
+import apiClient from '@/services/apiClient'
 import NotificationModal from '@/components/ui/NotificationModal.vue'
+import useNotifications from '@/composables/useNotifications'
 
 export default {
-  name: 'ProfileSettings',
+  name: 'AdminProfileSettings',
   components: {
     NotificationModal
   },
   setup() {
     const { user } = useAuth()
+    const { showSuccess, showError, showConfirm, modal, handleModalConfirm, handleModalCancel } = useNotifications()
     
     // Profile data
     const profile = reactive({
       full_name: '',
       email: '',
-      phone: '',
-      bio: '',
-      date_of_birth: '',
-      gender: '',
-      country: '',
-      subject_id: '',
-      timezone: 'Asia/Kolkata',
       notification_email: true,
-      notification_test_reminders: true,
-      theme_preference: 'light',
       profile_picture_url: ''
     })
 
-    // Available subjects for selection
-    const availableSubjects = ref([])
+    // Loading states
+    const loading = ref(false)
+    const updating = ref(false)
+    const uploading = ref(false)
+    const changingPassword = ref(false)
 
+    // File input ref
+    const fileInput = ref(null)
+    
     // Password form
     const passwordForm = reactive({
       currentPassword: '',
@@ -314,33 +267,10 @@ export default {
       confirmPassword: ''
     })
 
-    // Loading states
-    const loading = ref(false)
-    const updating = ref(false)
-    const uploading = ref(false)
-    const uploadProgress = ref(0)
-    const changingPassword = ref(false)
-
-    // File input ref
-    const fileInput = ref(null)
-    
     // Cache busting timestamp for profile picture
     const profilePictureTimestamp = ref(Date.now())
 
-    // Modal state
-    const modal = reactive({
-      show: false,
-      type: 'success',
-      title: '',
-      message: '',
-      details: '',
-      confirmText: 'OK',
-      cancelText: 'Cancel',
-      onConfirm: null,
-      onCancel: null
-    })
-
-    // Profile picture URL computed property
+    // Computed properties
     const profilePictureUrl = computed(() => {
       if (profile.profile_picture_url) {
         if (profile.profile_picture_url.startsWith('http')) {
@@ -348,66 +278,49 @@ export default {
         }
         return `${profile.profile_picture_url}?t=${profilePictureTimestamp.value}`
       }
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'User')}&background=3498db&color=fff&size=120`
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'Admin')}&background=3498db&color=fff&size=120`
     })
+
+    // Helper function to update both local and global user state
+    const updateUserState = (updatedUserData) => {
+      Object.assign(profile, updatedUserData)
+      if (user.value) {
+        Object.assign(user.value, updatedUserData)
+        localStorage.setItem('prepcheck_user', JSON.stringify(user.value))
+      }
+    }
 
     // Methods
     const loadProfile = async () => {
       try {
         loading.value = true
-        const response = await userService.getProfile()
-        if (response.user) {
-          Object.assign(profile, response.user)
-        } else {
-          Object.assign(profile, response)
-        }
+        const response = await adminService.getProfile()
+        updateUserState(response.user || response)
       } catch (error) {
-        console.error('Error loading profile:', error)
+        console.error('Error loading admin profile:', error)
         showError('Failed to load profile', error.response?.data?.error || error.message)
       } finally {
         loading.value = false
       }
     }
 
-    const loadSubjects = async () => {
-      try {
-        const response = await userService.getPaper2Subjects()
-        availableSubjects.value = response || []
-      } catch (error) {
-        console.error('Error loading Paper 2 subjects:', error)
-        showError('Failed to load subjects', error.response?.data?.error || error.message)
-      }
-    }
-
-    const refreshProfile = async () => {
-      try {
-        await Promise.all([loadProfile(), loadSubjects()])
-        showSuccess('Profile refreshed successfully!')
-      } catch (error) {
-        console.error('Error refreshing profile:', error)
-        showError('Failed to refresh profile', error.response?.data?.error || error.message)
-      }
-    }
+    const refreshProfile = () => loadProfile()
 
     const updateProfile = async () => {
       try {
         updating.value = true
-        const response = await userService.updateProfile(profile)
-        if (response.user) {
-          Object.assign(profile, response.user)
-        }
-        showSuccess('Profile updated successfully!')
+        const response = await userService.updateAdminProfile(profile)
+        updateUserState(response.user || response)
+        showSuccess('Admin profile updated successfully!')
       } catch (error) {
-        console.error('Error updating profile:', error)
+        console.error('Error updating admin profile:', error)
         showError('Failed to update profile', error.response?.data?.error || error.message)
       } finally {
         updating.value = false
       }
     }
 
-    const resetForm = () => {
-      loadProfile()
-    }
+    const resetForm = () => loadProfile()
 
     const changePassword = async () => {
       if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -417,7 +330,7 @@ export default {
 
       try {
         changingPassword.value = true
-        await userService.changePassword({
+        await userService.changeAdminPassword({
           current_password: passwordForm.currentPassword,
           new_password: passwordForm.newPassword
         })
@@ -428,16 +341,15 @@ export default {
           confirmPassword: ''
         })
         
-        showSuccess('Password changed successfully!')
+        showSuccess('Password changed successfully!', 'Your admin password has been updated.')
       } catch (error) {
-        console.error('Error changing password:', error)
+        console.error('Error changing admin password:', error)
         showError('Failed to change password', error.response?.data?.error || error.message)
       } finally {
         changingPassword.value = false
       }
     }
 
-    // Profile picture methods
     const triggerFileInput = () => {
       fileInput.value?.click()
     }
@@ -447,30 +359,23 @@ export default {
       if (!file) return
 
       if (file.size > 5 * 1024 * 1024) {
-        showError('File too large', 'File size must be less than 5MB')
+        showError('File too large', 'File size must be less than 5MB.')
         return
       }
 
       const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp']
       if (!allowedTypes.includes(file.type)) {
-        showError('Invalid file type', 'Please select a PNG, JPG, JPEG, GIF, or WebP image')
+        showError('Invalid file type', 'Please select a PNG, JPG, JPEG, GIF, or WebP image.')
         return
       }
 
       try {
         uploading.value = true
-        uploadProgress.value = 0
-
         const formData = new FormData()
         formData.append('file', file)
 
-        const response = await userService.uploadProfilePicture(formData)
-        
-        if (response.user) {
-          Object.assign(profile, response.user)
-        } else if (response.profile_picture_url) {
-          profile.profile_picture_url = response.profile_picture_url
-        }
+        const response = await userService.uploadAdminProfilePicture(formData)
+        updateUserState(response.user || { profile_picture_url: response.profile_picture_url })
         
         profilePictureTimestamp.value = Date.now()
         
@@ -478,76 +383,52 @@ export default {
           fileInput.value.value = ''
         }
         
-        showSuccess('Profile picture uploaded successfully!')
+        showSuccess('Profile picture updated successfully!')
       } catch (error) {
         console.error('Error uploading profile picture:', error)
         showError('Failed to upload profile picture', error.response?.data?.error || error.message)
       } finally {
         uploading.value = false
-        uploadProgress.value = 0
       }
     }
 
-    const deleteProfilePicture = async () => {
-      try {
-        uploading.value = true
-        await userService.deleteProfilePicture()
-        profile.profile_picture_url = null
-        profilePictureTimestamp.value = Date.now()
-        showSuccess('Profile picture removed successfully!')
-      } catch (error) {
-        console.error('Error deleting profile picture:', error)
-        showError('Failed to remove profile picture', error.response?.data?.error || error.message)
-      } finally {
-        uploading.value = false
-      }
+    const deleteProfilePicture = () => {
+      showConfirm(
+        'Are you sure you want to remove your profile picture?',
+        async () => {
+          try {
+            uploading.value = true
+            const response = await userService.deleteAdminProfilePicture()
+            updateUserState(response.user || { profile_picture_url: null })
+            profilePictureTimestamp.value = Date.now()
+            showSuccess('Profile picture removed successfully!')
+          } catch (error) {
+            console.error('Error deleting profile picture:', error)
+            showError('Failed to remove profile picture', error.response?.data?.error || error.message)
+          } finally {
+            uploading.value = false
+          }
+        },
+        {
+          title: '🗑️ Remove Profile Picture',
+          confirmText: 'Yes, Remove',
+          cancelText: 'Keep Picture'
+        }
+      )
     }
 
     const handleImageError = (event) => {
-      event.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'User')}&background=6c757d&color=fff&size=120`
+      event.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'Admin')}&background=6c757d&color=fff&size=120`
     }
 
-    // Modal methods
-    const showSuccess = (message, details = '') => {
-      modal.type = 'success'
-      modal.title = '✅ Success'
-      modal.message = message
-      modal.details = details
-      modal.show = true
-    }
-
-    const showError = (message, details = '') => {
-      modal.type = 'error'
-      modal.title = '❌ Error'
-      modal.message = message
-      modal.details = details
-      modal.show = true
-    }
-
-    const handleModalConfirm = () => {
-      if (modal.onConfirm) modal.onConfirm()
-      modal.show = false
-    }
-
-    const handleModalCancel = () => {
-      if (modal.onCancel) modal.onCancel()
-      modal.show = false
-    }
-
-    // Initialize
-    onMounted(() => {
-      loadProfile()
-      loadSubjects()
-    })
+    onMounted(loadProfile)
 
     return {
       profile,
-      availableSubjects,
       passwordForm,
       loading,
       updating,
       uploading,
-      uploadProgress,
       changingPassword,
       fileInput,
       profilePictureUrl,
@@ -602,5 +483,9 @@ export default {
 
 .profile-picture-container:hover .profile-picture-overlay {
   opacity: 1;
+}
+
+.form-check-label {
+  cursor: pointer;
 }
 </style>

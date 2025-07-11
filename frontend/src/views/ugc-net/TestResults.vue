@@ -479,6 +479,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAppState } from '@/composables/useAppState'
+import { formatISTDateTime } from '@/utils/timezone'
 
 export default {
   name: 'TestResults',
@@ -709,22 +710,7 @@ export default {
 
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A'
-      try {
-        const date = new Date(dateString)
-        // Format for Indian locale with IST timezone
-        return date.toLocaleString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          year: 'numeric',
-          month: 'short',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true
-        })
-      } catch (error) {
-        return 'Invalid Date'
-      }
+      return formatISTDateTime(dateString)
     }
 
     const formatTimeLimit = (minutes) => {

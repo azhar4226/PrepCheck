@@ -1,4 +1,5 @@
 <template>
+  <!-- <div style="color:red">DEBUG: [Dashboard.vue](http://_vscodecontentref_/2) loaded</div> -->
   <div class="container-fluid">
     <div class="unified-dashboard">
         
@@ -206,19 +207,37 @@ export default {
       activeTab.value = 'overview'
     }
 
-    // Set active tab and update URL
+    // Tab handling methods
     const setActiveTab = (tab) => {
-      console.log(`Setting active tab to: ${tab}`)
       activeTab.value = tab
-      
-      // Update URL with current tab (optional, for bookmarkability)
-      router.replace({ 
-        name: 'Dashboard', 
-        query: { ...route.query, tab } 
-      }).catch((err) => {
-        console.error('Tab navigation error:', err)
-      }) // Log navigation errors for debugging
+      // Update URL based on whether it's admin or user dashboard
+      if (user.value?.is_admin) {
+        router.push({
+          path: '/admin/dashboard',
+          query: { tab }
+        }).catch(() => {})  // Ignore redundant navigation errors
+      } else {
+        router.push({
+          path: '/dashboard',
+          query: { tab }
+        }).catch(() => {})  // Ignore redundant navigation errors
+      }
     }
+
+    // Watch for route changes
+    watch(() => route.query.tab, (newTab) => {
+      if (newTab && activeTab.value !== newTab) {
+        activeTab.value = newTab
+      }
+    }, { immediate: true })
+
+    // Initialize based on route
+    onMounted(() => {
+      console.log('UnifiedDashboard mounted, initializing tab')
+      console.log('Current user:', user)
+      // Set initial tab from route or default
+      activeTab.value = route.query.tab || 'overview'
+    })
 
     // Refresh data for current tab
     const refreshData = () => {
@@ -493,13 +512,9 @@ export default {
 
     onMounted(() => {
       console.log('UnifiedDashboard mounted, initializing tab')
-      console.log('Current user:', user.value)
-      initializeTab()
-      
-      // Check if user is properly loaded
-      if (!user.value) {
-        console.warn('User not loaded in UnifiedDashboard, authentication might be incomplete')
-      }
+      console.log('Current user:', user)
+      // Set active tab based on initial route query or default to 'overview'
+      activeTab.value = route.query.tab || 'overview'
     })
 
     return {

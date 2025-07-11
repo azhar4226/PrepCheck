@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import desc, func, distinct, cast, Date
 from app import db, redis_client
 from app.models import User, Subject, Chapter, QuestionBank, UGCNetMockTest, UGCNetMockAttempt, UGCNetPracticeAttempt
 from app.services.user_profile_service import UserProfileService
 import json
+import traceback
 
 user_bp = Blueprint('user', __name__)
 
@@ -19,16 +20,16 @@ def get_current_user():
 def calculate_study_streak(user_id):
     """Calculate the current study streak for a user using new models"""
     try:
-        # Get distinct dates when user completed tests (both mock and practice), ordered by date descending
+        # Use func.date for cross-database compatibility
         mock_dates = db.session.query(
-            cast(UGCNetMockAttempt.completed_at, Date).label('date')
+            func.date(UGCNetMockAttempt.completed_at).label('date')
         ).filter(
             UGCNetMockAttempt.user_id == user_id,
             UGCNetMockAttempt.is_completed == True
         ).distinct()
         
         practice_dates = db.session.query(
-            cast(UGCNetPracticeAttempt.completed_at, Date).label('date')
+            func.date(UGCNetPracticeAttempt.completed_at).label('date')
         ).filter(
             UGCNetPracticeAttempt.user_id == user_id,
             UGCNetPracticeAttempt.is_completed == True
@@ -36,19 +37,39 @@ def calculate_study_streak(user_id):
         
         # Combine both date queries
         all_dates = mock_dates.union(practice_dates).order_by(desc('date')).all()
-        
         if not all_dates:
             return 0
-        
         # Convert to list of dates
-        dates = [date.date for date in all_dates]
+        def normalize_date(d):
+            print(f'normalize_date got: {d} ({type(d)})')
+            if isinstance(d, datetime):
+                return d.date()
+            if hasattr(d, 'isoformat'):
+                # date or datetime
+                return d
+            if isinstance(d, str):
+                try:
+                    return datetime.strptime(d, '%Y-%m-%d').date()
+                except Exception as e:
+                    print(f'Failed to parse date string: {d}, error: {e}')
+                    return None
+            return d  # already a date
+        dates = [normalize_date(date.date) for date in all_dates if normalize_date(date.date) is not None]
+        if not dates:
+            return 0
+        
+        # Remove any None values and sort descending (latest first)
+        dates = [d for d in dates if d is not None]
+        if not dates:
+            return 0
+        dates.sort(reverse=True)
         
         # Check if user studied today or yesterday (streak can continue)
         today = datetime.now().date()
         yesterday = today - timedelta(days=1)
         
         # If user hasn't studied today or yesterday, streak is broken
-        if dates[0] != today and dates[0] != yesterday:
+        if dates[0] is None or (dates[0] != today and dates[0] != yesterday):
             return 0
         
         # Count consecutive days
@@ -56,6 +77,8 @@ def calculate_study_streak(user_id):
         current_date = dates[0]
         
         for i in range(1, len(dates)):
+            if dates[i] is None:
+                continue
             expected_date = current_date - timedelta(days=1)
             if dates[i] == expected_date:
                 streak += 1
@@ -66,7 +89,9 @@ def calculate_study_streak(user_id):
         return streak
         
     except Exception as e:
+        import traceback
         print(f"Error calculating study streak: {e}")
+        traceback.print_exc()
         return 0
 
 @user_bp.route('/dashboard', methods=['GET'])
@@ -184,6 +209,25 @@ def get_user_dashboard():
         if latest_mock_attempt:
             qualification_status = latest_mock_attempt.qualification_status
         
+        # Get all completed attempts (mock + practice)
+        completed_mock_attempts = UGCNetMockAttempt.query.filter_by(user_id=user.id, is_completed=True).all()
+        completed_practice_attempts = UGCNetPracticeAttempt.query.filter_by(user_id=user.id, is_completed=True).all()
+        all_attempts = completed_mock_attempts + completed_practice_attempts
+
+        # Hours studied: sum of all time_taken (in seconds), convert to hours
+        total_seconds = sum([a.time_taken or 0 for a in all_attempts])
+        hours_studied = round(total_seconds / 3600, 1)
+
+        # Accuracy rate: total correct / total attempted
+        total_correct = sum([a.correct_answers or 0 for a in all_attempts])
+        total_questions = sum([a.total_questions or 0 for a in all_attempts])
+        accuracy_rate = round((total_correct / total_questions) * 100, 1) if total_questions > 0 else 0.0
+
+        # Last activity: most recent completed_at
+        last_activity = None
+        if all_attempts:
+            last_activity = max([a.completed_at for a in all_attempts if a.completed_at is not None], default=None)
+
         dashboard_data = {
             'user': user.to_dict(),
             'stats': {
@@ -196,7 +240,10 @@ def get_user_dashboard():
                 'subjects_available': len(subjects),
                 'rank': user_rank,
                 'study_streak': study_streak,
-                'qualification_status': qualification_status
+                'qualification_status': qualification_status,
+                'hours_studied': hours_studied,
+                'accuracy_rate': accuracy_rate,
+                'last_activity': last_activity.isoformat() if last_activity else None
             },
             'recent_attempts': recent_attempts,
             'subjects': [subject.to_dict() for subject in subjects]
@@ -209,7 +256,6 @@ def get_user_dashboard():
         return jsonify({'error': str(e)}), 500
 
 @user_bp.route('/subjects', methods=['GET'])
-@jwt_required()
 def get_user_subjects():
     """Get subjects with UGC NET specific data"""
     try:
@@ -369,7 +415,7 @@ def get_user_analytics():
             },
             'period_days': days
         }
-        
+        print(f"[Analytics API] Returning analytics: {json.dumps(analytics, default=str)}")
         return jsonify(analytics), 200
         
     except Exception as e:
@@ -500,11 +546,15 @@ def get_attempts_history():
             ).order_by(desc(UGCNetMockAttempt.completed_at))
             
             for attempt in mock_query.all():
-                mock_attempts.append({
-                    'type': 'mock',
-                    'data': attempt.to_dict(),
-                    'completed_at': attempt.completed_at
-                })
+                try:
+                    mock_attempts.append({
+                        'type': 'mock',
+                        'data': attempt.to_dict(),
+                        'completed_at': attempt.completed_at
+                    })
+                except Exception as e:
+                    print(f"Error serializing mock attempt {attempt.id}: {e}")
+                    traceback.print_exc()
         
         # Get practice attempts
         practice_attempts = []
@@ -514,15 +564,29 @@ def get_attempts_history():
             ).order_by(desc(UGCNetPracticeAttempt.completed_at))
             
             for attempt in practice_query.all():
-                practice_attempts.append({
-                    'type': 'practice',
-                    'data': attempt.to_dict(),
-                    'completed_at': attempt.completed_at
-                })
+                try:
+                    practice_attempts.append({
+                        'type': 'practice',
+                        'data': attempt.to_dict(),
+                        'completed_at': attempt.completed_at
+                    })
+                except Exception as e:
+                    print(f"Error serializing practice attempt {attempt.id}: {e}")
+                    traceback.print_exc()
         
         # Combine and sort all attempts
         all_attempts = mock_attempts + practice_attempts
-        all_attempts.sort(key=lambda x: x['completed_at'], reverse=True)
+        def to_utc(dt):
+            if dt is None:
+                return datetime.min.replace(tzinfo=timezone.utc)
+            if dt.tzinfo is None:
+                # Assume naive datetimes are UTC
+                return dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        all_attempts.sort(
+            key=lambda x: to_utc(x['completed_at']),
+            reverse=True
+        )
         
         # Manual pagination
         start = (page - 1) * per_page
@@ -543,8 +607,9 @@ def get_attempts_history():
                 'has_prev': page > 1
             }
         }), 200
-        
     except Exception as e:
+        print(f"Error in get_attempts_history: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @user_bp.route('/subjects/paper2', methods=['GET'])

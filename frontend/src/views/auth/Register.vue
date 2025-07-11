@@ -256,7 +256,9 @@ export default {
       try {
         const response = await ugcNetService.getSubjects()
         if (response.success) {
-          subjects.value = response.data.subjects || response.data || []
+          // Filter subjects to only those with paper_type === 'paper2'
+          const allSubjects = response.data.subjects || response.data || []
+          subjects.value = allSubjects.filter(subject => subject.paper_type === 'paper2')
         } else {
           console.error('Failed to load subjects:', response.error)
         }

@@ -51,19 +51,20 @@
                 </td>
                 <td>{{ formatDate(subject.created_at) }}</td>
                 <td>
-                  <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" @click="editSubject(subject)">
-                      <i class="fas fa-edit"></i>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Subject Actions">
+                    <button class="btn btn-outline-primary d-flex align-items-center" @click="editSubject(subject)" title="Edit Subject">
+                      <i class="fas fa-edit me-1"></i> Edit
                     </button>
-                    <button class="btn btn-outline-info" @click="manageChapters(subject)">
-                      <i class="fas fa-plus"></i> Chapters
+                    <button class="btn btn-outline-info d-flex align-items-center" @click="manageChapters(subject)" title="Manage Chapters">
+                      <i class="fas fa-layer-group me-1"></i> Chapters
                     </button>
                     <button 
-                      class="btn btn-outline-danger" 
+                      class="btn btn-outline-danger d-flex align-items-center" 
                       @click="deleteSubject(subject)"
                       :disabled="subject.chapters_count > 0"
+                      title="Delete Subject"
                     >
-                      <i class="fas fa-trash"></i>
+                      <i class="fas fa-trash me-1"></i> Delete
                     </button>
                   </div>
                 </td>
@@ -193,12 +194,12 @@
                     </span>
                   </small>
                 </div>
-                <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-primary">
-                    <i class="fas fa-edit"></i>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Chapter Actions">
+                  <button class="btn btn-outline-primary d-flex align-items-center" title="Edit Chapter" @click="editChapter(chapter)">
+                    <i class="fas fa-edit me-1"></i> Edit
                   </button>
-                  <button class="btn btn-outline-danger">
-                    <i class="fas fa-trash"></i>
+                  <button class="btn btn-outline-danger d-flex align-items-center" title="Delete Chapter" @click="deleteChapter(chapter)">
+                    <i class="fas fa-trash me-1"></i> Delete
                   </button>
                 </div>
               </div>
@@ -397,11 +398,20 @@ export default {
     const loadChapters = async (subjectId) => {
       try {
         loadingChapters.value = true
-        const response = await api.getChapters(subjectId)
-        chapters.value = response || []
+        const response = await adminService.getChapters(subjectId)
+        console.log('Chapters API response:', response)
+        if (Array.isArray(response)) {
+          chapters.value = response
+        } else if (response && Array.isArray(response.chapters)) {
+          chapters.value = response.chapters
+        } else {
+          chapters.value = []
+          showMessage('No chapters found or unexpected response format', 'error')
+        }
       } catch (error) {
         showMessage('Failed to load chapters', 'error')
         console.error('Load chapters error:', error)
+        chapters.value = []
       } finally {
         loadingChapters.value = false
       }
@@ -420,7 +430,7 @@ export default {
     const saveChapter = async () => {
       try {
         saving.value = true
-        await api.createChapter(chapterForm.value)
+        await adminService.createChapter(chapterForm.value)
         showMessage('Chapter created successfully', 'success')
         showCreateChapterModal.value = false
         await loadChapters(selectedSubject.value.id)
@@ -430,6 +440,31 @@ export default {
         console.error('Save chapter error:', error)
       } finally {
         saving.value = false
+      }
+    }
+
+    const editChapter = (chapter) => {
+      chapterForm.value = {
+        name: chapter.name,
+        description: chapter.description || '',
+        subject_id: chapter.subject_id,
+        is_active: chapter.is_active,
+        id: chapter.id
+      }
+      showCreateChapterModal.value = true
+    }
+
+    const deleteChapter = async (chapter) => {
+      if (confirm(`Are you sure you want to delete chapter "${chapter.name}"?`)) {
+        try {
+          await adminService.deleteChapter(chapter.id)
+          showMessage('Chapter deleted successfully', 'success')
+          await loadChapters(selectedSubject.value.id)
+          await loadSubjects()
+        } catch (error) {
+          showMessage('Failed to delete chapter', 'error')
+          console.error('Delete chapter error:', error)
+        }
       }
     }
 
@@ -500,7 +535,9 @@ export default {
       saveChapter,
       closeChaptersModal,
       closeModal,
-      formatDate
+      formatDate,
+      editChapter,
+      deleteChapter
     }
   }
 }

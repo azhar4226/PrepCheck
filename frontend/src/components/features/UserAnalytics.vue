@@ -1,203 +1,175 @@
 <template>
-  <div class="user-analytics">
-    <!-- Header with filters -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h3 class="mb-0">
-        <i class="bi bi-graph-up me-2"></i>My Performance Analytics
-      </h3>
-      <div class="d-flex gap-2">
-        <select v-model="filters.days" @change="loadAnalytics" class="form-select" style="width: auto;">
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="90">Last 90 days</option>
-        </select>
-        <button class="btn btn-outline-success btn-sm" @click="exportToPDF" :disabled="loading || !analytics">
-          <i class="bi bi-file-earmark-pdf me-1"></i>
-          Export PDF
-        </button>
-        <button class="btn btn-outline-primary btn-sm" @click="refreshAnalytics" :disabled="loading">
-          <i class="bi bi-arrow-clockwise me-1" :class="{ 'spin': loading }"></i>
-          {{ loading ? 'Loading...' : 'Refresh' }}
-        </button>
+  <div class="user-analytics-page">
+    <!-- Performance Overview Cards -->
+    <div v-if="!loading && hasData" class="row g-4 mb-4">
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h5 class="card-title text-primary">Overall Score</h5>
+            <h2 class="mb-0">{{ analyticsData.snapshot.overall_average_score.toFixed(1) }}%</h2>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h5 class="card-title text-success">Accuracy Rate</h5>
+            <h2 class="mb-0">{{ analyticsData.snapshot.overall_accuracy.toFixed(1) }}%</h2>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h5 class="card-title text-info">Tests Taken</h5>
+            <h2 class="mb-0">{{ analyticsData.snapshot.total_tests_taken }}</h2>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h5 class="card-title text-warning">Time Studied</h5>
+            <h2 class="mb-0">{{ formatTime(analyticsData.snapshot.total_time_studied) }}</h2>
+          </div>
+        </div>
       </div>
     </div>
+    <!-- Header & Export -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="mb-0">My Performance Analytics</h3>
+      <button class="btn btn-primary" @click="exportAnalyticsPDF" :disabled="loading">
+        <i class="bi bi-download me-1"></i> Export as PDF
+      </button>
+    </div>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading analytics...</span>
+        <span class="visually-hidden">Loading...</span>
       </div>
     </div>
 
-    <!-- Error State -->
-    <div v-else-if="error" class="alert alert-danger">
-      <i class="bi bi-exclamation-triangle me-2"></i>
-      {{ error }}
+    <!-- Filters for Performance Over Time: always visible except when loading -->
+    <div v-if="!loading" class="row mb-3">
+      <div class="col-md-3 mb-2">
+        <select v-model="selectedTestType" class="form-select">
+          <option value="all">All Tests</option>
+          <option value="mock">Mock Tests</option>
+          <option value="practice">Practice Tests</option>
+        </select>
+      </div>
+      <div class="col-md-3 mb-2">
+        <select v-model="selectedSubject" class="form-select">
+          <option value="all">All Subjects</option>
+          <option v-for="subject in subjects" :key="subject.id" :value="subject.id">{{ subject.name }}</option>
+        </select>
+      </div>
+      <div class="col-md-3 mb-2">
+        <select v-model="selectedTimeRange" class="form-select">
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 3 months</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+      <div class="col-md-3 mb-2">
+        <button class="btn btn-outline-primary w-100" @click="refreshAnalytics" :disabled="loading">Apply Filters</button>
+      </div>
     </div>
 
-    <!-- Analytics Content -->
-    <div v-else-if="analytics">
-      <!-- Summary Cards -->
-      <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-          <div class="card bg-primary text-white">
-            <div class="card-body text-center">
-              <i class="bi bi-clipboard-check display-6 mb-2"></i>
-              <h4 class="mb-1">{{ analytics.summary.total_attempts }}</h4>
-              <p class="mb-0 small">Mock Test Attempts</p>
-            </div>
-          </div>
-        </div>
+    <!-- No Data Message - Only show when actually no data -->
+    <div v-if="!loading && hasNoData" class="text-center py-5">
+      <i class="bi bi-bar-chart-line display-1 text-muted"></i>
+      <h3 class="mt-3 text-muted">No Analytics Data Available</h3>
+      <p class="text-muted">Complete some tests to see your performance analytics here.</p>
+    </div>
 
-        <div class="col-md-3 mb-3">
-          <div class="card bg-success text-white">
-            <div class="card-body text-center">
-              <i class="bi bi-trophy display-6 mb-2"></i>
-              <h4 class="mb-1">{{ analytics.summary.average_score }}%</h4>
-              <p class="mb-0 small">Average Score</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-3 mb-3">
-          <div class="card bg-info text-white">
-            <div class="card-body text-center">
-              <i class="bi bi-graph-up display-6 mb-2"></i>
-              <h4 class="mb-1">
-                {{ analytics.summary.score_trend > 0 ? '+' : '' }}{{ analytics.summary.score_trend }}%
-              </h4>
-              <p class="mb-0 small">Score Trend</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-3 mb-3">
-          <div class="card bg-warning text-white">
-            <div class="card-body text-center">
-              <i class="bi bi-question-circle display-6 mb-2"></i>
-              <h4 class="mb-1">{{ questionsAnswered }}</h4>
-              <p class="mb-0 small">Questions Answered</p>
-            </div>
+    <!-- Performance Charts -->
+    <div v-if="!loading && hasData" class="row g-4">
+      <!-- Performance Over Time -->
+      <div class="col-md-8">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">Performance Over Time</h5>
+            <line-chart
+              :chart-data="performanceChartData"
+              :options="performanceChartOptions"
+            />
           </div>
         </div>
       </div>
 
-      <!-- Performance Details -->
-      <div class="row mb-4">
-        <!-- Daily Performance Chart -->
-        <div class="col-lg-8 mb-4">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">
-                <i class="bi bi-calendar3 me-2"></i>Daily Performance
-              </h5>
-            </div>
-            <div class="card-body">
-              <div v-if="analytics.daily_performance.length > 0">
-                <canvas ref="dailyChart" style="max-height: 300px;"></canvas>
-              </div>
-              <div v-else class="text-center py-4 text-muted">
-                <i class="bi bi-graph-down display-4 mb-3"></i>
-                <p>No UGC NET mock test data available for the selected period.</p>
-                <router-link to="/ugc-net" class="btn btn-primary">
-                  <i class="bi bi-play-circle me-2"></i>Take Your First UGC NET Mock Test
-                </router-link>
-              </div>
-            </div>
+      <!-- Accuracy by Difficulty -->
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">Accuracy by Difficulty</h5>
+            <doughnut-chart
+              :chart-data="accuracyChartData"
+              :options="accuracyChartOptions"
+            />
           </div>
         </div>
+      </div>
 
-        <!-- Question Analytics -->
-        <div class="col-lg-4 mb-4">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">
-                <i class="bi bi-bullseye me-2"></i>Question Analytics
-              </h5>
-            </div>
-            <div class="card-body">
-              <div class="text-center mb-3">
-                <div class="h2 text-primary">{{ analytics.question_analytics.accuracy_rate }}%</div>
-                <small class="text-muted">Overall Accuracy</small>
-              </div>
-              
-              <div class="mb-3">
-                <small class="text-muted d-block">Correct Answers</small>
-                <div class="progress" style="height: 8px;">
-                  <div 
-                    class="progress-bar bg-success" 
-                    :style="{ width: analytics.question_analytics.accuracy_rate + '%' }"
-                  ></div>
+      <!-- Strengths -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title text-success">
+              <i class="bi bi-arrow-up-circle me-2"></i>Strengths
+            </h5>
+            <div class="list-group">
+              <div v-for="(strength, index) in analyticsData.strengths" :key="index" class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span>{{ strength.topic }}</span>
+                  <span class="badge bg-success">{{ strength.score.toFixed(1) }}%</span>
                 </div>
-                <small class="text-muted">
-                  {{ analytics.question_analytics.correct_answers }} / {{ analytics.question_analytics.total_questions_answered }}
-                </small>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              <!-- Difficulty Breakdown -->
-              <div v-if="Object.keys(analytics.question_analytics.question_types_breakdown).length > 0">
-                <h6 class="mb-2">By Difficulty</h6>
-                <div 
-                  v-for="(stats, difficulty) in analytics.question_analytics.question_types_breakdown" 
-                  :key="difficulty"
-                  class="mb-2"
-                >
-                  <div class="d-flex justify-content-between">
-                    <small>{{ difficulty }}</small>
-                    <small>{{ stats.accuracy }}%</small>
-                  </div>
-                  <div class="progress" style="height: 6px;">
+      <!-- Weaknesses -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title text-danger">
+              <i class="bi bi-arrow-down-circle me-2"></i>Areas for Improvement
+            </h5>
+            <div class="list-group">
+              <div v-for="(weakness, index) in analyticsData.weaknesses" :key="index" class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span>{{ weakness.topic }}</span>
+                  <span class="badge bg-danger">{{ weakness.score.toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paper Performance -->
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Paper-wise Performance</h5>
+            <div class="row">
+              <div class="col-md-6" v-for="(score, paper) in analyticsData.performance_by_paper" :key="paper">
+                <div class="mb-3">
+                  <label class="form-label">{{ paper }}</label>
+                  <div class="progress">
                     <div 
                       class="progress-bar" 
-                      :class="getDifficultyColor(difficulty)"
-                      :style="{ width: stats.accuracy + '%' }"
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Subject Performance -->
-      <div class="row mb-4" v-if="analytics.subject_performance.length > 0">
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">
-                <i class="bi bi-book me-2"></i>Subject Performance
-              </h5>
-            </div>
-            <div class="card-body">
-              <div class="row">
-                <div 
-                  v-for="subject in analytics.subject_performance" 
-                  :key="subject.name"
-                  class="col-md-6 col-lg-4 mb-3"
-                >
-                  <div class="border rounded p-3">
-                    <h6 class="mb-2">{{ subject.name }}</h6>
-                    <div class="d-flex justify-content-between mb-2">
-                      <span class="text-muted">Score:</span>
-                      <span class="fw-bold">{{ subject.percentage }}%</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                      <span class="text-muted">Attempts:</span>
-                      <span>{{ subject.attempts }}</span>
-                    </div>
-                    
-                    <!-- Chapter breakdown -->
-                    <div v-if="subject.chapters.length > 0" class="mt-3">
-                      <small class="text-muted d-block mb-2">Chapters:</small>
-                      <div 
-                        v-for="chapter in subject.chapters" 
-                        :key="chapter.name"
-                        class="d-flex justify-content-between small mb-1"
-                      >
-                        <span>{{ chapter.name }}</span>
-                        <span>{{ chapter.percentage }}%</span>
-                      </div>
+                      role="progressbar" 
+                      :style="{ width: score + '%' }"
+                      :class="{
+                        'bg-danger': score < 40,
+                        'bg-warning': score >= 40 && score < 60,
+                        'bg-success': score >= 60
+                      }"
+                    >
+                      {{ score.toFixed(1) }}%
                     </div>
                   </div>
                 </div>
@@ -206,424 +178,228 @@
           </div>
         </div>
       </div>
-
-      <!-- Topics Performance -->
-      <div class="row mb-4" v-if="hasTopicData">
-        <div class="col-lg-6 mb-4">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0 text-success">
-                <i class="bi bi-trophy me-2"></i>Strongest Topics
-              </h5>
-            </div>
-            <div class="card-body">
-              <div v-if="analytics.question_analytics.strongest_topics.length > 0">
-                <div 
-                  v-for="topic in analytics.question_analytics.strongest_topics" 
-                  :key="topic.topic"
-                  class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded"
-                >
-                  <div>
-                    <div class="fw-bold">{{ topic.topic }}</div>
-                    <small class="text-muted">{{ topic.correct_answers }}/{{ topic.questions_answered }} correct</small>
-                  </div>
-                  <div class="badge bg-success">{{ topic.accuracy }}%</div>
-                </div>
-              </div>
-              <div v-else class="text-muted text-center py-3">
-                <i class="bi bi-trophy display-4 mb-2"></i>
-                <p>Complete more UGC NET mock tests to see your strongest topics</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-6 mb-4">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0 text-warning">
-                <i class="bi bi-exclamation-triangle me-2"></i>Areas for Improvement
-              </h5>
-            </div>
-            <div class="card-body">
-              <div v-if="analytics.question_analytics.most_difficult_topics.length > 0">
-                <div 
-                  v-for="topic in analytics.question_analytics.most_difficult_topics" 
-                  :key="topic.topic"
-                  class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded"
-                >
-                  <div>
-                    <div class="fw-bold">{{ topic.topic }}</div>
-                    <small class="text-muted">{{ topic.correct_answers }}/{{ topic.questions_answered }} correct</small>
-                  </div>
-                  <div class="badge bg-warning">{{ topic.accuracy }}%</div>
-                </div>
-              </div>
-              <div v-else class="text-muted text-center py-3">
-                <i class="bi bi-check-circle display-4 mb-2"></i>
-                <p>Great job! No weak areas identified yet.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Improvement Suggestions -->
-      <div class="row mb-4" v-if="analytics.question_analytics.improvement_suggestions.length > 0">
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">
-                <i class="bi bi-lightbulb me-2"></i>Personalized Recommendations
-              </h5>
-            </div>
-            <div class="card-body">
-              <div 
-                v-for="(suggestion, index) in analytics.question_analytics.improvement_suggestions" 
-                :key="index"
-                class="alert mb-3"
-                :class="getSuggestionClass(suggestion.priority)"
-              >
-                <div class="d-flex align-items-start">
-                  <i class="bi me-2 mt-1" :class="getSuggestionIcon(suggestion.type)"></i>
-                  <div class="flex-grow-1">
-                    <div class="fw-bold">{{ formatSuggestionType(suggestion.type) }}</div>
-                    <div>{{ suggestion.message }}</div>
-                  </div>
-                  <span class="badge" :class="getPriorityBadgeClass(suggestion.priority)">
-                    {{ suggestion.priority.toUpperCase() }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else class="text-center py-5">
-      <i class="bi bi-graph-down display-1 text-muted mb-3"></i>
-      <h4 class="text-muted">No analytics data available</h4>
-      <p class="text-muted mb-4">Start taking UGC NET mock tests to see your performance analytics</p>
-      <router-link to="/ugc-net" class="btn btn-primary">
-        <i class="bi bi-play-circle me-2"></i>Browse UGC NET Mock Tests
-      </router-link>
     </div>
   </div>
 </template>
 
 <script>
-import { Chart, registerables } from 'chart.js'
+import { ref, computed, onMounted } from 'vue'
+import { Line as LineChart, Doughnut as DoughnutChart } from 'vue-chartjs'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement } from 'chart.js'
+import analyticsService from '@/services/analyticsService'
 import ugcNetService from '@/services/ugcNetService'
 
-Chart.register(...registerables)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement)
 
 export default {
   name: 'UserAnalytics',
-  data() {
-    return {
-      analytics: null,
-      loading: false,
-      error: null,
-      filters: {
-        days: 30
-      },
-      dailyChart: null
-    }
+  components: {
+    LineChart,
+    DoughnutChart
   },
-  computed: {
-    hasTopicData() {
-      return this.analytics && (
-        this.analytics.question_analytics.strongest_topics.length > 0 ||
-        this.analytics.question_analytics.most_difficult_topics.length > 0
-      )
-    },
-    questionsAnswered() {
-      if (!this.analytics) return 0
+  setup() {
+    const loading = ref(false)
+    const analyticsData = ref(null)
+    const selectedTestType = ref('all')
+    const selectedSubject = ref('all')
+    const selectedTimeRange = ref('30')
+    const subjects = ref([])
+
+    const performanceChartData = computed(() => {
+      if (!analyticsData.value?.performance_over_time) return null
       
-      // Use the calculated value from summary if available, otherwise use question analytics
-      return this.analytics.summary.total_questions_answered || 
-             this.analytics.question_analytics.total_questions_answered || 0
-    }
-  },
-  mounted() {
-    this.loadAnalytics()
-  },
-  beforeUnmount() {
-    if (this.dailyChart) {
-      this.dailyChart.destroy()
-    }
-  },
-  methods: {
-    async loadAnalytics() {
-      this.loading = true
-      this.error = null
-      
-      try {
-        const response = await ugcNetService.getStatistics()
-        if (response.success) {
-          this.analytics = response.data
-        } else {
-          throw new Error(response.error || 'Failed to load statistics')
-        }
-        this.$nextTick(() => {
-          this.createDailyChart()
-        })
-      } catch (error) {
-        this.error = error.response?.data?.error || error.message || 'Failed to load analytics'
-        console.error('Error loading user analytics:', error)
-      } finally {
-        this.loading = false
+      return {
+        labels: analyticsData.value.performance_over_time.map(p => p.date),
+        datasets: [{
+          label: 'Score',
+          data: analyticsData.value.performance_over_time.map(p => p.score),
+          borderColor: '#0d6efd',
+          tension: 0.1
+        }]
       }
-    },
-    
-    async refreshAnalytics() {
-      await this.loadAnalytics()
-    },
+    })
 
-    async exportToPDF() {
-      if (!this.analytics) {
-        alert('No data available to export')
-        return
+    const accuracyChartData = computed(() => {
+      if (!analyticsData.value?.accuracy_by_difficulty) return null
+
+      const data = analyticsData.value.accuracy_by_difficulty
+      return {
+        labels: Object.keys(data),
+        datasets: [{
+          data: Object.values(data),
+          backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+        }]
       }
+    })
 
-      try {
-        // Show loading state
-        const originalText = event.target.innerHTML
-        event.target.innerHTML = '<i class="bi bi-download me-1"></i>Exporting...'
-        event.target.disabled = true
-
-        // Call the export service
-        const response = await ugcNetService.exportAnalytics({
-          days: this.filters.days,
-          includeTimeline: true,
-          includeCharts: true
-        })
-
-        if (response.success) {
-          // Create and download the PDF
-          const blob = new Blob([response.data], { type: 'application/pdf' })
-          const url = window.URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `PrepCheck_Analytics_${this.filters.days}days_${new Date().toISOString().split('T')[0]}.pdf`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          window.URL.revokeObjectURL(url)
-          
-          // Show success message
-          this.showMessage('Analytics exported successfully!', 'success')
-        } else {
-          throw new Error(response.error || 'Failed to export analytics')
-        }
-      } catch (error) {
-        console.error('Error exporting PDF:', error)
-        this.showMessage('Failed to export analytics. Please try again.', 'error')
-      } finally {
-        // Restore button state
-        event.target.innerHTML = originalText
-        event.target.disabled = false
-      }
-    },
-
-    showMessage(message, type) {
-      // Create a temporary alert
-      const alertDiv = document.createElement('div')
-      alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`
-      alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;'
-      alertDiv.innerHTML = `
-        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      `
-      document.body.appendChild(alertDiv)
-
-      // Auto remove after 5 seconds
-      setTimeout(() => {
-        if (alertDiv.parentNode) {
-          alertDiv.parentNode.removeChild(alertDiv)
-        }
-      }, 5000)
-    },
-
-    createDailyChart() {
-      if (!this.analytics?.daily_performance?.length || !this.$refs.dailyChart) {
-        return
-      }
-
-      // Destroy existing chart
-      if (this.dailyChart) {
-        this.dailyChart.destroy()
-      }
-
-      const ctx = this.$refs.dailyChart.getContext('2d')
-      const data = this.analytics.daily_performance
-
-      this.dailyChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.map(d => new Date(d.date).toLocaleDateString()),
-          datasets: [
-            {
-              label: 'Test Attempts',
-              data: data.map(d => d.attempts),
-              borderColor: '#007bff',
-              backgroundColor: 'rgba(0, 123, 255, 0.1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.3,
-              yAxisID: 'y'
-            },
-            {
-              label: 'Performance (%)',
-              data: data.map(d => d.percentage),
-              borderColor: '#28a745',
-              backgroundColor: 'rgba(40, 167, 69, 0.1)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.3,
-              yAxisID: 'y1'
-            }
-          ]
+    const performanceChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: {
+            display: true,
+            text: 'Score (%)'
+          }
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top'
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false
-            }
-          },
-          scales: {
-            x: {
-              display: true,
-              title: {
-                display: true,
-                text: 'Date'
-              }
-            },
-            y: {
-              type: 'linear',
-              display: true,
-              position: 'left',
-              title: {
-                display: true,
-                text: 'Test Attempts'
-              },
-              beginAtZero: true
-            },
-            y1: {
-              type: 'linear',
-              display: true,
-              position: 'right',
-              title: {
-                display: true,
-                text: 'Performance (%)'
-              },
-              grid: {
-                drawOnChartArea: false
-              },
-              beginAtZero: true,
-              max: 100
-            }
-          },
-          interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false
+        x: {
+          title: {
+            display: true,
+            text: 'Date'
           }
         }
-      })
-    },
-
-    getDifficultyColor(difficulty) {
-      const colors = {
-        'Easy': 'bg-success',
-        'Medium': 'bg-warning',
-        'Hard': 'bg-danger',
-        'Expert': 'bg-dark'
       }
-      return colors[difficulty] || 'bg-primary'
-    },
+    }
 
-    getSuggestionClass(priority) {
-      const classes = {
-        'high': 'alert-danger',
-        'medium': 'alert-warning',
-        'low': 'alert-info'
+    const accuracyChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
       }
-      return classes[priority] || 'alert-info'
-    },
+    }
 
-    getSuggestionIcon(type) {
-      const icons = {
-        'topic_improvement': 'bi-book',
-        'difficulty_adjustment': 'bi-sliders',
-        'practice_frequency': 'bi-clock'
+    const hasData = computed(() => {
+      return analyticsData.value && analyticsData.value.snapshot?.total_tests_taken > 0
+    })
+
+    const hasNoData = computed(() => {
+      return !loading.value && (!analyticsData.value || analyticsData.value.snapshot?.total_tests_taken === 0)
+    })
+
+    const fetchData = async () => {
+      loading.value = true
+      try {
+        const params = {
+          days: selectedTimeRange.value === 'all' ? 'all' : parseInt(selectedTimeRange.value),
+          subject_id: selectedSubject.value === 'all' ? null : selectedSubject.value,
+          test_type: selectedTestType.value
+        }
+        const response = await analyticsService.getUserAnalytics(params)
+        analyticsData.value = response
+      } catch (error) {
+        console.error('Error fetching analytics:', error)
+        analyticsData.value = null
+      } finally {
+        loading.value = false
       }
-      return icons[type] || 'bi-lightbulb'
-    },
+    }
 
-    getPriorityBadgeClass(priority) {
-      const classes = {
-        'high': 'bg-danger',
-        'medium': 'bg-warning',
-        'low': 'bg-info'
+    const loadSubjects = async () => {
+      try {
+        const result = await ugcNetService.getSubjects()
+        if (result.success && result.data) {
+          subjects.value = result.data.subjects || []
+        } else {
+          console.error('Failed to load subjects:', result.error)
+          subjects.value = []
+        }
+      } catch (error) {
+        console.error('Error loading subjects:', error)
+        subjects.value = []
       }
-      return classes[priority] || 'bg-secondary'
-    },
+    }
 
-    formatSuggestionType(type) {
-      return type.split('_').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ')
+    const refreshAnalytics = async () => {
+      await fetchData()
+    }
+
+    const exportAnalyticsPDF = async () => {
+      try {
+        const data = await analyticsService.exportAnalytics('pdf')
+        const url = window.URL.createObjectURL(new Blob([data]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', 'analytics.pdf')
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+      } catch (error) {
+        console.error('Error exporting analytics:', error)
+      }
+    }
+
+    const formatTime = (seconds) => {
+      if (!seconds) return '0h 0m'
+      const hours = Math.floor(seconds / 3600)
+      const minutes = Math.floor((seconds % 3600) / 60)
+      return `${hours}h ${minutes}m`
+    }
+
+    onMounted(async () => {
+      await loadSubjects()
+      await fetchData()
+    })
+
+    return {
+      loading,
+      analyticsData,
+      selectedTestType,
+      selectedSubject,
+      selectedTimeRange,
+      subjects,
+      hasData,
+      hasNoData,
+      refreshAnalytics,
+      exportAnalyticsPDF,
+      formatTime,
+      performanceChartData,
+      accuracyChartData,
+      performanceChartOptions,
+      accuracyChartOptions
     }
   }
 }
 </script>
 
 <style scoped>
-.spin {
-  animation: spin 1s linear infinite;
+.user-analytics-page {
+  animation: fadeIn 0.5s ease-in-out;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.progress {
-  border-radius: 10px;
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 }
 
 .card {
-  transition: transform 0.2s ease-in-out;
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transition: box-shadow 0.15s ease-in-out;
 }
 
 .card:hover {
-  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
-.alert {
-  border-left: 4px solid;
+.progress {
+  height: 25px;
 }
 
-.alert-danger {
-  border-left-color: #dc3545;
+.progress-bar {
+  line-height: 25px;
 }
 
-.alert-warning {
-  border-left-color: #ffc107;
+.list-group-item {
+  border-left: none;
+  border-right: none;
 }
 
-.alert-info {
-  border-left-color: #17a2b8;
+.list-group-item:first-child {
+  border-top: none;
+}
+
+.list-group-item:last-child {
+  border-bottom: none;
 }
 </style>

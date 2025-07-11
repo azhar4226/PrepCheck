@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import desc, func
 from app import db
 from app.models import User, Subject, Chapter, QuestionBank, UGCNetPracticeAttempt, UGCNetMockAttempt, UGCNetMockTest, UGCNetMockTest
-from app.utils.ugc_net_seed_data import get_subject_weightage_info
+from app.utils.seed_subjects_and_chapters import get_subject_weightage_info
 from app.utils.timezone_utils import get_ist_now
 from app.services.user_metrics_service import UserMetricsService
 from app.services.ai_study_recommendation_service import AIStudyRecommendationService
@@ -25,7 +25,6 @@ def get_current_user():
 
 
 @ugc_net_subject_bp.route('/subjects', methods=['GET'])
-@jwt_required()
 def get_ugc_net_subjects():
     """Get all UGC NET subjects with their details"""
     try:
@@ -36,7 +35,7 @@ def get_ugc_net_subjects():
             subject_dict = subject.to_dict()
             # Add weightage information
             try:
-                weightage_info = get_subject_weightage_info(subject.id, 'paper2')
+                weightage_info = get_subject_weightage_info(subject.id)
                 subject_dict['weightage_info'] = weightage_info
             except:
                 subject_dict['weightage_info'] = {'chapters': []}

@@ -31,9 +31,13 @@
           
           <template v-else>
             <li class="nav-item">
-              <router-link class="nav-link" to="/dashboard" exact>
+              <router-link 
+                class="nav-link" 
+                :to="user?.is_admin ? '/admin/dashboard' : '/dashboard'" 
+                exact
+              >
                 <i class="bi bi-speedometer2 me-1"></i>
-                Dashboard
+                {{ user?.is_admin ? 'Admin Dashboard' : 'Dashboard' }}
               </router-link>
             </li>
             
@@ -65,7 +69,14 @@
                 @click.prevent="toggleDropdown"
                 aria-expanded="false"
               >
-                <i class="bi bi-person-circle me-1"></i>
+                <img 
+                  v-if="user?.profile_picture_url" 
+                  :src="getProfilePictureUrl(user.profile_picture_url)" 
+                  :alt="user?.full_name"
+                  class="profile-avatar me-1"
+                  @error="handleAvatarError"
+                >
+                <i v-else class="bi bi-person-circle me-1"></i>
                 {{ user?.full_name }}
               </a>
               <ul class="dropdown-menu" :class="{ show: dropdownOpen }" aria-labelledby="profileDropdown">
@@ -92,7 +103,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, nextTick, ref, onUnmounted } from 'vue'
+import { computed, onMounted, nextTick, ref, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
 import NotificationsDropdown from '@/components/layout/NotificationsDropdown.vue'
@@ -100,6 +111,14 @@ import NotificationsDropdown from '@/components/layout/NotificationsDropdown.vue
 const { isAuthenticated, user, logout } = useAuth()
 const router = useRouter()
 const dropdownOpen = ref(false)
+const profilePictureTimestamp = ref(Date.now())
+
+// Watch for changes in user profile picture and update timestamp
+watch(() => user.value?.profile_picture_url, (newUrl, oldUrl) => {
+  if (newUrl !== oldUrl) {
+    profilePictureTimestamp.value = Date.now()
+  }
+}, { deep: true })
 
 const handleLogout = () => {
   logout()
@@ -114,6 +133,27 @@ const closeDropdown = (event) => {
   if (!event.target.closest('.dropdown')) {
     dropdownOpen.value = false
   }
+}
+
+// Helper function to get profile picture URL
+const getProfilePictureUrl = (profilePictureUrl) => {
+  if (!profilePictureUrl) return null
+  
+  // If it's already a full URL, return as is
+  if (profilePictureUrl.startsWith('http')) {
+    return `${profilePictureUrl}?t=${profilePictureTimestamp.value}`
+  }
+  
+  // For development, the uploads go through the proxy
+  // For production, they should work with relative paths
+  return `${profilePictureUrl}?t=${profilePictureTimestamp.value}`
+}
+
+// Handle avatar image error
+const handleAvatarError = (event) => {
+  // Hide the image and show the default icon by removing the src
+  event.target.style.display = 'none'
+  // The v-else fallback icon will show automatically
 }
 
 // Close dropdown when clicking outside
@@ -243,6 +283,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   text-decoration: none;
+}
+
+/* Profile avatar styling */
+.profile-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .navbar .dropdown-toggle:hover {

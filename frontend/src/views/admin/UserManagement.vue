@@ -170,6 +170,7 @@ import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import UserForm from '@/components/forms/UserForm.vue' // Would need to be created
 import adminService from '@/services/adminService'
+import { formatISTDate, isToday as isTodayIST } from '@/utils/timezone'
 
 export default {
   name: 'UserManagementRefactored',
@@ -360,6 +361,8 @@ export default {
         // Use provided filters or current filters
         const activeFilters = filters || currentFilters.value
         
+        console.log('🔍 Loading users with filters:', activeFilters)
+        
         const response = await adminService.getUsers(
           activeFilters.page || 1,
           activeFilters.perPage || 20,
@@ -369,19 +372,28 @@ export default {
           activeFilters.status || ''
         )
         
-        if (response && response.users) {
+        console.log('📥 User response:', response)
+        
+        if (response?.users) {
           // Filter out any undefined or null users
           const validUsers = response.users.filter(user => user && user.id)
+          console.log('✅ Valid users loaded:', validUsers.length)
+          users.value = validUsers
+        } else if (Array.isArray(response)) {
+          // Handle case where response is directly the array of users
+          const validUsers = response.filter(user => user && user.id)
+          console.log('✅ Valid users loaded (array):', validUsers.length)
           users.value = validUsers
         } else {
-          console.error('UserManagement: No users property in response:', response)
+          console.error('❌ Invalid response format:', response)
+          error.value = 'Invalid response format from server'
           users.value = []
         }
         
       } catch (err) {
-        console.error('UserManagement: Failed to load users:', err)
-        error.value = 'Failed to load users'
-        showError('Failed to load users')
+        console.error('❌ Failed to load users:', err)
+        error.value = err.message || 'Failed to load users'
+        showError(error.value)
         users.value = []
       } finally {
         loading.value = false
@@ -528,18 +540,12 @@ export default {
 
     const formatDate = (dateString) => {
       if (!dateString) return ''
-      return new Date(dateString).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      })
+      return formatISTDate(dateString)
     }
 
     const isToday = (dateString) => {
       if (!dateString) return false
-      const date = new Date(dateString)
-      const today = new Date()
-      return date.toDateString() === today.toDateString()
+      return isTodayIST(dateString)
     }
 
     // Initialize

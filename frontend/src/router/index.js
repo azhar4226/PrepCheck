@@ -14,8 +14,6 @@ import UGCNetTestTaking from '@/views/ugc-net/TestTaking.vue'
 import UGCNetTestResults from '@/views/ugc-net/TestResults.vue'
 
 // Legacy Components (keeping for compatibility)
-import UserDashboard from '@/views/user/Dashboard.vue'
-import AdminDashboard from '@/views/admin/Dashboard.vue'
 import SubjectManagement from '@/views/admin/SubjectManagement.vue'
 import Analytics from '@/views/admin/Analytics.vue'
 import AIQuestionGenerator from '@/views/admin/AIQuestionGenerator.vue'
@@ -39,32 +37,23 @@ const routes = [
   },
   {
     path: '/dashboard',
-    name: 'Dashboard',
+    name: 'UserDashboard',
     component: UnifiedDashboard,
-    meta: { requiresAuth: true }
-  },
-  // Legacy routes (redirects to unified dashboard)
-  {
-    path: '/user/dashboard',
-    redirect: '/dashboard'
+    meta: { requiresAuth: true },
+    props: route => ({
+      activeTab: route.query.tab || 'overview'
+    })
   },
   {
     path: '/admin/dashboard',
-    redirect: '/dashboard'
+    name: 'AdminDashboard',
+    component: UnifiedDashboard,
+    meta: { requiresAuth: true, requiresAdmin: true },
+    props: route => ({
+      activeTab: route.query.tab || 'overview'
+    })
   },
-  // Legacy quiz routes - redirect to UGC NET
-  {
-    path: '/quiz',
-    redirect: '/ugc-net'
-  },
-  {
-    path: '/quizzes',
-    redirect: '/ugc-net'
-  },
-  {
-    path: '/quiz/:id/take',
-    redirect: to => `/ugc-net/test/${to.params.id}/take`
-  },
+  
   // UGC NET Routes
   {
     path: '/ugc-net',
@@ -324,6 +313,22 @@ router.beforeEach(async (to, from, next) => {
   
   const hasValidToken = isValidToken(token)
   
+  // Allow unauthenticated access to guest pages (login, register, etc.)
+  if (to.meta.guest && !hasValidToken) {
+    next()
+    return
+  }
+
+  // Redirect authenticated users away from guest pages
+  if (to.meta.guest && hasValidToken) {
+    if (user.is_admin) {
+      next('/admin/dashboard')
+    } else {
+      next('/dashboard')
+    }
+    return
+  }
+
   // Check if route requires authentication
   if (to.meta.requiresAuth && !hasValidToken) {
     next('/login')
@@ -336,19 +341,38 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
-  // Redirect authenticated users away from guest pages (only if token is valid)
-  // But allow them to stay on login/register if they navigate there manually
-  if (to.meta.guest && hasValidToken && from.path !== to.path) {
-    // Only redirect if this is an automatic navigation (like app initialization)
-    // If user manually navigates to login/register, let them stay
-    if (from.path === '/' || !from.path) {
-      if (user.is_admin) {
-        next('/admin/dashboard')
-      } else {
-        next('/dashboard')
-      }
-      return
+  // Redirect root path to appropriate dashboard based on user role
+  if (to.path === '/' && hasValidToken) {
+    if (user.is_admin) {
+      next('/admin/dashboard')
+    } else {
+      next('/dashboard')
     }
+    return
+  }
+
+  // Redirect admin to admin dashboard if they try to access user dashboard
+  if (to.path === '/dashboard' && user.is_admin) {
+    next('/admin/dashboard')
+    return
+  }
+
+  // Redirect user to user dashboard if they try to access admin dashboard
+  if (to.path === '/admin/dashboard' && !user.is_admin) {
+    next('/dashboard')
+    return
+  }
+
+  // Redirect admin users away from user-specific routes
+  if (hasValidToken && user.is_admin && to.path.startsWith('/user/')) {
+    next('/admin/profile')
+    return
+  }
+
+  // Redirect non-admin users away from admin routes
+  if (hasValidToken && !user.is_admin && to.path.startsWith('/admin/')) {
+    next('/user/profile')
+    return
   }
   
   next()

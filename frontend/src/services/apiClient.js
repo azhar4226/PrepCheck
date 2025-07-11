@@ -1,5 +1,10 @@
 import axios from 'axios'
 
+// const apiClient = axios.create({
+//   baseURL: '/api', // or your API base URL
+//   // ...other config
+// });
+
 class ApiClient {
   constructor() {
     // Use proxy through Vite server in development
@@ -10,7 +15,7 @@ class ApiClient {
     this.http = axios.create({
       baseURL: this.baseURL,
       timeout: 30000, // 30 second timeout
-      withCredentials: true // Include credentials for CORS
+      withCredentials: false // Disable withCredentials for now
       // Don't set default Content-Type - let axios handle it based on data type
     })
 
@@ -50,6 +55,14 @@ class ApiClient {
                   error.response?.status === 0,
           baseURL: this.baseURL
         };
+        
+        // Log error details
+        console.error('🚨 API Error:', {
+          message: errorInfo.message,
+          status: errorInfo.status,
+          data: errorInfo.data,
+          url: errorInfo.url
+        });
         
         // Log error but prevent LaunchDarkly errors from cluttering console
         if (!errorInfo.url?.includes('launchdarkly')) {

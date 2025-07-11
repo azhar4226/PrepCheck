@@ -104,48 +104,71 @@
                       <h6 class="card-title text-primary">{{ userSubject.name }}</h6>
                       <p class="card-text">{{ userSubject.description }}</p>
                       <button 
-                        @click="viewSubjectChapters(userSubject)" 
+                        @click="toggleSubjectChapters(userSubject)" 
                         class="btn btn-primary btn-sm"
                         :disabled="loading.chapters"
                       >
                         <i class="bi bi-list me-1"></i>
-                        {{ loading.chapters ? 'Loading...' : 'View Chapters' }}
+                        {{ loading.chapters ? 'Loading...' : (showChapters ? 'Hide Chapters' : 'View Chapters') }}
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Chapters for User's Subject -->
-              <div v-if="chapters.length > 0" class="row">
+              <!-- Chapters Section (shown inline when toggled) -->
+              <div v-if="showChapters" class="row mb-4">
                 <div class="col-12">
-                  <h6 class="mb-3">
-                    <i class="bi bi-journal-text me-2"></i>Chapter-wise Topics
-                  </h6>
-                  <div class="row">
-                    <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-3">
-                      <div class="card h-100 border-0 bg-light">
-                        <div class="card-body">
-                          <h6 class="card-title">{{ chapter.name }}</h6>
-                          <p class="card-text small text-muted">{{ chapter.description }}</p>
-                          <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-success">
-                              <i class="bi bi-question-circle me-1"></i>
-                              {{ chapter.question_count || 0 }} questions
-                            </small>
-                            <button 
-                              @click="generateTestForSubject(userSubject, chapter)" 
-                              class="btn btn-sm btn-outline-success"
-                            >
-                              <i class="bi bi-play me-1"></i>Practice
-                            </button>
+                  <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                      <h6 class="mb-0">
+                        <i class="bi bi-book-half me-2"></i>
+                        {{ userSubject.name }} - Chapters
+                      </h6>
+                    </div>
+                    <div class="card-body">
+                      <div v-if="loading.chapters" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                          <span class="visually-hidden">Loading chapters...</span>
+                        </div>
+                      </div>
+                      <div v-else-if="chapters.length === 0" class="text-center py-4 text-muted">
+                        <i class="bi bi-book display-4 d-block mb-3"></i>
+                        <p>No chapters available for this subject.</p>
+                      </div>
+                      <div v-else class="row">
+                        <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-3">
+                          <div class="card border-0 bg-light h-100">
+                            <div class="card-body">
+                              <h6 class="card-title">{{ chapter.name }}</h6>
+                              <p class="card-text small text-muted">{{ chapter.description }}</p>
+                              <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <span class="badge bg-primary">Weightage: {{ chapter.weightage_paper2 }}%</span>
+                                </div>
+                                <small class="text-success">
+                                  <i class="bi bi-check-circle me-1"></i>
+                                  {{ chapter.verified_questions }} questions
+                                </small>
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      </div>
+                      <div v-if="chapters.length > 0" class="text-center mt-3">
+                        <button 
+                          @click="generateTestForSubject" 
+                          class="btn btn-success"
+                          :disabled="!userSubject"
+                        >
+                          <i class="bi bi-plus-circle me-1"></i>Generate Test for {{ userSubject.name }}
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
@@ -154,150 +177,264 @@
       </div>
 
       <!-- Right Column - Quick Actions & Performance -->
-      <div class="col-lg-4">
+      <div class="col-lg-4 position-relative">
         <!-- Quick Actions -->
-        <div class="card mb-4">
-          <div class="card-header">
+        <div class="card mb-4 position-relative">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
               <i class="bi bi-lightning-fill me-2"></i>Quick Actions
             </h5>
+            <button
+              class="btn btn-light retract-toggle-section ms-2 shadow-sm"
+              @click="rightSectionVisible.quickActions = !rightSectionVisible.quickActions"
+              style="border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+            >
+              <i :class="rightSectionVisible.quickActions ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" style="font-size: 1.1rem;"></i>
+            </button>
           </div>
-          <div class="card-body">
-            <div class="d-grid gap-2">
-              <button @click="generateNewTest" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-2"></i>Generate Mock Test
-              </button>
-              <router-link to="/ugc-net/practice/setup" class="btn btn-outline-primary">
-                <i class="bi bi-pencil-square me-2"></i>Practice Test
-              </router-link>
-              <button @click="viewPerformance" class="btn btn-outline-success">
-                <i class="bi bi-graph-up me-2"></i>View Performance
-              </button>
-              <button @click="$router.push('/ugc-net/syllabus')" class="btn btn-outline-info">
-                <i class="bi bi-book me-2"></i>Syllabus Coverage
-              </button>
+          <transition name="slide-fade-vertical">
+            <div v-show="rightSectionVisible.quickActions">
+              <div class="card-body">
+                <div class="d-grid gap-2">
+                  <button @click="generateNewTest" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>Generate Mock Test
+                  </button>
+                  <router-link to="/ugc-net/practice/setup" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil-square me-2"></i>Practice Test
+                  </router-link>
+                  <button @click="viewPerformance" class="btn btn-outline-success">
+                    <i class="bi bi-graph-up me-2"></i>View Performance
+                  </button>
+                  <button @click="$router.push('/ugc-net/syllabus')" class="btn btn-outline-info">
+                    <i class="bi bi-book me-2"></i>Syllabus Coverage
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          </transition>
         </div>
-
-        <!-- Performance Summary -->
-        <div class="card performance-summary">
-          <div class="card-header">
+        <!-- Incomplete Tests Section -->
+        <div class="card mb-4 position-relative">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="bi bi-bar-chart me-2"></i>Performance Summary
+              <i class="bi bi-clock-history me-2"></i>Resume Incomplete Tests
             </h5>
+            <button
+              class="btn btn-light retract-toggle-section ms-2 shadow-sm"
+              @click="rightSectionVisible.incompleteTests = !rightSectionVisible.incompleteTests"
+              style="border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+            >
+              <i :class="rightSectionVisible.incompleteTests ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" style="font-size: 1.1rem;"></i>
+            </button>
           </div>
-          <div class="card-body">
-            <div v-if="userStats.totalAttempts > 0">
-              <div class="mb-3">
-                <div class="d-flex justify-content-between">
-                  <span>Best Score</span>
-                  <span class="fw-bold" :class="userStats.bestScore >= 40 ? 'text-success' : 'text-warning'">{{ userStats.bestScore }}%</span>
-                </div>
-                <div class="progress mt-1" style="height: 8px;">
-                  <div class="progress-bar" 
-                       :class="userStats.bestScore >= 40 ? 'bg-success' : 'bg-warning'"
-                       :style="{ width: userStats.bestScore + '%' }"></div>
-                </div>
-              </div>
-              <div class="mb-3">
-                <div class="d-flex justify-content-between">
-                  <span>Average Score</span>
-                  <span class="fw-bold" :class="userStats.averageScore >= 40 ? 'text-success' : 'text-primary'">{{ userStats.averageScore }}%</span>
-                </div>
-                <div class="progress mt-1" style="height: 8px;">
-                  <div class="progress-bar" 
-                       :class="userStats.averageScore >= 40 ? 'bg-success' : 'bg-primary'"
-                       :style="{ width: userStats.averageScore + '%' }"></div>
-                </div>
-              </div>
-              <div class="mb-3">
-                <div class="d-flex justify-content-between">
-                  <span>Qualification Rate</span>
-                  <span class="fw-bold text-info">{{ qualificationRate }}%</span>
-                </div>
-                <div class="progress mt-1" style="height: 8px;">
-                  <div class="progress-bar bg-info" 
-                       :style="{ width: qualificationRate + '%' }"></div>
-                </div>
-                <small class="text-muted">{{ userStats.qualifiedTests }} out of {{ userStats.totalAttempts }} tests qualified</small>
-              </div>
-              <hr>
-              <div class="row text-center">
-                <div class="col-6">
-                  <div class="text-info">
-                    <h6>{{ userStats.practiceAttempts || 0 }}</h6>
-                    <small class="text-muted">Practice Tests</small>
+          <transition name="slide-fade-vertical">
+            <div v-show="rightSectionVisible.incompleteTests">
+              <div class="card-body">
+                <div v-if="loading.incompleteTests" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading incomplete tests...</span>
                   </div>
                 </div>
-                <div class="col-6">
-                  <div class="text-warning">
-                    <h6>{{ userStats.mockAttempts || 0 }}</h6>
-                    <small class="text-muted">Mock Tests</small>
-                  </div>
+                <div v-else-if="!incompleteTests ||
+                  !Array.isArray(incompleteTests.practice_tests) ||
+                  !Array.isArray(incompleteTests.mock_tests) ||
+                  (incompleteTests.practice_tests.length === 0 && incompleteTests.mock_tests.length === 0)"
+                  class="text-center py-4 text-muted">
+                  <i class="bi bi-check-circle display-4 d-block mb-3"></i>
+                  <p>No incomplete tests found.</p>
+                  <p class="small">All your tests have been completed or you haven't started any tests yet.</p>
                 </div>
-              </div>
-            </div>
-            <div v-else class="text-center py-3 text-muted">
-              <i class="bi bi-bar-chart display-4 d-block mb-2"></i>
-              <p class="mb-0">Take your first test to see performance stats</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modals -->
-    <!-- Subject Chapters Modal -->
-    <div class="modal fade" id="chaptersModal" tabindex="-1" ref="chaptersModal">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              <i class="bi bi-book-half me-2"></i>
-              {{ selectedSubject?.name }} - Chapters
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div v-if="loading.chapters" class="text-center py-4">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading chapters...</span>
-              </div>
-            </div>
-            <div v-else-if="chapters.length === 0" class="text-center py-4 text-muted">
-              <p>No chapters available for this subject.</p>
-            </div>
-            <div v-else class="row">
-              <div v-for="chapter in chapters" :key="chapter.id" class="col-md-6 mb-3">
-                <div class="card border-0 bg-light h-100">
-                  <div class="card-body">
-                    <h6 class="card-title">{{ chapter.name }}</h6>
-                    <p class="card-text small text-muted">{{ chapter.description }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <div>
-                        <span class="badge bg-primary">Weightage: {{ chapter.weightage_paper2 }}%</span>
+                <div v-else>
+                <!-- Practice Tests -->
+                <div v-if="incompleteTests.practice_tests.length > 0" class="mb-3">
+                  <h6 class="text-muted mb-2">Practice Tests</h6>
+                  <div v-for="test in incompleteTests.practice_tests" :key="test.id" class="incomplete-test-item mb-2">
+                    <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">{{ test.title }}</div>
+                        <small class="text-muted">
+                          {{ test.subject_name }} • {{ test.answered_questions }}/{{ test.total_questions }} answered
+                        </small>
+                        <div class="progress mt-1" style="height: 4px;">
+                          <div class="progress-bar bg-info" :style="{ width: test.progress_percentage + '%' }"></div>
+                        </div>
                       </div>
-                      <small class="text-success">
-                        <i class="bi bi-check-circle me-1"></i>
-                        {{ chapter.verified_questions }} questions
-                      </small>
+                      <div class="ms-2">
+                        <button @click="resumePracticeTest(test.id)" class="btn btn-sm btn-outline-primary">
+                          <i class="bi bi-play-circle me-1"></i>Resume
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <!-- Mock Tests -->
+                <div v-if="incompleteTests.mock_tests.length > 0">
+                  <h6 class="text-muted mb-2">Mock Tests</h6>
+                  <div v-for="test in incompleteTests.mock_tests" :key="test.id" class="incomplete-test-item mb-2">
+                    <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">{{ test.title }}</div>
+                        <small class="text-muted">
+                          {{ test.subject_name }} • {{ test.answered_questions }}/{{ test.total_questions }} answered
+                        </small>
+                        <div class="progress mt-1" style="height: 4px;">
+                          <div class="progress-bar bg-warning" :style="{ width: test.progress_percentage + '%' }"></div>
+                        </div>
+                      </div>
+                      <div class="ms-2">
+                        <button @click="resumeMockTest(test.id)" class="btn btn-sm btn-outline-warning">
+                          <i class="bi bi-play-circle me-1"></i>Resume
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button 
-              @click="generateTestForSubject" 
-              class="btn btn-primary"
-              :disabled="!selectedSubject"
+          </transition>
+        </div>
+
+        <!-- AI Study Recommendations -->
+        <div class="card mb-4 position-relative">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-robot me-2"></i>AI Study Recommendations
+            </h5>
+            <button
+              class="btn btn-light retract-toggle-section ms-2 shadow-sm"
+              @click="rightSectionVisible.recommendations = !rightSectionVisible.recommendations"
+              style="border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
             >
-              <i class="bi bi-plus-circle me-1"></i>Generate Test for {{ selectedSubject?.name }}
+              <i :class="rightSectionVisible.recommendations ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" style="font-size: 1.1rem;"></i>
             </button>
           </div>
+          <transition name="slide-fade-vertical">
+            <div v-show="rightSectionVisible.recommendations">
+              <div class="card-body">
+                <div v-if="loading.recommendations" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generating recommendations...</span>
+                  </div>
+                </div>
+                <div v-else-if="studyRecommendations.length === 0" class="text-center py-4 text-muted">
+                  <i class="bi bi-lightbulb display-4 d-block mb-3"></i>
+                  <p>No recommendations available yet.</p>
+                  <button @click="generateRecommendations" class="btn btn-primary btn-sm">
+                    <i class="bi bi-magic me-1"></i>Generate Recommendations
+                  </button>
+                </div>
+                <div v-else>
+                  <div v-for="(recommendation, index) in studyRecommendations" :key="index" class="mb-3">
+                    <div class="card bg-light border-0">
+                      <div class="card-body p-3">
+                        <div class="d-flex align-items-start">
+                          <div class="me-2">
+                            <i :class="recommendation.icon" class="text-primary"></i>
+                          </div>
+                          <div class="flex-grow-1">
+                            <h6 class="card-title mb-1">{{ recommendation.title }}</h6>
+                            <p class="card-text small mb-2">{{ recommendation.description }}</p>
+                            <div class="d-flex align-items-center">
+                              <span class="badge me-2" :class="recommendation.priority === 'high' ? 'bg-danger' : recommendation.priority === 'medium' ? 'bg-warning text-dark' : 'bg-success'">
+                                {{ recommendation.priority.toUpperCase() }}
+                              </span>
+                              <small class="text-muted">{{ recommendation.estimatedTime }}</small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-center">
+                    <button @click="generateRecommendations" class="btn btn-outline-primary btn-sm">
+                      <i class="bi bi-arrow-clockwise me-1"></i>Refresh Recommendations
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+
+        <!-- Study Plan -->
+        <div class="card study-plan position-relative">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-calendar-check me-2"></i>AI Study Plan
+            </h5>
+            <button
+              class="btn btn-light retract-toggle-section ms-2 shadow-sm"
+              @click="rightSectionVisible.studyPlan = !rightSectionVisible.studyPlan"
+              style="border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+            >
+              <i :class="rightSectionVisible.studyPlan ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" style="font-size: 1.1rem;"></i>
+            </button>
+          </div>
+          <transition name="slide-fade-vertical">
+            <div v-show="rightSectionVisible.studyPlan">
+              <div class="card-body">
+                <div v-if="loading.studyPlan" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Creating study plan...</span>
+                  </div>
+                </div>
+                <div v-else-if="studyPlan.length === 0" class="text-center py-4 text-muted">
+                  <i class="bi bi-calendar display-4 d-block mb-3"></i>
+                  <p>No study plan created yet.</p>
+                  <button @click="generateStudyPlan" class="btn btn-success btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i>Create Study Plan
+                  </button>
+                </div>
+                <div v-else>
+                  <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <h6 class="text-primary mb-0">{{ studyPlanTitle }}</h6>
+                      <span class="badge bg-info">{{ studyPlanDuration }}</span>
+                    </div>
+                  </div>
+                  <div class="study-plan-timeline">
+                    <div v-for="(week, index) in studyPlan" :key="index" class="week-item mb-3">
+                      <div class="d-flex align-items-center mb-2">
+                        <div class="week-indicator me-2">
+                          <div class="circle" :class="week.completed ? 'bg-success' : 'bg-primary'">
+                            <i :class="week.completed ? 'bi bi-check' : 'bi bi-calendar-week'" class="text-white"></i>
+                          </div>
+                        </div>
+                        <div class="flex-grow-1">
+                          <h6 class="mb-0">Week {{ index + 1 }}: {{ week.title }}</h6>
+                          <small class="text-muted">{{ week.description }}</small>
+                        </div>
+                      </div>
+                      <div class="week-tasks ms-4">
+                        <div v-for="(task, taskIndex) in week.tasks" :key="taskIndex" class="task-item d-flex align-items-center mb-1">
+                          <input 
+                            type="checkbox" 
+                            :checked="task.completed" 
+                            @change="toggleTask(index, taskIndex)"
+                            class="form-check-input me-2"
+                          >
+                          <span :class="task.completed ? 'text-decoration-line-through text-muted' : ''">
+                            {{ task.title }}
+                          </span>
+                          <span class="badge bg-light text-dark ms-auto">{{ task.duration }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-center mt-3">
+                    <button @click="generateStudyPlan" class="btn btn-outline-success btn-sm me-2">
+                      <i class="bi bi-arrow-clockwise me-1"></i>Regenerate Plan
+                    </button>
+                    <button @click="exportStudyPlan" class="btn btn-outline-primary btn-sm">
+                      <i class="bi bi-download me-1"></i>Export Plan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </transition>
         </div>
       </div>
     </div>
@@ -311,6 +448,8 @@ import { useAuth } from '@/composables/useAuth'
 import api from '@/services/api'
 import ugcNetService from '@/services/ugcNetService'
 import { Modal } from 'bootstrap'
+
+import { formatISTDate } from '@/utils/timezone'
 
 export default {
   name: 'UGCNetDashboard',
@@ -339,11 +478,25 @@ export default {
       chapter_distribution: []
     })
     const selectedSubject = ref(null)
+    const showChapters = ref(false)
+    const incompleteTests = ref({
+      practice_tests: [],
+      mock_tests: [],
+      total_incomplete: 0
+    })
+    
+    const studyRecommendations = ref([])
+    const studyPlan = ref([])
+    const studyPlanTitle = ref('')
+    const studyPlanDuration = ref('')
     
     // Loading states
     const loading = ref({
       subjects: false,
-      chapters: false
+      chapters: false,
+      incompleteTests: false,
+      recommendations: false,
+      studyPlan: false
     })
 
     // Computed user's registered subject
@@ -396,14 +549,6 @@ export default {
         if (result.success && result.data) {
           // API returns data directly, not wrapped in .data
           subjects.value = result.data.subjects || []
-          
-          // Auto-load chapters for user's registered subject
-          if (user.value && user.value.subject_id) {
-            const userSub = subjects.value.find(subject => subject.id === user.value.subject_id)
-            if (userSub) {
-              await viewSubjectChapters(userSub)
-            }
-          }
         } else {
           console.error('Failed to load subjects:', result.error)
           subjects.value = []
@@ -475,6 +620,7 @@ export default {
         if (result.success && result.data) {
           // API returns data directly, check if it has chapters property or is an array
           chapters.value = result.data.chapters || result.data || []
+          showChapters.value = true
         } else {
           console.error('Failed to load chapters:', result.error)
           chapters.value = []
@@ -485,9 +631,35 @@ export default {
       } finally {
         loading.value.chapters = false
       }
+    }
+
+    // Toggle chapters visibility
+    const toggleSubjectChapters = async (subject) => {
+      if (showChapters.value) {
+        // Hide chapters
+        showChapters.value = false
+        chapters.value = []
+        return
+      }
+
+      // Show chapters - load them first
+      loading.value.chapters = true
+      showChapters.value = true
       
-      const modal = new Modal(document.getElementById('chaptersModal'))
-      modal.show()
+      try {
+        const result = await api.ugcNet.getSubjectChapters(subject.id)
+        if (result.success && result.data) {
+          chapters.value = result.data.chapters || result.data || []
+        } else {
+          console.error('Failed to load chapters:', result.error)
+          chapters.value = []
+        }
+      } catch (error) {
+        console.error('Failed to load chapters:', error)
+        chapters.value = []
+      } finally {
+        loading.value.chapters = false
+      }
     }
 
     const generateNewTest = () => {
@@ -500,48 +672,298 @@ export default {
     }
 
     const viewPerformance = () => {
-      // Scroll to performance summary section
-      const performanceSection = document.querySelector('.performance-summary')
-      if (performanceSection) {
-        performanceSection.scrollIntoView({ 
+      // Navigate to a dedicated performance page or scroll to study recommendations
+      const studySection = document.querySelector('.study-plan')
+      if (studySection) {
+        studySection.scrollIntoView({ 
           behavior: 'smooth',
           block: 'start'
         })
         
         // Add temporary highlight effect
-        performanceSection.classList.add('highlighted')
+        studySection.classList.add('highlighted')
         setTimeout(() => {
-          performanceSection.classList.remove('highlighted')
+          studySection.classList.remove('highlighted')
         }, 2000)
       } else {
-        // Fallback: scroll to bottom of page where performance section usually is
-        window.scrollTo({
-          top: document.body.scrollHeight * 0.7,
-          behavior: 'smooth'
-        })
+        // Fallback: navigate to a performance page
+        router.push('/ugc-net/performance')
       }
     }
 
     const generateTestForSubject = () => {
-      const modal = Modal.getInstance(document.getElementById('chaptersModal'))
-      modal.hide()
       router.push(`/ugc-net/generate-test?subject=${selectedSubject.value.id}`)
+    }
+
+    const loadIncompleteTests = async () => {
+      loading.value.incompleteTests = true
+      try {
+        const result = await api.ugcNet.getIncompleteTests()
+        if (result.success && result.data) {
+          incompleteTests.value = result.data
+        } else {
+          console.error('Failed to load incomplete tests:', result.error)
+          incompleteTests.value = { practice_tests: [], mock_tests: [], total_incomplete: 0 }
+        }
+      } catch (error) {
+        console.error('Failed to load incomplete tests:', error)
+        incompleteTests.value = { practice_tests: [], mock_tests: [], total_incomplete: 0 }
+      } finally {
+        loading.value.incompleteTests = false
+      }
+    }
+
+    const resumePracticeTest = (attemptId) => {
+      // Navigate to practice test overview page for resume functionality
+      router.push(`/ugc-net/practice/${attemptId}`)
+    }
+
+    const resumeMockTest = (attemptId) => {
+      // For mock tests, we need to find the test ID first
+      // Navigate to mock test taking page
+      router.push(`/ugc-net/mock-test/${attemptId}/take`)
+    }
+
+    const generateRecommendations = async () => {
+      loading.value.recommendations = true
+      try {
+        // Call the new AI recommendations API
+        const result = await api.ugcNet.getAIStudyRecommendations(5)
+        
+        if (result.success && result.data) {
+          studyRecommendations.value = result.data.recommendations || []
+        } else {
+          console.error('Failed to generate AI recommendations:', result.error)
+          // Fallback to mock recommendations if API fails
+          studyRecommendations.value = await generateFallbackRecommendations()
+        }
+      } catch (error) {
+        console.error('Error generating AI recommendations:', error)
+        // Fallback to mock recommendations if API fails
+        studyRecommendations.value = await generateFallbackRecommendations()
+      } finally {
+        loading.value.recommendations = false
+      }
+    }
+
+    const generateStudyPlan = async () => {
+      loading.value.studyPlan = true
+      try {
+        // Call the new AI study plan API
+        const result = await api.ugcNet.getAIStudyPlan(12)
+        
+        if (result.success && result.data) {
+          studyPlanTitle.value = result.data.title || 'Personalized Study Plan'
+          studyPlanDuration.value = result.data.duration || '12 weeks'
+          studyPlan.value = result.data.weekly_plan || []
+        } else {
+          console.error('Failed to generate AI study plan:', result.error)
+          // Fallback to mock study plan if API fails
+          await generateFallbackStudyPlan()
+        }
+      } catch (error) {
+        console.error('Error generating AI study plan:', error)
+        // Fallback to mock study plan if API fails
+        await generateFallbackStudyPlan()
+      } finally {
+        loading.value.studyPlan = false
+      }
+    }
+
+    const generateFallbackRecommendations = async () => {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      const recommendations = []
+      
+      // Base recommendations on actual user stats
+      if (userStats.value.totalAttempts === 0) {
+        recommendations.push({
+          title: "Start with Practice Tests",
+          description: "Begin your preparation with chapter-wise practice tests to identify your strengths and weaknesses.",
+          icon: "bi bi-play-circle",
+          priority: "high",
+          estimatedTime: "2-3 hours/day"
+        })
+      } else if (userStats.value.averageScore < 40) {
+        recommendations.push({
+          title: "Focus on Fundamentals",
+          description: `Your average score is ${userStats.value.averageScore}%. Strengthen fundamental concepts before advanced topics.`,
+          icon: "bi bi-book",
+          priority: "high",
+          estimatedTime: "3-4 hours/day"
+        })
+      } else if (userStats.value.averageScore < 60) {
+        recommendations.push({
+          title: "Bridge Knowledge Gaps",
+          description: `Your average score is ${userStats.value.averageScore}%. Focus on specific weak areas to improve consistency.`,
+          icon: "bi bi-puzzle",
+          priority: "medium",
+          estimatedTime: "2-3 hours/day"
+        })
+      } else {
+        recommendations.push({
+          title: "Maintain Excellence",
+          description: `Great performance with ${userStats.value.averageScore}% average! Focus on advanced topics and speed improvement.`,
+          icon: "bi bi-trophy",
+          priority: "low",
+          estimatedTime: "1-2 hours/day"
+        })
+      }
+      
+      if (userSubject.value) {
+        recommendations.push({
+          title: `Master ${userSubject.value.name} Chapters`,
+          description: `Focus on high-weightage chapters in ${userSubject.value.name} for maximum impact on your scores.`,
+          icon: "bi bi-bullseye",
+          priority: "medium",
+          estimatedTime: "1-2 hours/day"
+        })
+      }
+      
+      // Add practice pattern recommendations
+      if (userStats.value.practiceAttempts < userStats.value.mockAttempts) {
+        recommendations.push({
+          title: "Increase Practice Tests",
+          description: "You have more mock tests than practice tests. Build confidence with more chapter-wise practice.",
+          icon: "bi bi-pencil-square",
+          priority: "medium",
+          estimatedTime: "1 hour/day"
+        })
+      }
+      
+      recommendations.push({
+        title: "Regular Mock Tests",
+        description: "Take full-length mock tests weekly to build exam stamina and time management skills.",
+        icon: "bi bi-stopwatch",
+        priority: userStats.value.mockAttempts < 5 ? "high" : "medium",
+        estimatedTime: "3 hours/week"
+      })
+      
+      recommendations.push({
+        title: "Review and Revision",
+        description: "Dedicate time for regular revision of completed topics to ensure retention.",
+        icon: "bi bi-arrow-repeat",
+        priority: "low",
+        estimatedTime: "1 hour/day"
+      })
+      
+      return recommendations
+    }
+
+    const generateFallbackStudyPlan = async () => {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      const subjectName = userSubject.value?.name || 'UGC NET'
+      studyPlanTitle.value = `Personalized ${subjectName} Study Plan`
+      studyPlanDuration.value = '12 weeks'
+      
+      // Adjust plan based on user performance
+      const userLevel = userStats.value.averageScore < 40 ? 'beginner' : 
+                       userStats.value.averageScore < 60 ? 'intermediate' : 'advanced'
+      
+      const plan = []
+      
+      if (userLevel === 'beginner') {
+        // More foundation weeks for beginners
+        plan.push(
+          {
+            title: "Foundation Building - Week 1",
+            description: "Establish strong fundamental understanding",
+            completed: false,
+            tasks: [
+              { title: `Study ${subjectName} syllabus and basic concepts`, completed: false, duration: "4 hours" },
+              { title: "Complete introductory practice tests", completed: false, duration: "2 hours" },
+              { title: "Create concept notes and summaries", completed: false, duration: "2 hours" },
+              { title: "Review weak areas from practice", completed: false, duration: "1 hour" }
+            ]
+          },
+          {
+            title: "Foundation Building - Week 2",
+            description: "Deepen understanding of core concepts",
+            completed: false,
+            tasks: [
+              { title: "Study fundamental chapters in detail", completed: false, duration: "5 hours" },
+              { title: "Complete chapter-wise practice tests", completed: false, duration: "3 hours" },
+              { title: "Clarify doubts and misconceptions", completed: false, duration: "1 hour" }
+            ]
+          }
+        )
+      }
+      
+      // Practice weeks
+      for (let i = 0; i < 6; i++) {
+        const weekNum = plan.length + 1
+        plan.push({
+          title: `Intensive Practice - Week ${weekNum}`,
+          description: "Build speed, accuracy, and confidence through practice",
+          completed: false,
+          tasks: [
+            { title: "Mixed topic practice tests", completed: false, duration: "2 hours" },
+            { title: "One full-length mock test", completed: false, duration: "3 hours" },
+            { title: "Detailed error analysis", completed: false, duration: "1 hour" },
+            { title: "Review incorrect concepts", completed: false, duration: "1 hour" }
+          ]
+        })
+      }
+      
+      // Revision weeks
+      for (let i = 0; i < 4; i++) {
+        const weekNum = plan.length + 1
+        plan.push({
+          title: `Comprehensive Revision - Week ${weekNum}`,
+          description: "Consolidate knowledge and boost confidence",
+          completed: false,
+          tasks: [
+            { title: "Quick revision of all topics", completed: false, duration: "2 hours" },
+            { title: "Focus on previously weak areas", completed: false, duration: "1.5 hours" },
+            { title: "Timed mock test", completed: false, duration: "3 hours" },
+            { title: "Final doubt clearing", completed: false, duration: "1 hour" }
+          ]
+        })
+      }
+      
+      studyPlan.value = plan
+    }
+
+    const toggleTask = (weekIndex, taskIndex) => {
+      studyPlan.value[weekIndex].tasks[taskIndex].completed = !studyPlan.value[weekIndex].tasks[taskIndex].completed
+      
+      // Check if all tasks in the week are completed
+      const allTasksCompleted = studyPlan.value[weekIndex].tasks.every(task => task.completed)
+      studyPlan.value[weekIndex].completed = allTasksCompleted
+    }
+
+    const exportStudyPlan = () => {
+      // Create a simple text export of the study plan
+      let exportText = `${studyPlanTitle.value}\n`
+      exportText += `Duration: ${studyPlanDuration.value}\n\n`
+      
+      studyPlan.value.forEach((week, index) => {
+        exportText += `Week ${index + 1}: ${week.title}\n`
+        exportText += `${week.description}\n`
+        week.tasks.forEach(task => {
+          exportText += `  ${task.completed ? '✓' : '○'} ${task.title} (${task.duration})\n`
+        })
+        exportText += '\n'
+      })
+      
+      // Download as text file
+      const blob = new Blob([exportText], { type: 'text/plain' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'ugc-net-study-plan.txt'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
     }
 
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A'
-      try {
-        const date = new Date(dateString)
-        // Format for Indian locale with IST timezone
-        return date.toLocaleDateString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          year: 'numeric',
-          month: 'short',
-          day: '2-digit'
-        })
-      } catch (error) {
-        return 'Invalid Date'
-      }
+      return formatISTDate(dateString)
     }
 
     const formatTimeLimit = (minutes) => {
@@ -559,12 +981,32 @@ export default {
       }
     }
 
+    const closeChapters = () => {
+      chapters.value = []
+      selectedSubject.value = null
+    }
+
     // Lifecycle
     onMounted(async () => {
       await Promise.all([
         loadSubjects(),
-        loadStats()
+        loadStats(),
+        loadIncompleteTests()
       ])
+      
+      // Auto-generate recommendations if user has taken tests
+      if (userStats.value.totalAttempts > 0) {
+        setTimeout(() => {
+          generateRecommendations()
+        }, 1000) // Small delay to let stats load completely
+      }
+    })
+
+    const rightSectionVisible = ref({
+      quickActions: true,
+      incompleteTests: false,
+      recommendations: false,
+      studyPlan: false
     })
 
     return {
@@ -573,18 +1015,36 @@ export default {
       chapters,
       stats,
       selectedSubject,
+      showChapters,
       userSubject,
       loading,
       userStats,
       qualificationRate,
+      incompleteTests,
+      studyRecommendations,
+      studyPlan,
+      studyPlanTitle,
+      studyPlanDuration,
       loadSubjects,
       viewSubjectChapters,
+      closeChapters,
+      toggleSubjectChapters,
       generateNewTest,
       startPractice,
       viewPerformance,
       generateTestForSubject,
+      loadIncompleteTests,
+      resumePracticeTest,
+      resumeMockTest,
+      generateRecommendations,
+      generateStudyPlan,
+      generateFallbackRecommendations,
+      generateFallbackStudyPlan,
+      toggleTask,
+      exportStudyPlan,
       formatDate,
-      formatTimeLimit
+      formatTimeLimit,
+      rightSectionVisible
     }
   }
 }
@@ -603,12 +1063,12 @@ export default {
   transform: translateY(-2px);
 }
 
-.performance-summary {
+.study-plan {
   scroll-margin-top: 20px;
 }
 
-.performance-summary:target,
-.performance-summary.highlighted {
+.study-plan:target,
+.study-plan.highlighted {
   box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.25);
   border-color: #198754;
 }
@@ -624,5 +1084,79 @@ export default {
 .spinner-border-sm {
   width: 1rem;
   height: 1rem;
+}
+
+/* Study Plan Timeline Styles */
+.study-plan-timeline {
+  position: relative;
+}
+
+.week-item {
+  position: relative;
+}
+
+.week-indicator .circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.week-tasks {
+  border-left: 2px solid #e9ecef;
+  padding-left: 1rem;
+  margin-left: 1rem;
+}
+
+.task-item {
+  padding: 0.25rem 0;
+}
+
+.task-item:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+  border-radius: 4px;
+  padding-left: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.form-check-input:checked {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+/* Recommendation Cards */
+.card.bg-light:hover {
+  background-color: rgba(0, 123, 255, 0.05) !important;
+  transform: translateY(-1px);
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+}
+
+.badge.bg-success {
+  background-color: #198754 !important;
+}
+
+/* Slide Transition for Sections */
+.slide-fade-vertical-enter-active, .slide-fade-vertical-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-fade-vertical-enter-from, .slide-fade-vertical-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+.retract-toggle-section {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: #fff;
+  border: 1px solid #e9ecef;
+  cursor: pointer;
 }
 </style>

@@ -8,7 +8,7 @@ import json
 from typing import Dict, List, Any
 from app import db
 from app.models import Subject, Chapter, QuestionBank
-from app.utils.ugc_net_seed_data import get_subject_weightage_info
+from app.utils.seed_subjects_and_chapters import get_subject_weightage_info
 
 
 class UGCNetPaperGenerator:
@@ -72,7 +72,7 @@ class UGCNetPaperGenerator:
                     chapters_data = weightage_config.get('chapters', [])
             else:
                 # Use default weightage info from seed data
-                weightage_info = get_subject_weightage_info(subject_id, paper_type)
+                weightage_info = get_subject_weightage_info(subject_id)
                 chapters_data = weightage_info.get('chapters', []) if weightage_info else []
             
             if not chapters_data:

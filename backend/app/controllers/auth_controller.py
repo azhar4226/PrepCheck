@@ -11,24 +11,39 @@ auth_bp = Blueprint('auth', __name__)
 def register():
     try:
         data = request.get_json()
-        
+        if not data:
+            return jsonify({
+                'status': 'error',
+                'data': {},
+                'message': 'Invalid or missing JSON in request.'
+            }), 400
         # Validate required fields
         required_fields = ['email', 'password', 'full_name']
-        if not all(field in data for field in required_fields):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return jsonify({
+                'status': 'error',
+                'data': {},
+                'message': f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
         # Check if user already exists
         if User.query.filter_by(email=data['email']).first():
-            return jsonify({'error': 'Email already registered'}), 400
-        
+            return jsonify({
+                'status': 'error',
+                'data': {},
+                'message': 'Email already registered.'
+            }), 400
         # Validate subject_id if provided
         subject_id = data.get('subject_id')
         if subject_id:
             from app.models.models import Subject
             subject = Subject.query.get(subject_id)
             if not subject or not subject.is_active:
-                return jsonify({'error': 'Invalid subject selected'}), 400
-        
+                return jsonify({
+                    'status': 'error',
+                    'data': {},
+                    'message': 'Invalid subject selected.'
+                }), 400
         # Create new user
         user = User(
             email=data['email'],
@@ -37,22 +52,25 @@ def register():
             is_admin=False
         )
         user.set_password(data['password'])
-        
         db.session.add(user)
         db.session.commit()
-        
         # Create access token
         access_token = create_access_token(identity=str(user.id))
-        
         return jsonify({
-            'message': 'User registered successfully',
-            'access_token': access_token,
-            'user': user.to_dict()
+            'status': 'success',
+            'data': {
+                'access_token': access_token,
+                'user': user.to_dict()
+            },
+            'message': 'User registered successfully.'
         }), 201
-        
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'status': 'error',
+            'data': {},
+            'message': 'Registration failed. Please try again.'
+        }), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():

@@ -24,11 +24,15 @@ ugc_net_modular_bp = Blueprint('ugc_net_modular', __name__)
 def register_ugc_net_blueprints(app):
     """Register all UGC NET modular blueprints with the Flask app"""
     
-    # Register individual blueprints with appropriate URL prefixes
-    app.register_blueprint(ugc_net_subject_bp, url_prefix='/api/ugc-net')
-    app.register_blueprint(ugc_net_question_bp, url_prefix='/api/ugc-net')
-    app.register_blueprint(ugc_net_mock_bp, url_prefix='/api/ugc-net')
-    app.register_blueprint(ugc_net_practice_bp, url_prefix='/api/ugc-net')
+    # Register blueprints with v1 prefix for new routes
+    app.register_blueprint(ugc_net_subject_bp, url_prefix='/api/v1/ugc-net')
+    app.register_blueprint(ugc_net_question_bp, url_prefix='/api/v1/ugc-net')
+    app.register_blueprint(ugc_net_mock_bp, url_prefix='/api/v1/ugc-net')
+    app.register_blueprint(ugc_net_practice_bp, url_prefix='/api/v1/ugc-net')
+    
+    # Register combined blueprint for backward compatibility without version
+    combined_bp = create_combined_blueprint()
+    app.register_blueprint(combined_bp, url_prefix='/api/ugc-net')
     
     return True
 
